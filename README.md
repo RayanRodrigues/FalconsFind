@@ -1,6 +1,6 @@
 # FalconFind
 
-FalconsFind is a campus lost-and-found web platform for Fanshawe College. It replaces a manual, fragmented process with a clear, secure, and student‑friendly experience.
+FalconFind is a campus lost-and-found web platform for Fanshawe College. It replaces a manual, fragmented process with a clear, secure, and student‑friendly experience.
 
 ## What problem does it solve?
 
