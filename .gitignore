@@ -35,6 +35,9 @@ coverage/
 !.env.example
 !.env.sample
 
+# Generated frontend env
+frontend/public/env.js
+
 messi.json
 
 ############################
