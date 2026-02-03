@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import fs from 'node:fs';
 import admin from 'firebase-admin';
+import type { ErrorResponse } from './src/contracts';
 
 const app = express();
 const port = 3000;
@@ -24,6 +25,16 @@ const db = admin.firestore();
 
 app.use(cors());
 
+const sendError = (res: express.Response, status: number, code: string, message: string) => {
+    const payload: ErrorResponse = {
+        error: {
+            code,
+            message,
+        },
+    };
+    res.status(status).json(payload);
+};
+
 app.get('/', (req, res) => {
     res.send('Hello World!');
 });
@@ -36,7 +47,7 @@ app.get('/health/firebase', async (req, res) => {
     try {
         const snapshot = await db.collection('system').doc('health').get();
         if (!snapshot.exists) {
-            res.status(404).json({ ok: false, firebase: false, error: 'health doc not found' });
+            sendError(res, 404, 'NOT_FOUND', 'health doc not found');
             return;
         }
         res.json({
@@ -46,7 +57,7 @@ app.get('/health/firebase', async (req, res) => {
         });
     } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error';
-        res.status(500).json({ ok: false, firebase: false, error: message });
+        sendError(res, 500, 'INTERNAL_SERVER_ERROR', message);
     }
 });
 

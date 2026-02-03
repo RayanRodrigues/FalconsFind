@@ -1,6 +1,7 @@
 import { Component, signal, PLATFORM_ID, inject } from '@angular/core';
 import { isPlatformBrowser, JsonPipe } from '@angular/common';
 import { RouterOutlet } from '@angular/router';
+import type { ErrorResponse } from './models';
 
 type FirebaseStatus = 'idle' | 'ok' | 'error';
 
@@ -39,7 +40,9 @@ export class App {
       const payload = await response.json();
       if (!response.ok || !payload?.ok) {
         this.firebaseStatus.set('error');
-        this.firebaseMessage.set(payload?.error ?? 'Health check failed');
+        const errorMessage =
+          (payload as ErrorResponse | undefined)?.error?.message ?? 'Health check failed';
+        this.firebaseMessage.set(errorMessage);
         return;
       }
 
