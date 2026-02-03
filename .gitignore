@@ -35,6 +35,8 @@ coverage/
 !.env.example
 !.env.sample
 
+messi.json
+
 ############################
 # IDEs / OS
 ############################
