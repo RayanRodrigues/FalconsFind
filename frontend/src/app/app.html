@@ -183,6 +183,19 @@
 </style>
 
 <main class="main">
+  <section class="firebase-test" aria-live="polite">
+    <h2 class="firebase-test__title">Firebase Frontend Check</h2>
+    <p
+      class="firebase-test__status"
+      [class.ok]="firebaseStatus() === 'ok'"
+      [class.error]="firebaseStatus() === 'error'"
+    >
+      Status: {{ firebaseStatus() }} — {{ firebaseMessage() }}
+    </p>
+    @if (firebaseDetails()) {
+      <pre class="firebase-test__details">{{ firebaseDetails() | json }}</pre>
+    }
+  </section>
   <div class="content">
     <div class="left-side">
       <svg
