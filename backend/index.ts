@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
+import cors from 'cors';
 import fs from 'node:fs';
 import admin from 'firebase-admin';
 
@@ -21,6 +22,8 @@ if (!admin.apps.length) {
 
 const db = admin.firestore();
 
+app.use(cors());
+
 app.get('/', (req, res) => {
     res.send('Hello World!');
 });
@@ -31,11 +34,15 @@ app.get('/health', (req, res) => {
 
 app.get('/health/firebase', async (req, res) => {
     try {
-        const snapshot = await db.collection('health').doc('ping').get();
+        const snapshot = await db.collection('system').doc('health').get();
+        if (!snapshot.exists) {
+            res.status(404).json({ ok: false, firebase: false, error: 'health doc not found' });
+            return;
+        }
         res.json({
             ok: true,
             firebase: true,
-            exists: snapshot.exists,
+            data: snapshot.data(),
         });
     } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error';
