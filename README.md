@@ -24,6 +24,31 @@ Lost-and-found workflows on campus are often slow, uncertain, and dependent on i
 - Design system and UI standards: `docs/design-system.md`
 - Product backlog: managed via project board (to be published)
 
+## Run the app
+
+```bash
+# install all dependencies (root, frontend, backend)
+npm run install:all
+
+# run frontend + backend in parallel
+npm run dev
+
+# run frontend only
+npm run dev:front
+
+# run backend only
+npm run dev:back
+
+# build both apps
+npm run build
+
+# lint both apps
+npm run lint
+
+# format the repo
+npm run format
+```
+
 ## Project status
 
 Academic project in active development.
