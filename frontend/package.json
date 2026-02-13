@@ -1,5 +1,5 @@
 {
-  "name": "falconfin",
+  "name": "falconfind",
   "version": "0.0.0",
   "scripts": {
     "ng": "ng",
@@ -27,7 +27,7 @@
     "@angular/common": "^21.1.0",
     "@angular/compiler": "^21.1.0",
     "@angular/core": "^21.1.0",
-    "@angular/fire": "^20.0.1",
+    "@angular/fire": "^21.0.0-rc.0",
     "@angular/forms": "^21.1.0",
     "@angular/platform-browser": "^21.1.0",
     "@angular/platform-server": "^21.1.0",
