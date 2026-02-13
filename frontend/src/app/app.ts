@@ -36,8 +36,11 @@ export class App {
 
     try {
       const baseUrl = window.__env?.API_BASE_URL ?? 'http://localhost:3000';
-      const response = await fetch(`${baseUrl}/health/firebase`);
-      const payload = await response.json();
+      const response = await fetch(`${baseUrl}/api/v1/health/firebase`);
+      const contentType = response.headers.get('content-type') ?? '';
+      const payload = contentType.includes('application/json')
+        ? await response.json()
+        : { error: { message: await response.text() } };
       if (!response.ok || !payload?.ok) {
         this.firebaseStatus.set('error');
         const errorMessage =

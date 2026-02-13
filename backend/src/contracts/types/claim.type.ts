@@ -1,4 +1,4 @@
-import type { ClaimStatus } from '../enums/claim-status.enum';
+import type { ClaimStatus } from '../enums/claim-status.enum.js';
 
 export type Claim = {
   id: string;

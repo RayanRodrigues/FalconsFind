@@ -1,5 +1,5 @@
-import type { ItemStatus } from '../enums/item-status.enum';
-import type { ClaimStatus } from '../enums/claim-status.enum';
+import type { ItemStatus } from '../enums/item-status.enum.js';
+import type { ClaimStatus } from '../enums/claim-status.enum.js';
 
 export type ItemDetailsResponse = {
   id: string;

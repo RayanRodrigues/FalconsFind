@@ -1,4 +1,4 @@
-import type { ItemStatus } from '../enums/item-status.enum';
+import type { ItemStatus } from '../enums/item-status.enum.js';
 
 export type ItemPublicResponse = {
   id: string;
