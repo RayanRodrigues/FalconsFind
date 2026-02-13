@@ -7,6 +7,7 @@ type FirebaseStatus = 'idle' | 'ok' | 'error';
 
 type FrontendEnv = {
   API_BASE_URL?: string;
+  ENABLE_FIREBASE_HEALTH_TEST?: string;
 };
 
 declare global {
@@ -24,6 +25,7 @@ declare global {
 export class App {
   private readonly platformId = inject(PLATFORM_ID);
   protected readonly title = signal('frontend');
+  protected readonly showFirebaseHealthTest = signal(false);
   protected readonly firebaseStatus = signal<FirebaseStatus>('idle');
   protected readonly firebaseMessage = signal('Not started');
   protected readonly firebaseDetails = signal<Record<string, unknown> | null>(null);
@@ -31,6 +33,13 @@ export class App {
   async ngOnInit() {
     // Skip Firebase initialization during SSR
     if (!isPlatformBrowser(this.platformId)) {
+      return;
+    }
+
+    const healthTestEnabled =
+      (window.__env?.ENABLE_FIREBASE_HEALTH_TEST ?? 'false').toLowerCase() === 'true';
+    this.showFirebaseHealthTest.set(healthTestEnabled);
+    if (!healthTestEnabled) {
       return;
     }
 

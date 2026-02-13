@@ -32,6 +32,7 @@ for (const line of raw.split(/\r?\n/)) {
 
 const publicKeys = [
   'API_BASE_URL',
+  'ENABLE_FIREBASE_HEALTH_TEST',
   'FIREBASE_API_KEY',
   'FIREBASE_AUTH_DOMAIN',
   'FIREBASE_PROJECT_ID',
