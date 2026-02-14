@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "concurrently \"npm run dev:front\" \"npm run dev:back\"",
     "dev:front": "node scripts/generate-frontend-env.mjs && cd frontend && ng serve",
-    "dev:back": "cd backend && node index.ts",
+    "dev:back": "cd backend && tsx index.ts",
     "build": "npm run build:front && npm run build:back",
     "build:front": "node scripts/generate-frontend-env.mjs && cd frontend && ng build",
     "build:back": "cd backend && npm run build",
@@ -25,6 +25,7 @@
     "node": ">=24.11.1"
   },
   "dependencies": {
-    "multer": "^2.0.2"
+    "multer": "^2.0.2",
+    "tsx": "^4.21.0"
   }
 }
