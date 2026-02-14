@@ -1,11 +1,12 @@
 import type { Firestore } from 'firebase-admin/firestore';
 import type { Bucket } from '@google-cloud/storage';
-import type { CreateLostReportRequest, Report } from '../contracts/index.js';
+import type { CreateFoundReportRequest, CreateLostReportRequest, Report } from '../contracts/index.js';
+import { saveReport } from '../repositories/reports.repository.js';
 
-const createReferenceCode = (): string => {
+const createReferenceCode = (prefix: 'LST' | 'FND'): string => {
   const timestamp = Date.now().toString(36).toUpperCase();
   const random = Math.random().toString(36).slice(2, 7).toUpperCase();
-  return `LST-${timestamp}-${random}`;
+  return `${prefix}-${timestamp}-${random}`;
 };
 
 const uploadPhotoFromDataUrl = async (bucket: Bucket, photoDataUrl: string): Promise<string> => {
@@ -45,19 +46,34 @@ export const createLostReport = async (
     title: payload.title,
     description: payload.description,
     status: 'REPORTED' as Report['status'],
-    referenceCode: createReferenceCode(),
+    referenceCode: createReferenceCode('LST'),
     location: payload.lastSeenLocation,
     dateReported: payload.lastSeenAt ?? new Date().toISOString(),
     contactEmail: payload.contactEmail,
     photoUrl,
   };
 
-  const docRef = await db.collection('reports').add(reportToSave);
-  return {
-    id: docRef.id,
-    report: {
-      id: docRef.id,
-      ...reportToSave,
-    },
+  return saveReport(db, reportToSave);
+};
+
+export const createFoundReport = async (
+  db: Firestore,
+  bucket: Bucket,
+  payload: CreateFoundReportRequest,
+) => {
+  const photoUrl = await uploadPhotoFromDataUrl(bucket, payload.photoDataUrl);
+
+  const reportToSave: Omit<Report, 'id'> = {
+    kind: 'FOUND' as const,
+    title: payload.title,
+    description: payload.description,
+    status: 'REPORTED' as Report['status'],
+    referenceCode: createReferenceCode('FND'),
+    location: payload.foundLocation,
+    dateReported: payload.foundAt ?? new Date().toISOString(),
+    contactEmail: payload.contactEmail,
+    photoUrl,
   };
+
+  return saveReport(db, reportToSave);
 };
