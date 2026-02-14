@@ -16,6 +16,24 @@ export const openApiDocument = {
     { name: 'Reports', description: 'Lost and found report operations' },
   ],
   paths: {
+    '/health': {
+      get: {
+        tags: ['Health'],
+        summary: 'Get service health status',
+        responses: {
+          200: {
+            description: 'Service is reachable',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/HealthResponse',
+                },
+              },
+            },
+          },
+        },
+      },
+    },
     '/api/v1/health': {
       get: {
         tags: ['Health'],

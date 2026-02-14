@@ -6,7 +6,7 @@ import type { CreateFoundReportRequest, CreateLostReportRequest } from '../contr
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { API_PREFIX, sendError } from './route-utils.js';
+import { API_PREFIX, HttpError } from './route-utils.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -64,20 +64,14 @@ export const createReportsRouter = (db: Firestore, bucket: Bucket): Router => {
     const parsed = schemaModule.createLostReportSchema.safeParse(req.body);
     if (!parsed.success) {
       const message = parsed.error.issues[0]?.message ?? 'Invalid request payload';
-      sendError(res, 400, 'BAD_REQUEST', message);
-      return;
+      throw new HttpError(400, 'BAD_REQUEST', message);
     }
 
-    try {
-      const result = await reportsServiceModule.createLostReport(db, bucket, parsed.data);
-      res.status(201).json({
-        id: result.id,
-        referenceCode: result.report.referenceCode,
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      sendError(res, 500, 'INTERNAL_SERVER_ERROR', message);
-    }
+    const result = await reportsServiceModule.createLostReport(db, bucket, parsed.data);
+    res.status(201).json({
+      id: result.id,
+      referenceCode: result.report.referenceCode,
+    });
   });
 
   router.post(`${API_PREFIX}/reports/found`, (req, res, next) => {
@@ -88,12 +82,11 @@ export const createReportsRouter = (db: Firestore, bucket: Bucket): Router => {
       }
 
       const message = error instanceof Error ? error.message : 'Invalid upload payload';
-      sendError(res, 400, 'BAD_REQUEST', message);
+      next(new HttpError(400, 'BAD_REQUEST', message));
     });
   }, async (req, res) => {
     if (!req.file) {
-      sendError(res, 400, 'BAD_REQUEST', 'photo is required');
-      return;
+      throw new HttpError(400, 'BAD_REQUEST', 'photo is required');
     }
 
     const photoDataUrl = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
@@ -105,20 +98,14 @@ export const createReportsRouter = (db: Firestore, bucket: Bucket): Router => {
     const parsed = schemaModule.createFoundReportSchema.safeParse(payload);
     if (!parsed.success) {
       const message = parsed.error.issues[0]?.message ?? 'Invalid request payload';
-      sendError(res, 400, 'BAD_REQUEST', message);
-      return;
+      throw new HttpError(400, 'BAD_REQUEST', message);
     }
 
-    try {
-      const result = await reportsServiceModule.createFoundReport(db, bucket, parsed.data);
-      res.status(201).json({
-        id: result.id,
-        referenceCode: result.report.referenceCode,
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      sendError(res, 500, 'INTERNAL_SERVER_ERROR', message);
-    }
+    const result = await reportsServiceModule.createFoundReport(db, bucket, parsed.data);
+    res.status(201).json({
+      id: result.id,
+      referenceCode: result.report.referenceCode,
+    });
   });
 
   return router;
