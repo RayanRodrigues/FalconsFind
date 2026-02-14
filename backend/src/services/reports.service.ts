@@ -1,6 +1,6 @@
 import type { Firestore } from 'firebase-admin/firestore';
 import type { Bucket } from '@google-cloud/storage';
-import type { CreateLostReportRequest, Report } from '../contracts/index.js';
+import type { CreateFoundReportRequest, CreateLostReportRequest, Report } from '../contracts/index.js';
 import { randomUUID } from 'node:crypto';
 
 const formatDateSegment = (date: Date): string => {
@@ -10,10 +10,10 @@ const formatDateSegment = (date: Date): string => {
   return `${year}${month}${day}`;
 };
 
-const createReferenceCode = (docId: string, createdAt: Date): string => {
+const createReferenceCode = (prefix: 'LST' | 'FND', docId: string, createdAt: Date): string => {
   const normalizedId = docId.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
   const suffix = normalizedId.slice(-8);
-  return `LST-${formatDateSegment(createdAt)}-${suffix}`;
+  return `${prefix}-${formatDateSegment(createdAt)}-${suffix}`;
 };
 
 const uploadPhotoFromDataUrl = async (bucket: Bucket, photoDataUrl: string): Promise<string> => {
@@ -57,7 +57,7 @@ export const createLostReport = async (
     kind: 'LOST' as const,
     title: payload.title,
     status: 'REPORTED' as Report['status'],
-    referenceCode: createReferenceCode(docRef.id, createdAt),
+    referenceCode: createReferenceCode('LST', docRef.id, createdAt),
     dateReported: payload.lastSeenAt ?? createdAt.toISOString(),
   };
   if (payload.description) {
@@ -71,6 +71,42 @@ export const createLostReport = async (
   }
   if (photoUrl) {
     reportToSave.photoUrl = photoUrl;
+  }
+
+  await docRef.set(reportToSave);
+  return {
+    id: docRef.id,
+    report: {
+      id: docRef.id,
+      ...reportToSave,
+    },
+  };
+};
+
+export const createFoundReport = async (
+  db: Firestore,
+  bucket: Bucket,
+  payload: CreateFoundReportRequest,
+) => {
+  const photoUrl = await uploadPhotoFromDataUrl(bucket, payload.photoDataUrl);
+  const createdAt = new Date();
+  const docRef = db.collection('reports').doc();
+
+  const reportToSave: Omit<Report, 'id'> = {
+    kind: 'FOUND' as const,
+    title: payload.title,
+    status: 'REPORTED' as Report['status'],
+    referenceCode: createReferenceCode('FND', docRef.id, createdAt),
+    location: payload.foundLocation,
+    dateReported: payload.foundAt ?? createdAt.toISOString(),
+    photoUrl,
+  };
+
+  if (payload.description) {
+    reportToSave.description = payload.description;
+  }
+  if (payload.contactEmail) {
+    reportToSave.contactEmail = payload.contactEmail;
   }
 
   await docRef.set(reportToSave);

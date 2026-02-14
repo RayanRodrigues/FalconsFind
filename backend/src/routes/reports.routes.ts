@@ -1,7 +1,8 @@
 import { Router } from 'express';
+import multer from 'multer';
 import type { Firestore } from 'firebase-admin/firestore';
 import type { Bucket } from '@google-cloud/storage';
-import type { CreateLostReportRequest } from '../contracts/index.js';
+import type { CreateFoundReportRequest, CreateLostReportRequest } from '../contracts/index.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -24,6 +25,11 @@ const schemaModule = (await import(pathToFileURL(schemaPath).href)) as {
       input: unknown,
     ) => { success: true; data: CreateLostReportRequest } | { success: false; error: { issues: Array<{ message?: string }> } };
   };
+  createFoundReportSchema: {
+    safeParse: (
+      input: unknown,
+    ) => { success: true; data: CreateFoundReportRequest } | { success: false; error: { issues: Array<{ message?: string }> } };
+  };
 };
 const reportsServiceModule = (await import(pathToFileURL(servicePath).href)) as {
   createLostReport: (
@@ -31,10 +37,28 @@ const reportsServiceModule = (await import(pathToFileURL(servicePath).href)) as 
     bucket: Bucket,
     payload: CreateLostReportRequest,
   ) => Promise<{ id: string; report: { referenceCode: string } }>;
+  createFoundReport: (
+    db: Firestore,
+    bucket: Bucket,
+    payload: CreateFoundReportRequest,
+  ) => Promise<{ id: string; report: { referenceCode: string } }>;
 };
 
 export const createReportsRouter = (db: Firestore, bucket: Bucket): Router => {
   const router = Router();
+  const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 5 * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+      const isImage = ['image/jpeg', 'image/png', 'image/jpg'].includes(file.mimetype);
+      if (!isImage) {
+        cb(new Error('photo must be JPEG or PNG'));
+        return;
+      }
+
+      cb(null, true);
+    },
+  });
 
   router.post(`${API_PREFIX}/reports/lost`, async (req, res) => {
     const parsed = schemaModule.createLostReportSchema.safeParse(req.body);
@@ -46,6 +70,47 @@ export const createReportsRouter = (db: Firestore, bucket: Bucket): Router => {
 
     try {
       const result = await reportsServiceModule.createLostReport(db, bucket, parsed.data);
+      res.status(201).json({
+        id: result.id,
+        referenceCode: result.report.referenceCode,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      sendError(res, 500, 'INTERNAL_SERVER_ERROR', message);
+    }
+  });
+
+  router.post(`${API_PREFIX}/reports/found`, (req, res, next) => {
+    upload.single('photo')(req, res, (error: unknown) => {
+      if (!error) {
+        next();
+        return;
+      }
+
+      const message = error instanceof Error ? error.message : 'Invalid upload payload';
+      sendError(res, 400, 'BAD_REQUEST', message);
+    });
+  }, async (req, res) => {
+    if (!req.file) {
+      sendError(res, 400, 'BAD_REQUEST', 'photo is required');
+      return;
+    }
+
+    const photoDataUrl = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+    const payload = {
+      ...req.body,
+      photoDataUrl,
+    };
+
+    const parsed = schemaModule.createFoundReportSchema.safeParse(payload);
+    if (!parsed.success) {
+      const message = parsed.error.issues[0]?.message ?? 'Invalid request payload';
+      sendError(res, 400, 'BAD_REQUEST', message);
+      return;
+    }
+
+    try {
+      const result = await reportsServiceModule.createFoundReport(db, bucket, parsed.data);
       res.status(201).json({
         id: result.id,
         referenceCode: result.report.referenceCode,

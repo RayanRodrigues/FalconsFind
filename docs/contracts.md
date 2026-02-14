@@ -180,6 +180,22 @@ Single export point for imports inside the frontend.
 * Create Found Report (request)  
 * Report reference code (response field)
 
+**Create Found Report (request) - current fields**
+
+* `Content-Type: multipart/form-data`  
+* `title: string`  
+* `description?: string`  
+* `foundLocation: string` *(required)*  
+* `foundAt?: string`  
+* `contactEmail?: string`  
+* `photo: File` *(required, JPEG/PNG, max 5MB)*
+
+**Report Reference Code format**
+
+* Lost reports: `LST-<base36Timestamp>-<base36Random5>`  
+* Found reports: `FND-<base36Timestamp>-<base36Random5>`  
+* Example: `FND-MTQ49QF-7K2PA`
+
 **Items**
 
 * Public item list item (response)  

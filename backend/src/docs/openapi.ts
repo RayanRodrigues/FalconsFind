@@ -1,7 +1,7 @@
 export const openApiDocument = {
   openapi: '3.0.3',
   info: {
-    title: 'FalconsFind Backend API',
+    title: 'FalconFind Backend API',
     version: '1.0.0',
     description: 'API documentation for FalconsFind backend routes.',
   },
@@ -120,6 +120,54 @@ export const openApiDocument = {
         },
       },
     },
+    '/api/v1/reports/found': {
+      post: {
+        tags: ['Reports'],
+        summary: 'Create a found-item report',
+        requestBody: {
+          required: true,
+          content: {
+            'multipart/form-data': {
+              schema: {
+                $ref: '#/components/schemas/CreateFoundReportRequest',
+              },
+            },
+          },
+        },
+        responses: {
+          201: {
+            description: 'Found report created successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/CreateLostReportResponse',
+                },
+              },
+            },
+          },
+          400: {
+            description: 'Request validation failed',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          500: {
+            description: 'Unexpected server error',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   },
   components: {
     schemas: {
@@ -158,6 +206,18 @@ export const openApiDocument = {
         properties: {
           id: { type: 'string', example: 'AbCdEF123456' },
           referenceCode: { type: 'string', example: 'LST-20260214-ABC12345' },
+        },
+      },
+      CreateFoundReportRequest: {
+        type: 'object',
+        required: ['title', 'foundLocation', 'photo'],
+        properties: {
+          title: { type: 'string', minLength: 1 },
+          description: { type: 'string', minLength: 1 },
+          foundLocation: { type: 'string', minLength: 1 },
+          foundAt: { type: 'string', format: 'date-time' },
+          contactEmail: { type: 'string', format: 'email' },
+          photo: { type: 'string', format: 'binary' },
         },
       },
       ErrorResponse: {

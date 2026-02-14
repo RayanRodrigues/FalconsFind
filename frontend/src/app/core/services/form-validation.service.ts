@@ -48,7 +48,11 @@ export class FormValidationService {
       time: 'Time',
       contactName: 'Name',
       contactEmail: 'Email',
-      contactPhone: 'Phone number'
+      contactPhone: 'Phone number',
+      foundLocation: 'Location',
+      foundDate: 'Date',
+      foundTime: 'Time',
+      photo: 'Photo'
     };
     
     return fieldMap[fieldName] || fieldName;
