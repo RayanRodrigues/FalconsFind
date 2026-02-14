@@ -13,4 +13,5 @@ export * from './dtos/item-public.response.dto';
 export * from './dtos/item-details.response.dto';
 
 export * from './responses/error-response.model';
+export * from './responses/create-report.response.dto';
 export * from './responses/pagination.model';

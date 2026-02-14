@@ -17,10 +17,14 @@
     "install:all": "npm install && cd frontend && npm install && cd ../backend && npm install"
   },
   "devDependencies": {
+    "@types/multer": "^2.0.0",
     "concurrently": "^8.2.2",
     "prettier": "^3.2.5"
   },
   "engines": {
     "node": ">=24.11.1"
+  },
+  "dependencies": {
+    "multer": "^2.0.2"
   }
 }

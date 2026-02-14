@@ -11,9 +11,18 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const healthRoutesTsPath = path.resolve(__dirname, './src/routes/health.routes.ts');
 const healthRoutesJsPath = path.resolve(__dirname, './src/routes/health.routes.js');
+const reportsRoutesTsPath = path.resolve(__dirname, './src/routes/reports.routes.ts');
+const reportsRoutesJsPath = path.resolve(__dirname, './src/routes/reports.routes.js');
 const healthRoutesPath = fs.existsSync(healthRoutesTsPath) ? healthRoutesTsPath : healthRoutesJsPath;
+const reportsRoutesPath = fs.existsSync(reportsRoutesTsPath) ? reportsRoutesTsPath : reportsRoutesJsPath;
 const healthRoutesModule = (await import(pathToFileURL(healthRoutesPath).href)) as {
     createHealthRouter: (db: FirebaseFirestore.Firestore) => express.Router;
+};
+const reportsRoutesModule = (await import(pathToFileURL(reportsRoutesPath).href)) as {
+    createReportsRouter: (
+        db: FirebaseFirestore.Firestore,
+        bucket: unknown,
+    ) => express.Router;
 };
 
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
@@ -61,6 +70,7 @@ if (!admin.apps.length) {
     const { value: serviceAccount, source } = loadServiceAccount();
     admin.initializeApp({
         credential: admin.credential.cert(serviceAccount),
+        storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
     });
     console.log(`[firebase-admin] Loaded credentials from ${source}`);
     console.log('[firebase-admin] credential summary:', {
@@ -84,6 +94,7 @@ if (!admin.apps.length) {
 }
 
 const db = admin.firestore();
+const bucket = admin.storage().bucket();
 
 const runStartupFirestoreCheck = async (): Promise<void> => {
     try {
@@ -105,6 +116,7 @@ app.get('/', (req, res) => {
 });
 
 app.use(healthRoutesModule.createHealthRouter(db));
+app.use(reportsRoutesModule.createReportsRouter(db, bucket));
 
 app.listen(port, () => {
     console.log(`Server running at http://localhost:${port}`);
