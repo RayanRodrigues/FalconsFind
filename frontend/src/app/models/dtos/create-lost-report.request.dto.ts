@@ -4,4 +4,5 @@ export type CreateLostReportRequest = {
   lastSeenLocation?: string;
   lastSeenAt?: string;
   contactEmail?: string;
+  photoDataUrl?: string;
 };
