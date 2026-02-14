@@ -1,7 +1,7 @@
 export const openApiDocument = {
   openapi: '3.0.3',
   info: {
-    title: 'FalconsFind Backend API',
+    title: 'FalconFind Backend API',
     version: '1.0.0',
     description: 'API documentation for FalconsFind backend routes.',
   },
