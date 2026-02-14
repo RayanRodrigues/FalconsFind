@@ -1,11 +1,19 @@
 import type { Firestore } from 'firebase-admin/firestore';
 import type { Bucket } from '@google-cloud/storage';
 import type { CreateLostReportRequest, Report } from '../contracts/index.js';
+import { randomUUID } from 'node:crypto';
 
-const createReferenceCode = (): string => {
-  const timestamp = Date.now().toString(36).toUpperCase();
-  const random = Math.random().toString(36).slice(2, 7).toUpperCase();
-  return `LST-${timestamp}-${random}`;
+const formatDateSegment = (date: Date): string => {
+  const year = date.getUTCFullYear().toString();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  return `${year}${month}${day}`;
+};
+
+const createReferenceCode = (docId: string, createdAt: Date): string => {
+  const normalizedId = docId.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+  const suffix = normalizedId.slice(-8);
+  return `LST-${formatDateSegment(createdAt)}-${suffix}`;
 };
 
 const uploadPhotoFromDataUrl = async (bucket: Bucket, photoDataUrl: string): Promise<string> => {
@@ -17,8 +25,11 @@ const uploadPhotoFromDataUrl = async (bucket: Bucket, photoDataUrl: string): Pro
   const contentType = match[1];
   const base64 = match[2];
   const extension = contentType.split('/')[1] ?? 'jpg';
-  const fileName = `reports/lost/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${extension}`;
+  const fileName = `reports/lost/${Date.now()}-${randomUUID()}.${extension}`;
   const buffer = Buffer.from(base64, 'base64');
+  if (buffer.length === 0) {
+    throw new Error('Invalid photo data URL');
+  }
   const file = bucket.file(fileName);
 
   await file.save(buffer, {
@@ -39,20 +50,30 @@ export const createLostReport = async (
   if (payload.photoDataUrl) {
     photoUrl = await uploadPhotoFromDataUrl(bucket, payload.photoDataUrl);
   }
+  const createdAt = new Date();
+  const docRef = db.collection('reports').doc();
 
   const reportToSave: Omit<Report, 'id'> = {
     kind: 'LOST' as const,
     title: payload.title,
-    description: payload.description,
     status: 'REPORTED' as Report['status'],
-    referenceCode: createReferenceCode(),
-    location: payload.lastSeenLocation,
-    dateReported: payload.lastSeenAt ?? new Date().toISOString(),
-    contactEmail: payload.contactEmail,
-    photoUrl,
+    referenceCode: createReferenceCode(docRef.id, createdAt),
+    dateReported: payload.lastSeenAt ?? createdAt.toISOString(),
   };
+  if (payload.description) {
+    reportToSave.description = payload.description;
+  }
+  if (payload.lastSeenLocation) {
+    reportToSave.location = payload.lastSeenLocation;
+  }
+  if (payload.contactEmail) {
+    reportToSave.contactEmail = payload.contactEmail;
+  }
+  if (photoUrl) {
+    reportToSave.photoUrl = photoUrl;
+  }
 
-  const docRef = await db.collection('reports').add(reportToSave);
+  await docRef.set(reportToSave);
   return {
     id: docRef.id,
     report: {
