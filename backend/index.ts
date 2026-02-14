@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import cors from 'cors';
+import swaggerUi from 'swagger-ui-express';
 import fs from 'node:fs';
 import admin from 'firebase-admin';
 import { pathToFileURL } from 'node:url';
@@ -13,8 +14,11 @@ const healthRoutesTsPath = path.resolve(__dirname, './src/routes/health.routes.t
 const healthRoutesJsPath = path.resolve(__dirname, './src/routes/health.routes.js');
 const reportsRoutesTsPath = path.resolve(__dirname, './src/routes/reports.routes.ts');
 const reportsRoutesJsPath = path.resolve(__dirname, './src/routes/reports.routes.js');
+const openApiTsPath = path.resolve(__dirname, './src/docs/openapi.ts');
+const openApiJsPath = path.resolve(__dirname, './src/docs/openapi.js');
 const healthRoutesPath = fs.existsSync(healthRoutesTsPath) ? healthRoutesTsPath : healthRoutesJsPath;
 const reportsRoutesPath = fs.existsSync(reportsRoutesTsPath) ? reportsRoutesTsPath : reportsRoutesJsPath;
+const openApiPath = fs.existsSync(openApiTsPath) ? openApiTsPath : openApiJsPath;
 const healthRoutesModule = (await import(pathToFileURL(healthRoutesPath).href)) as {
     createHealthRouter: (db: FirebaseFirestore.Firestore) => express.Router;
 };
@@ -23,6 +27,9 @@ const reportsRoutesModule = (await import(pathToFileURL(reportsRoutesPath).href)
         db: FirebaseFirestore.Firestore,
         bucket: unknown,
     ) => express.Router;
+};
+const openApiModule = (await import(pathToFileURL(openApiPath).href)) as {
+    openApiDocument: object;
 };
 
 const workspaceRootCandidates = [
@@ -129,6 +136,7 @@ await runStartupFirestoreCheck();
 
 app.use(cors());
 app.use(express.json());
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(openApiModule.openApiDocument));
 
 app.get('/', (req, res) => {
     res.send('Hello World!');
