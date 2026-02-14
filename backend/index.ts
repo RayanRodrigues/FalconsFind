@@ -25,7 +25,26 @@ const reportsRoutesModule = (await import(pathToFileURL(reportsRoutesPath).href)
     ) => express.Router;
 };
 
-dotenv.config({ path: path.resolve(__dirname, '../.env') });
+const workspaceRootCandidates = [
+    path.resolve(__dirname, '..'),
+    path.resolve(__dirname, '../..'),
+];
+const resolveWorkspacePath = (targetPath: string): string => {
+    if (path.isAbsolute(targetPath)) {
+        return targetPath;
+    }
+
+    const existing = workspaceRootCandidates
+        .map((basePath) => path.resolve(basePath, targetPath))
+        .find((candidate) => fs.existsSync(candidate));
+
+    return existing ?? path.resolve(workspaceRootCandidates[0], targetPath);
+};
+
+const envPath = workspaceRootCandidates
+    .map((basePath) => path.resolve(basePath, '.env'))
+    .find((candidate) => fs.existsSync(candidate));
+dotenv.config(envPath ? { path: envPath } : undefined);
 
 const app = express();
 const port = Number(process.env.PORT ?? 3000);
@@ -58,7 +77,7 @@ const loadServiceAccount = (): { value: admin.ServiceAccount; source: string } =
         throw new Error('Set FIREBASE_ADMIN_CREDENTIALS_JSON or FIREBASE_ADMIN_CREDENTIALS');
     }
 
-    const resolvedServiceAccountPath = path.resolve(__dirname, '..', serviceAccountPath);
+    const resolvedServiceAccountPath = resolveWorkspacePath(serviceAccountPath);
     const parsed = JSON.parse(fs.readFileSync(resolvedServiceAccountPath, 'utf8')) as RawServiceAccount;
     return {
         value: normalizeServiceAccount(parsed),
@@ -82,7 +101,7 @@ if (!admin.apps.length) {
                 return parsed.private_key_id ?? null;
             }
             if (serviceAccountPath) {
-                const resolvedServiceAccountPath = path.resolve(__dirname, '..', serviceAccountPath);
+                const resolvedServiceAccountPath = resolveWorkspacePath(serviceAccountPath);
                 const parsed = JSON.parse(
                     fs.readFileSync(resolvedServiceAccountPath, 'utf8'),
                 ) as RawServiceAccount;
