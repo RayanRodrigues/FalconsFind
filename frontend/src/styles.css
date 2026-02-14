@@ -1,5 +1,22 @@
 @import "tailwindcss";
 
+/* Tailwind v4 theme tokens for utility classes like bg-primary/text-primary */
+@theme {
+  --color-primary: #b9375d;
+  --color-secondary: #d25d5d;
+  --color-soft-accent: #e7d3d3;
+  --color-neutral-base: #eeeeee;
+  --color-white: #ffffff;
+  --color-bg-secondary: #f5f5f5;
+  --color-text-primary: #2e2e2e;
+  --color-text-secondary: #6b6b6b;
+  --color-border: #cccccc;
+  --color-success: #4caf50;
+  --color-warning: #ffc107;
+  --color-error: #e53935;
+  --color-info: #2196f3;
+}
+
 /* Global design tokens */
 :root {
   --color-primary: #b9375d;
@@ -111,8 +128,8 @@ a:hover {
 
 /* Accessible focus style */
 :focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
+  outline: 2px solid transparent;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 20%, transparent);
 }
 
 /* Utility container */
