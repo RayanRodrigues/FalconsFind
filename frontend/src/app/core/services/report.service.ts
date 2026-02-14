@@ -19,4 +19,11 @@ export class ReportService {
       request
     );
   }
+
+  createFoundReport(formData: FormData): Observable<CreateReportResponse> {
+    return this.apiClient.post<CreateReportResponse, FormData>(
+      '/reports/found',
+      formData
+    );
+  }
 }
