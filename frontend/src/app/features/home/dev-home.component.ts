@@ -35,7 +35,12 @@ import { RouterLink } from '@angular/router';
               <path stroke-linecap="round" stroke-linejoin="round" d="m21.75 2.25-7.5 19.5-3.75-8.25-8.25-3.75 19.5-7.5Z" />
             </svg>
           </a>
-          <span class="text-xs text-text-secondary">Tap the plane to file a report</span>
+          <a
+            routerLink="/report/found"
+            class="inline-flex min-h-10 items-center justify-center rounded-lg border border-primary/30 bg-white px-4 py-2 text-sm font-medium text-primary transition hover:bg-primary/5"
+          >
+            Report Found Item
+          </a>
         </div>
       </div>
     </section>
