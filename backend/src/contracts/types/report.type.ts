@@ -12,4 +12,5 @@ export type Report = {
   location?: string;
   dateReported: string;
   contactEmail?: string;
+  photoUrl?: string;
 };
