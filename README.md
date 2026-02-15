@@ -24,6 +24,16 @@ Lost-and-found workflows on campus are often slow, uncertain, and dependent on i
 - Design system and UI standards: `docs/design-system.md`
 - Product backlog: managed via project board (to be published)
 
+## Issue Prefixes
+
+| Prefix | Meaning |
+| --- | --- |
+| US | User Story |
+| TECH | Technical infrastructure |
+| QA | Testing / Quality |
+| CI | Continuous Integration |
+| DOC | Documentation / Swagger |
+
 ## Run the app
 
 ```bash
