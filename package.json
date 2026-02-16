@@ -8,7 +8,7 @@
     "dev:front": "node scripts/generate-frontend-env.mjs && cd frontend && ng serve",
     "dev:back": "cd backend && NODE_OPTIONS=--disable-warning=DEP0040 tsx index.ts",
     "build": "npm run build:front && npm run build:back",
-    "build:front": "node scripts/generate-frontend-env.mjs && cd frontend && ng build",
+    "build:front": "node scripts/generate-frontend-env.mjs && npm run build --prefix frontend",
     "build:back": "cd backend && npm run build",
     "lint": "npm run lint:front && npm run lint:back",
     "lint:front": "cd frontend && npm run lint",
