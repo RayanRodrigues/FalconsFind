@@ -3,14 +3,31 @@ import path from 'node:path';
 
 const rootDir = process.cwd();
 const envPath = path.join(rootDir, '.env');
+const examplePath = path.join(rootDir, '.env.example');
 const outPath = path.join(rootDir, 'frontend', 'public', 'env.js');
 
+let sourcePath = envPath;
+
 if (!fs.existsSync(envPath)) {
-  console.error('Missing .env in project root.');
-  process.exit(1);
+  if (fs.existsSync(examplePath)) {
+    if (process.env.CI) {
+      console.warn('Missing .env in project root. Using .env.example for CI.');
+      sourcePath = examplePath;
+    } else {
+      console.error('Missing .env in project root. Copy .env.example to .env.');
+      process.exit(1);
+    }
+  } else if (process.env.CI) {
+    console.warn('Missing .env and .env.example. Generating empty env.js for CI.');
+    fs.writeFileSync(outPath, 'window.__env = {};');
+    process.exit(0);
+  } else {
+    console.error('Missing .env in project root.');
+    process.exit(1);
+  }
 }
 
-const raw = fs.readFileSync(envPath, 'utf8');
+const raw = fs.readFileSync(sourcePath, 'utf8');
 const env = {};
 
 for (const line of raw.split(/\r?\n/)) {
