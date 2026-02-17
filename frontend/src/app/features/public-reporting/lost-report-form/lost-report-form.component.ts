@@ -40,11 +40,11 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
   submitError: string | null = null;
   submitSuccess = false;
   referenceCode: string | null = null;
-  photoPreviewUrl: string | null = null;
+  photoPreviewUrls: string[] = [];
   currentStep = 1;
   readonly totalSteps = 3;
   readonly todayDate = this.formatLocalDate(new Date());
-  
+
   categories = [
     'Electronics', 'Wallets & Purses', 'Keys', 'ID Cards', 'Clothing',
     'Backpacks & Bags', 'Books', 'Jewelry', 'Eyewear', 'Personal Items', 'Other'
@@ -52,7 +52,7 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
 
   locations = [
     'Library', 'Student Centre', 'Building T', 'Building B', 'Building D',
-    'Building E', 'Building F', 'Building H', 'Gymnasium', 'Cafeteria', 
+    'Building E', 'Building F', 'Building H', 'Gymnasium', 'Cafeteria',
     'Parking Lot', 'Other'
   ];
 
@@ -60,7 +60,7 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
   private readonly stepFields: Record<number, string[]> = {
     1: ['title', 'category', 'description'],
     2: ['location', 'date', 'time'],
-    3: ['contactName', 'contactEmail', 'contactPhone', 'photo', 'additionalInfo']
+    3: ['contactName', 'contactEmail', 'contactPhone', 'photos', 'additionalInfo']
   };
 
   constructor(
@@ -69,7 +69,7 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
     private errorService: ErrorService,
     private validationService: FormValidationService,
     private router: Router
-  ) {}
+  ) { }
 
   ngOnInit(): void {
     this.initializeForm();
@@ -91,13 +91,13 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
       contactName: ['', [Validators.required, Validators.minLength(2), Validators.maxLength(50)]],
       contactEmail: ['', [Validators.required, Validators.email]],
       contactPhone: ['', [Validators.pattern('^[0-9+\\-\\s()]{10,15}$')]],
-      photo: [null],
+      photos: [[] as File[]],
       additionalInfo: ['', Validators.maxLength(200)]
     });
   }
 
-  get f() { 
-    return this.reportForm.controls; 
+  get f() {
+    return this.reportForm.controls;
   }
 
   getFieldError(fieldName: string): string | null {
@@ -113,29 +113,50 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
 
   onFileSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
-    if (input.files && input.files.length > 0) {
-      const file = input.files[0];
-      
-      const validTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+    const files = Array.from(input.files ?? []);
+
+    if (files.length === 0) return;
+
+    const validTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+    const maxSizeBytes = 5 * 1024 * 1024; // 5MB
+    const maxPhotos = 5;
+
+    // Start with existing photos already selected
+    const currentPhotos: File[] = (this.reportForm.get('photos')?.value as File[]) ?? [];
+    const nextPhotos = [...currentPhotos];
+
+    for (const file of files) {
       if (!validTypes.includes(file.type)) {
-        this.submitError = 'Please select a valid image file (JPEG, PNG)';
-        input.value = '';
-        this.photoPreviewUrl = null;
-        return;
+        this.submitError = 'Please select valid image files (JPEG, PNG).';
+        continue;
       }
-      
-      if (file.size > 5 * 1024 * 1024) {
-        this.submitError = 'File size must be less than 5MB';
-        input.value = '';
-        this.photoPreviewUrl = null;
-        return;
+      if (file.size > maxSizeBytes) {
+        this.submitError = 'Each file must be less than 5MB.';
+        continue;
       }
-      
-      this.reportForm.patchValue({ photo: file });
-      this.photoPreviewUrl = URL.createObjectURL(file);
-      this.submitError = null;
+      if (nextPhotos.length >= maxPhotos) {
+        this.submitError = `You can upload up to ${maxPhotos} photos.`;
+        break;
+      }
+      nextPhotos.push(file);
     }
+
+    // Update form + previews
+    this.reportForm.patchValue({ photos: nextPhotos });
+    this.photoPreviewUrls = nextPhotos.map((f) => URL.createObjectURL(f));
+
+    // Reset file input so selecting the same file again triggers change
+    input.value = '';
   }
+
+  removePhoto(index: number): void {
+    const currentPhotos: File[] = (this.reportForm.get('photos')?.value as File[]) ?? [];
+    const nextPhotos = currentPhotos.filter((_, i) => i !== index);
+
+    this.reportForm.patchValue({ photos: nextPhotos });
+    this.photoPreviewUrls = nextPhotos.map((f) => URL.createObjectURL(f));
+  }
+
 
   onSubmit(): void {
     void this.submitLostReport();
@@ -165,7 +186,7 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
   private async submitLostReport(): Promise<void> {
     this.submitError = null;
     this.reportForm.markAllAsTouched();
-    
+
     if (this.reportForm.invalid) {
       const firstInvalid = document.querySelector('[aria-invalid="true"]');
       firstInvalid?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -176,7 +197,7 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
 
     const formValue = this.reportForm.value;
     const dateTime = new Date(`${formValue.date}T${formValue.time}`);
-    
+
     const request: CreateLostReportRequest = {
       title: formValue.title,
       description: [
@@ -191,9 +212,13 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
       contactEmail: formValue.contactEmail
     };
 
-    if (formValue.photo instanceof File) {
-      request.photoDataUrl = await this.fileToDataUrl(formValue.photo);
+    const photos: File[] = Array.isArray(formValue.photos) ? formValue.photos : [];
+
+    if (photos.length > 0) {
+      // For now: send the first photo only (backend likely expects one field)
+      request.photoDataUrl = await this.fileToDataUrl(photos[0]);
     }
+
 
     this.reportService.createLostReport(request)
       .pipe(
@@ -234,7 +259,7 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
     this.submitSuccess = false;
     this.referenceCode = null;
     this.submitError = null;
-    this.photoPreviewUrl = null;
+    this.photoPreviewUrls = [];
     this.currentStep = 1;
   }
 
