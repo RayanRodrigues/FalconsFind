@@ -44,7 +44,7 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
   currentStep = 1;
   readonly totalSteps = 3;
   readonly todayDate = this.formatLocalDate(new Date());
-  
+
   categories = [
     'Electronics', 'Wallets & Purses', 'Keys', 'ID Cards', 'Clothing',
     'Backpacks & Bags', 'Books', 'Jewelry', 'Eyewear', 'Personal Items', 'Other'
@@ -52,7 +52,7 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
 
   locations = [
     'Library', 'Student Centre', 'Building T', 'Building B', 'Building D',
-    'Building E', 'Building F', 'Building H', 'Gymnasium', 'Cafeteria', 
+    'Building E', 'Building F', 'Building H', 'Gymnasium', 'Cafeteria',
     'Parking Lot', 'Other'
   ];
 
@@ -69,7 +69,7 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
     private errorService: ErrorService,
     private validationService: FormValidationService,
     private router: Router
-  ) {}
+  ) { }
 
   ngOnInit(): void {
     this.initializeForm();
@@ -96,8 +96,8 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
     });
   }
 
-  get f() { 
-    return this.reportForm.controls; 
+  get f() {
+    return this.reportForm.controls;
   }
 
   getFieldError(fieldName: string): string | null {
@@ -115,7 +115,7 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
     const input = event.target as HTMLInputElement;
     if (input.files && input.files.length > 0) {
       const file = input.files[0];
-      
+
       const validTypes = ['image/jpeg', 'image/png', 'image/jpg'];
       if (!validTypes.includes(file.type)) {
         this.submitError = 'Please select a valid image file (JPEG, PNG)';
@@ -123,14 +123,14 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
         this.photoPreviewUrl = null;
         return;
       }
-      
+
       if (file.size > 5 * 1024 * 1024) {
         this.submitError = 'File size must be less than 5MB';
         input.value = '';
         this.photoPreviewUrl = null;
         return;
       }
-      
+
       this.reportForm.patchValue({ photo: file });
       this.photoPreviewUrl = URL.createObjectURL(file);
       this.submitError = null;
@@ -165,7 +165,7 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
   private async submitLostReport(): Promise<void> {
     this.submitError = null;
     this.reportForm.markAllAsTouched();
-    
+
     if (this.reportForm.invalid) {
       const firstInvalid = document.querySelector('[aria-invalid="true"]');
       firstInvalid?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -176,7 +176,7 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
 
     const formValue = this.reportForm.value;
     const dateTime = new Date(`${formValue.date}T${formValue.time}`);
-    
+
     const request: CreateLostReportRequest = {
       title: formValue.title,
       description: [
