@@ -5,6 +5,7 @@
     "ng": "ng",
     "start": "ng serve",
     "build": "ng build",
+    "lint": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.spec.json",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "serve:ssr:frontend": "node dist/frontend/server/server.mjs"
