@@ -146,12 +146,13 @@
           @if (currentStep === 3) {
             <app-lost-report-step-contact
               [form]="reportForm"
-              [photoPreviewUrl]="photoPreviewUrl"
+              [photoPreviewUrls]="photoPreviewUrls"
               [getFieldError]="getFieldError.bind(this)"
               [isFieldInvalid]="isFieldInvalid.bind(this)"
               [onFileSelected]="onFileSelected.bind(this)"
+              [onRemovePhoto]="removePhoto.bind(this)"
             />
-          }
+          } 
 
           <div class="flex flex-row justify-end gap-3 pt-6 border-t border-border">
             <app-button 

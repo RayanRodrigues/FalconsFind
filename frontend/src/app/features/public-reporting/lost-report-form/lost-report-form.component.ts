@@ -40,7 +40,7 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
   submitError: string | null = null;
   submitSuccess = false;
   referenceCode: string | null = null;
-  photoPreviewUrl: string | null = null;
+  photoPreviewUrls: string[] = [];
   currentStep = 1;
   readonly totalSteps = 3;
   readonly todayDate = this.formatLocalDate(new Date());
@@ -60,7 +60,7 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
   private readonly stepFields: Record<number, string[]> = {
     1: ['title', 'category', 'description'],
     2: ['location', 'date', 'time'],
-    3: ['contactName', 'contactEmail', 'contactPhone', 'photo', 'additionalInfo']
+    3: ['contactName', 'contactEmail', 'contactPhone', 'photos', 'additionalInfo']
   };
 
   constructor(
@@ -76,9 +76,10 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.destroy$.next();
-    this.destroy$.complete();
-  }
+  this.destroy$.next();
+  this.revokePreviewUrls();
+  this.destroy$.complete();
+}
 
   private initializeForm(): void {
     this.reportForm = this.fb.group({
@@ -91,7 +92,7 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
       contactName: ['', [Validators.required, Validators.minLength(2), Validators.maxLength(50)]],
       contactEmail: ['', [Validators.required, Validators.email]],
       contactPhone: ['', [Validators.pattern('^[0-9+\\-\\s()]{10,15}$')]],
-      photo: [null],
+      photos: [[] as File[]],
       additionalInfo: ['', Validators.maxLength(200)]
     });
   }
@@ -111,31 +112,64 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
     return control ? (control.invalid && control.touched) : false;
   }
 
-  onFileSelected(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    if (input.files && input.files.length > 0) {
-      const file = input.files[0];
-      
-      const validTypes = ['image/jpeg', 'image/png', 'image/jpg'];
-      if (!validTypes.includes(file.type)) {
-        this.submitError = 'Please select a valid image file (JPEG, PNG)';
-        input.value = '';
-        this.photoPreviewUrl = null;
-        return;
-      }
-      
-      if (file.size > 5 * 1024 * 1024) {
-        this.submitError = 'File size must be less than 5MB';
-        input.value = '';
-        this.photoPreviewUrl = null;
-        return;
-      }
-      
-      this.reportForm.patchValue({ photo: file });
-      this.photoPreviewUrl = URL.createObjectURL(file);
-      this.submitError = null;
+  private revokePreviewUrls(urls: string[] = this.photoPreviewUrls): void {
+  for (const url of urls) {
+    try {
+      URL.revokeObjectURL(url);
+    } catch {
+      // ignore
     }
   }
+}
+
+private rebuildPreviewUrls(files: File[]): void {
+  this.revokePreviewUrls(); // revoke old previews first
+  this.photoPreviewUrls = files.map((f) => URL.createObjectURL(f));
+}
+
+  onFileSelected(event: Event): void {
+  const input = event.target as HTMLInputElement;
+  const files = Array.from(input.files ?? []);
+  if (files.length === 0) return;
+
+  const validTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+  const maxSizeBytes = 5 * 1024 * 1024; // 5MB
+  const maxPhotos = 5;
+
+  const currentPhotos: File[] = (this.reportForm.get('photos')?.value as File[]) ?? [];
+  const nextPhotos = [...currentPhotos];
+
+  for (const file of files) {
+    if (!validTypes.includes(file.type)) {
+      this.submitError = 'Please select valid image files (JPEG, PNG).';
+      continue;
+    }
+    if (file.size > maxSizeBytes) {
+      this.submitError = 'Each file must be less than 5MB.';
+      continue;
+    }
+    if (nextPhotos.length >= maxPhotos) {
+      this.submitError = `You can upload up to ${maxPhotos} photos.`;
+      break;
+    }
+    nextPhotos.push(file);
+  }
+
+  this.reportForm.patchValue({ photos: nextPhotos });
+  this.rebuildPreviewUrls(nextPhotos);
+  this.submitError = null;
+
+  // reset input so selecting the same file again triggers change
+  input.value = '';
+}
+
+removePhoto(index: number): void {
+  const currentPhotos: File[] = (this.reportForm.get('photos')?.value as File[]) ?? [];
+  const nextPhotos = currentPhotos.filter((_, i) => i !== index);
+
+  this.reportForm.patchValue({ photos: nextPhotos });
+  this.rebuildPreviewUrls(nextPhotos);
+}
 
   onSubmit(): void {
     void this.submitLostReport();
@@ -191,9 +225,11 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
       contactEmail: formValue.contactEmail
     };
 
-    if (formValue.photo instanceof File) {
-      request.photoDataUrl = await this.fileToDataUrl(formValue.photo);
-    }
+    const photos: File[] = Array.isArray(formValue.photos) ? formValue.photos : [];
+    if (photos.length > 0) {
+      // For now: send the first photo only (backend expects one)
+      request.photoDataUrl = await this.fileToDataUrl(photos[0]);
+    } 
 
     this.reportService.createLostReport(request)
       .pipe(
@@ -234,7 +270,8 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
     this.submitSuccess = false;
     this.referenceCode = null;
     this.submitError = null;
-    this.photoPreviewUrl = null;
+    this.revokePreviewUrls();
+    this.photoPreviewUrls = [];
     this.currentStep = 1;
   }
 
