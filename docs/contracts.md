@@ -190,6 +190,12 @@ Single export point for imports inside the frontend.
 * `contactEmail?: string`  
 * `photo: File` *(required, JPEG/PNG, max 5MB)*
 
+**TODO (Photo Strategy)**
+
+* Analyze and decide whether `lost` and `found` reports should support **multiple photos** in the backend contract.
+* Current state: both flows are implemented as **single-photo persistence** on backend (`lost`: `photoDataUrl` optional, `found`: multipart field `photo` required).
+* If approved for multi-photo: update backend DTOs/schemas/routes, OpenAPI docs, and frontend submit payloads in both forms.
+
 **Report Reference Code format**
 
 * Lost reports: `LST-<base36Timestamp>-<base36Random5>`  
