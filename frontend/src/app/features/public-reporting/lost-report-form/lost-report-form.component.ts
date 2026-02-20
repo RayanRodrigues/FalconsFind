@@ -18,6 +18,8 @@ import { AlertComponent } from '../../../shared/components/feedback/alert.compon
 import { LostReportStepBasicComponent } from './lost-report-step-basic.component';
 import { LostReportStepWhenWhereComponent } from './lost-report-step-when-where.component';
 import { LostReportStepContactComponent } from './lost-report-step-contact.component';
+import { ReportStepsComponent } from '../../../shared/components/navigation/report-steps.component';
+import { mergeSelectedPhotos } from '../../../shared/utils/photo-upload.util';
 
 @Component({
   selector: 'app-lost-report-form',
@@ -28,6 +30,7 @@ import { LostReportStepContactComponent } from './lost-report-step-contact.compo
     CardComponent,
     ButtonComponent,
     AlertComponent,
+    ReportStepsComponent,
     LostReportStepBasicComponent,
     LostReportStepWhenWhereComponent,
     LostReportStepContactComponent
@@ -59,8 +62,8 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
   private readonly stepFields: Record<number, string[]> = {
     1: ['title', 'category', 'description'],
-    2: ['location', 'date', 'time'],
-    3: ['contactName', 'contactEmail', 'contactPhone', 'photos', 'additionalInfo']
+    2: ['location', 'date', 'time', 'photos'],
+    3: ['contactName', 'contactEmail', 'contactPhone', 'additionalInfo']
   };
 
   constructor(
@@ -76,10 +79,10 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-  this.destroy$.next();
-  this.revokePreviewUrls();
-  this.destroy$.complete();
-}
+    this.destroy$.next();
+    this.revokePreviewUrls();
+    this.destroy$.complete();
+  }
 
   private initializeForm(): void {
     this.reportForm = this.fb.group({
@@ -113,63 +116,40 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
   }
 
   private revokePreviewUrls(urls: string[] = this.photoPreviewUrls): void {
-  for (const url of urls) {
-    try {
-      URL.revokeObjectURL(url);
-    } catch {
-      // ignore
+    for (const url of urls) {
+      try {
+        URL.revokeObjectURL(url);
+      } catch {
+        // ignore
+      }
     }
   }
-}
 
-private rebuildPreviewUrls(files: File[]): void {
-  this.revokePreviewUrls(); // revoke old previews first
-  this.photoPreviewUrls = files.map((f) => URL.createObjectURL(f));
-}
-
-  onFileSelected(event: Event): void {
-  const input = event.target as HTMLInputElement;
-  const files = Array.from(input.files ?? []);
-  if (files.length === 0) return;
-
-  const validTypes = ['image/jpeg', 'image/png', 'image/jpg'];
-  const maxSizeBytes = 5 * 1024 * 1024; // 5MB
-  const maxPhotos = 5;
-
-  const currentPhotos: File[] = (this.reportForm.get('photos')?.value as File[]) ?? [];
-  const nextPhotos = [...currentPhotos];
-
-  for (const file of files) {
-    if (!validTypes.includes(file.type)) {
-      this.submitError = 'Please select valid image files (JPEG, PNG).';
-      continue;
-    }
-    if (file.size > maxSizeBytes) {
-      this.submitError = 'Each file must be less than 5MB.';
-      continue;
-    }
-    if (nextPhotos.length >= maxPhotos) {
-      this.submitError = `You can upload up to ${maxPhotos} photos.`;
-      break;
-    }
-    nextPhotos.push(file);
+  private rebuildPreviewUrls(files: File[]): void {
+    this.revokePreviewUrls();
+    this.photoPreviewUrls = files.map((file) => URL.createObjectURL(file));
   }
 
-  this.reportForm.patchValue({ photos: nextPhotos });
-  this.rebuildPreviewUrls(nextPhotos);
-  this.submitError = null;
+  onPhotosSelected(files: File[]): void {
+    this.handlePhotoFiles(files);
+  }
 
-  // reset input so selecting the same file again triggers change
-  input.value = '';
-}
+  private handlePhotoFiles(files: File[]): void {
+    if (files.length === 0) return;
+    const currentPhotos: File[] = (this.reportForm.get('photos')?.value as File[]) ?? [];
+    const { photos: nextPhotos, error: nextError } = mergeSelectedPhotos(currentPhotos, files);
 
-removePhoto(index: number): void {
-  const currentPhotos: File[] = (this.reportForm.get('photos')?.value as File[]) ?? [];
-  const nextPhotos = currentPhotos.filter((_, i) => i !== index);
+    this.reportForm.patchValue({ photos: nextPhotos });
+    this.rebuildPreviewUrls(nextPhotos);
+    this.submitError = nextError;
+  }
 
-  this.reportForm.patchValue({ photos: nextPhotos });
-  this.rebuildPreviewUrls(nextPhotos);
-}
+  removePhoto(index: number): void {
+    const currentPhotos: File[] = (this.reportForm.get('photos')?.value as File[]) ?? [];
+    const nextPhotos = currentPhotos.filter((_, currentIndex) => currentIndex !== index);
+    this.reportForm.patchValue({ photos: nextPhotos });
+    this.rebuildPreviewUrls(nextPhotos);
+  }
 
   onSubmit(): void {
     void this.submitLostReport();
@@ -285,4 +265,5 @@ removePhoto(index: number): void {
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   }
+
 }
