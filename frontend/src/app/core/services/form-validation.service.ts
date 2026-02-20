@@ -52,7 +52,8 @@ export class FormValidationService {
       foundLocation: 'Location',
       foundDate: 'Date',
       foundTime: 'Time',
-      photo: 'Photo'
+      photo: 'Photo',
+      photos: 'Photos'
     };
     
     return fieldMap[fieldName] || fieldName;
