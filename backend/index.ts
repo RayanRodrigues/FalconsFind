@@ -18,6 +18,10 @@ const healthRoutesModule = await importRuntimeModule<{
   createHealthRouter: (db: FirebaseFirestore.Firestore) => express.Router;
 }>(__dirname, './src/routes/health.routes');
 
+const itemsRoutesModule = await importRuntimeModule<{
+  createItemsRouter: (db: FirebaseFirestore.Firestore) => express.Router;
+}>(__dirname, './src/routes/items.routes');
+
 const reportsRoutesModule = await importRuntimeModule<{
   createReportsRouter: (
     db: FirebaseFirestore.Firestore,
@@ -41,8 +45,10 @@ app.get('/health', (_req, res) => {
   res.json({ ok: true, service: 'backend' });
 });
 
+
 app.use(healthRoutesModule.createHealthRouter(db));
 app.use(reportsRoutesModule.createReportsRouter(db, bucket));
+app.use(itemsRoutesModule.createItemsRouter(db));
 app.use(notFoundHandler);
 app.use(errorHandler);
 
