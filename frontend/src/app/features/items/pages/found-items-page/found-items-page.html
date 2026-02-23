@@ -1,0 +1,26 @@
+<h1>Found Items</h1>
+
+<div *ngIf="loading">Loading found items...</div>
+
+<div *ngIf="!loading && error">
+  <p>Error loading items.</p>
+  <button (click)="retry()">Try again</button>
+</div>
+
+<div *ngIf="!loading && !error && items.length === 0">
+  <p>No found items yet.</p>
+</div>
+
+<div *ngIf="!loading && !error && items.length > 0">
+  <ul>
+    <li *ngFor="let item of items">
+      <strong>{{ item.title }}</strong> — {{ item.status }}
+    </li>
+  </ul>
+
+  <div style="margin-top: 16px;">
+    <button (click)="prev()" [disabled]="!hasPrevPage">Prev</button>
+    <span style="margin: 0 8px;">Page {{ page }} / {{ totalPages }}</span>
+    <button (click)="next()" [disabled]="!hasNextPage">Next</button>
+  </div>
+</div>

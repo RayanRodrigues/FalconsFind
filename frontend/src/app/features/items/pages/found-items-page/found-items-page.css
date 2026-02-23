@@ -1,0 +1,43 @@
+.page {
+  padding: 16px;
+}
+
+.list {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.card {
+  border: 1px solid rgba(0,0,0,0.15);
+  padding: 12px;
+  border-radius: 10px;
+}
+
+.title {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.meta {
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+.state {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px dashed rgba(0,0,0,0.25);
+  border-radius: 10px;
+}
+
+.state.error {
+  border-style: solid;
+}
+
+.pager {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 14px;
+}

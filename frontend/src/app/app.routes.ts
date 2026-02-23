@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 import { DevHomeComponent } from './features/home/dev-home.component';
 import { FoundReportFormComponent } from './features/public-reporting/found-report-form/found-report-form.component';
 import { LostReportFormComponent } from './features/public-reporting/lost-report-form/lost-report-form.component';
+import { FoundItemsPageComponent } from './features/items/pages/found-items-page/found-items-page';
 
 export const routes: Routes = [
   {
@@ -19,5 +20,10 @@ export const routes: Routes = [
     component: FoundReportFormComponent,
     title: 'Report Found Item - FalconFind'
   },
+  {
+    path: 'found-items',
+    component: FoundItemsPageComponent,
+    title: 'Found Items - FalconFind'
+  }
   // ... other routes
 ];
