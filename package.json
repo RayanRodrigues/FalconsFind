@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "concurrently \"npm run dev:front\" \"npm run dev:back\"",
     "dev:front": "node scripts/generate-frontend-env.mjs && cd frontend && ng serve",
-    "dev:back": "cd backend && NODE_OPTIONS=--disable-warning=DEP0040 tsx index.ts",
+    "dev:back": "npm --prefix backend run dev",
     "build": "npm run build:front && npm run build:back",
     "build:front": "node scripts/generate-frontend-env.mjs && cd frontend && ng build",
     "build:back": "cd backend && npm run build",
