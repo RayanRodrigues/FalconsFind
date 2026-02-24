@@ -3,7 +3,7 @@
   "framework": null,
   "buildCommand": "npm run dev:front",
   "outputDirectory": "frontend/dist/frontend/browser",
-  "installCommand": "npm install",
+  "installCommand": "npm run install:front",
   "rewrites": [
     {
       "source": "/(.*)",
