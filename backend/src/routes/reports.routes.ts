@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import type { Request } from 'express';
 import multer from 'multer';
 import type { Firestore } from 'firebase-admin/firestore';
 import type { Bucket } from '@google-cloud/storage';
@@ -49,7 +50,11 @@ export const createReportsRouter = (db: Firestore, bucket: Bucket): Router => {
   const upload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: 5 * 1024 * 1024 },
-    fileFilter: (_req, file, cb) => {
+    fileFilter: (
+      _req: Request,
+      file: Express.Multer.File,
+      cb: multer.FileFilterCallback,
+    ) => {
       const isImage = ['image/jpeg', 'image/png', 'image/jpg'].includes(file.mimetype);
       if (!isImage) {
         cb(new Error('photo must be JPEG or PNG'));
