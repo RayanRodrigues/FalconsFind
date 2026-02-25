@@ -91,6 +91,20 @@ export class ItemDetailsComponent implements OnInit, OnDestroy {
             return;
           }
 
+          if (code === 'BAD_REQUEST') {
+            this.loadError = 'Invalid item link. Please check the URL and try again.';
+            this.refreshView();
+            return;
+          }
+
+          if (code === 'INVALID_ITEM_DATA') {
+            this.loadError =
+              apiError?.error?.message ??
+              'This item was incorrectly reported. Please submit it again or contact Campus Security.';
+            this.refreshView();
+            return;
+          }
+
           if (code === 'NETWORK_ERROR' || code === 'TIMEOUT') {
             this.loadError = 'Could not load item details. Check your connection and try again.';
             this.refreshView();
