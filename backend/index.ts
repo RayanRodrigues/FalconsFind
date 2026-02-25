@@ -46,6 +46,9 @@ app.use(reportsRoutesModule.createReportsRouter(db, bucket));
 app.use(notFoundHandler);
 app.use(errorHandler);
 
-app.listen(appConfig.port, () => {
-  console.log(`Server running at http://localhost:${appConfig.port}`);
+app.listen(appConfig.port, '0.0.0.0', () => {
+  const externalUrl = process.env.RENDER_EXTERNAL_URL;
+  const publicUrl = externalUrl ?? `http://localhost:${appConfig.port}`;
+  console.log(`Server running on port ${appConfig.port}`);
+  console.log(`Public URL: ${publicUrl}`);
 });
