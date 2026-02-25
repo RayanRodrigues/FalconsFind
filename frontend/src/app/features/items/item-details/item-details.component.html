@@ -1,0 +1,138 @@
+<section class="min-h-screen bg-neutral-base py-10 px-4 sm:px-6 lg:px-8">
+  <div class="max-w-4xl mx-auto">
+    <div class="mb-6">
+      <app-button type="button" variant="secondary" size="sm" (click)="back()">
+        Back
+      </app-button>
+    </div>
+
+    @if (isLoading) {
+      <div class="rounded-xl border border-border/60 bg-white p-8 shadow-sm">
+        <div class="flex flex-col items-center text-center gap-4 py-2">
+          <svg
+            class="h-9 w-9 animate-spin text-primary"
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="9" class="opacity-25" stroke="currentColor" stroke-width="3" />
+            <path
+              class="opacity-90"
+              fill="currentColor"
+              d="M12 3a9 9 0 0 1 9 9h-3a6 6 0 0 0-6-6V3Z"
+            />
+          </svg>
+          <div>
+            <p class="text-text-primary font-medium mb-0">Loading item information...</p>
+            <p class="text-text-secondary text-sm mt-1 mb-0">Fetching item details.</p>
+          </div>
+        </div>
+      </div>
+    }
+
+    @if (!isLoading && isNotFound) {
+      <div class="rounded-xl border border-border/60 bg-white p-8 shadow-sm text-center">
+        <h1 class="text-2xl font-semibold text-text-primary mb-2">Item not found</h1>
+        <p class="text-text-secondary mb-6">
+          This item may not exist or is not publicly visible.
+        </p>
+        <app-button type="button" variant="primary" (click)="back()">
+          Go back
+        </app-button>
+      </div>
+    }
+
+    @if (!isLoading && isUnderReview) {
+      <div class="rounded-xl border border-border/60 bg-white p-8 shadow-sm text-center">
+        <h1 class="text-2xl font-semibold text-text-primary mb-2">Item under review</h1>
+        <p class="text-text-secondary mb-6">
+          This item is currently being reviewed by Campus Security. Please check back later.
+        </p>
+        <app-button type="button" variant="primary" (click)="back()">
+          Go back
+        </app-button>
+      </div>
+    }
+
+    @if (!isLoading && !isNotFound && !isUnderReview && loadError) {
+      <div class="space-y-4">
+        <app-alert type="error">
+          <strong class="block mb-1">Could not load item</strong>
+          <p class="text-sm">{{ loadError }}</p>
+        </app-alert>
+        <div class="flex flex-wrap gap-3">
+          <app-button type="button" variant="primary" (click)="retry()">
+            Retry
+          </app-button>
+          <app-button type="button" variant="secondary" (click)="back()">
+            Back
+          </app-button>
+        </div>
+      </div>
+    }
+
+    @if (!isLoading && item && !isUnderReview) {
+      <article class="rounded-xl border border-border/60 bg-white shadow-sm overflow-hidden">
+        <header class="px-6 py-5 border-b border-border/60 bg-bg-secondary">
+          <div class="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p class="text-sm text-text-secondary mb-1">Reference Code</p>
+              <h1 class="text-2xl font-semibold text-text-primary">{{ item.referenceCode }}</h1>
+            </div>
+            <span
+              class="inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide"
+              [class]="statusClass"
+            >
+              {{ statusLabel }}
+            </span>
+          </div>
+        </header>
+
+        <div class="p-6 space-y-6">
+          <div>
+            <p class="text-sm text-text-secondary mb-1">Title</p>
+            <h2 class="text-xl font-semibold text-text-primary mb-0">{{ item.title }}</h2>
+          </div>
+
+          @if (item.description) {
+            <div>
+              <p class="text-sm text-text-secondary mb-1">Description</p>
+              <p class="text-text-primary whitespace-pre-line mb-0">{{ item.description }}</p>
+            </div>
+          }
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="rounded-lg border border-border/60 bg-bg-secondary px-4 py-3">
+              <p class="text-xs uppercase tracking-wide text-text-secondary mb-1">Location</p>
+              <p class="text-text-primary mb-0">{{ item.location || 'Not informed' }}</p>
+            </div>
+            <div class="rounded-lg border border-border/60 bg-bg-secondary px-4 py-3">
+              <p class="text-xs uppercase tracking-wide text-text-secondary mb-1">Reported at</p>
+              <p class="text-text-primary mb-0">{{ item.dateReported | date: 'medium' }}</p>
+            </div>
+          </div>
+
+          <div>
+            <p class="text-sm text-text-secondary mb-3">Photos</p>
+            @if (imageUrls.length > 0) {
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                @for (url of imageUrls; track url) {
+                  <a [href]="url" target="_blank" rel="noopener noreferrer" class="block rounded-lg overflow-hidden border border-border/60 bg-bg-secondary">
+                    <img
+                      [src]="url"
+                      [alt]="'Photo of ' + item.title"
+                      class="w-full aspect-[4/3] sm:aspect-[16/10] lg:aspect-[3/2] object-cover"
+                      loading="lazy"
+                    />
+                  </a>
+                }
+              </div>
+            } @else {
+              <p class="text-text-secondary mb-0">No photos available for this item.</p>
+            }
+          </div>
+        </div>
+      </article>
+    }
+  </div>
+</section>
