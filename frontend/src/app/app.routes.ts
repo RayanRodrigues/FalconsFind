@@ -3,6 +3,7 @@ import { DevHomeComponent } from './features/home/dev-home.component';
 import { FoundReportFormComponent } from './features/public-reporting/found-report-form/found-report-form.component';
 import { LostReportFormComponent } from './features/public-reporting/lost-report-form/lost-report-form.component';
 import { FoundItemsPageComponent } from './features/items/pages/found-items-page/found-items-page';
+import { ItemDetailsComponent } from './features/items/item-details/item-details.component';
 
 export const routes: Routes = [
   {
@@ -24,6 +25,11 @@ export const routes: Routes = [
     path: 'found-items',
     component: FoundItemsPageComponent,
     title: 'Found Items - FalconFind'
-  }
+  },
+  {
+    path: 'items/:id',
+    component: ItemDetailsComponent,
+    title: 'Item Details - FalconFind'
+  },
   // ... other routes
 ];

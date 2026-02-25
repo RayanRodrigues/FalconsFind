@@ -62,16 +62,16 @@ jobs:
 
       - name: Run frontend tests (CI)
         run: |
-          if node -e "const p=require('./frontend/package.json');process.exit(p.scripts&&p.scripts['test:ci']?0:1)"; then
-            npm run -s test:ci --prefix frontend
+          if node -e "const p=require('./frontend/package.json');process.exit(p.scripts&&p.scripts.test?0:1)"; then
+            npm run -s test --prefix frontend -- --watch=false
           else
             echo "Skipping frontend tests (no script)"
           fi
 
       - name: Run backend tests (CI)
         run: |
-          if node -e "const p=require('./backend/package.json');process.exit(p.scripts&&p.scripts.test?0:1)"; then
-            npm run -s test --prefix backend
+          if node -e "const p=require('./backend/package.json');process.exit(p.scripts&&p.scripts['test:integration']?0:1)"; then
+            npm run -s test:integration --prefix backend
           else
             echo "Skipping backend tests (no script)"
           fi
