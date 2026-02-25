@@ -5,6 +5,7 @@ import type { ItemDetailsResponse } from '../contracts/index.js';
 
 type StoredItem = {
   id?: string;
+  reportId?: string;
   title?: string;
   description?: string;
   status?: ItemStatus;
@@ -126,17 +127,28 @@ export const getItemById = async (
     return mapItemDetails(bucket, itemSnapshot.id, data);
   }
 
-  // Transitional fallback: while the item-validation flow is not fully connected,
-  // allow item details lookup by report id as well. Visibility rules are still
-  // enforced by the route layer.
-  const reportSnapshot = await db.collection('reports').doc(itemId).get();
-  if (!reportSnapshot.exists) {
-    return null;
+  // If caller provides a report id, resolve the corresponding validated item
+  // through the relational key used by the validation flow.
+  const byReportId = await db
+    .collection('items')
+    .where('reportId', '==', itemId)
+    .limit(1)
+    .get();
+  if (!byReportId.empty) {
+    const snapshot = byReportId.docs[0];
+    const data = snapshot.data() as DocumentData;
+    return mapItemDetails(bucket, snapshot.id, data);
   }
 
-  const reportData = reportSnapshot.data() as DocumentData;
+  // Backward compatibility: some environments still store publicly queryable
+  // items directly in the `reports` collection and use the report document id.
+  const reportSnapshot = await db.collection('reports').doc(itemId).get();
+  if (reportSnapshot.exists) {
+    const data = reportSnapshot.data() as DocumentData;
+    return mapItemDetails(bucket, reportSnapshot.id, data);
+  }
 
-  return mapItemDetails(bucket, reportSnapshot.id, reportData);
+  return null;
 };
 
 export const isItemPubliclyVisible = (item: ItemDetailsResponse): boolean => {
