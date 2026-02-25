@@ -43,6 +43,7 @@ await runStartupFirestoreCheck(db);
 app.use(cors());
 app.use(express.json());
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(openApiModule.openApiDocument));
+app.use(rootRoutesModule.createRootRouter(appConfig.apiPrefix));
 
 app.get('/health', (_req, res) => {
   res.json({ ok: true, service: 'backend' });
