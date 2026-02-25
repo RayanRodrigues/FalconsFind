@@ -24,6 +24,12 @@ const reportsRoutesModule = await importRuntimeModule<{
     bucket: unknown,
   ) => express.Router;
 }>(__dirname, './src/routes/reports.routes');
+const itemsRoutesModule = await importRuntimeModule<{
+  createItemsRouter: (
+    db: FirebaseFirestore.Firestore,
+    bucket: unknown,
+  ) => express.Router;
+}>(__dirname, './src/routes/items.routes');
 
 const openApiModule = await importRuntimeModule<{
   openApiDocument: object;
@@ -43,6 +49,7 @@ app.get('/health', (_req, res) => {
 
 app.use(healthRoutesModule.createHealthRouter(db));
 app.use(reportsRoutesModule.createReportsRouter(db, bucket));
+app.use(itemsRoutesModule.createItemsRouter(db, bucket));
 app.use(notFoundHandler);
 app.use(errorHandler);
 
