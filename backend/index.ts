@@ -18,6 +18,10 @@ const healthRoutesModule = await importRuntimeModule<{
   createHealthRouter: (db: FirebaseFirestore.Firestore) => express.Router;
 }>(__dirname, './src/routes/health.routes');
 
+const rootRoutesModule = await importRuntimeModule<{
+  createRootRouter: (apiPrefix: string) => express.Router;
+}>(__dirname, './src/routes/root.routes');
+
 const itemsRoutesModule = await importRuntimeModule<{
   createItemsRouter: (
     db: FirebaseFirestore.Firestore,
