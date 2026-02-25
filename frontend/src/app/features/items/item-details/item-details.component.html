@@ -117,7 +117,7 @@
             @if (imageUrls.length > 0) {
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 @for (url of imageUrls; track url) {
-                  <a [href]="url" target="_blank" rel="noreferrer" class="block rounded-lg overflow-hidden border border-border/60 bg-bg-secondary">
+                  <a [href]="url" target="_blank" rel="noopener noreferrer" class="block rounded-lg overflow-hidden border border-border/60 bg-bg-secondary">
                     <img
                       [src]="url"
                       [alt]="'Photo of ' + item.title"
