@@ -55,4 +55,7 @@ app.use(errorHandler);
 
 app.listen(appConfig.port, () => {
   console.log(`Server running at http://localhost:${appConfig.port}`);
+  console.log(
+    `Environment: ${appConfig.appEnv} | Public API base: ${appConfig.apiBaseUrl}${appConfig.apiPrefix}`,
+  );
 });
