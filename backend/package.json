@@ -6,6 +6,7 @@
   "scripts": {
     "build": "tsc",
     "lint": "tsc --noEmit -p tsconfig.json",
+    "test:ci": "npm run test:integration",
     "test:integration": "npm run build && node --test test/integration/**/*.test.mjs"
   },
   "keywords": [],
