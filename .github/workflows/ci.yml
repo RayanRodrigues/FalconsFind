@@ -60,20 +60,12 @@ jobs:
             echo "Skipping backend lint (no script)"
           fi
 
-      - name: Run frontend tests (CI)
+      - name: Run all tests (CI)
         run: |
-          if node -e "const p=require('./frontend/package.json');process.exit(p.scripts&&p.scripts.test?0:1)"; then
-            npm run -s test --prefix frontend -- --watch=false
+          if node -e "const p=require('./package.json');process.exit(p.scripts&&p.scripts['test:ci']?0:1)"; then
+            npm run -s test:ci
           else
-            echo "Skipping frontend tests (no script)"
-          fi
-
-      - name: Run backend tests (CI)
-        run: |
-          if node -e "const p=require('./backend/package.json');process.exit(p.scripts&&p.scripts['test:integration']?0:1)"; then
-            npm run -s test:integration --prefix backend
-          else
-            echo "Skipping backend tests (no script)"
+            echo "Skipping tests (no root test:ci script)"
           fi
 
       - name: Build frontend
