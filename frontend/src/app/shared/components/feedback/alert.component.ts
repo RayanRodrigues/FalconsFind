@@ -53,7 +53,7 @@ export class AlertComponent {
   }
 
   get alertClasses(): string {
-    const baseClasses = 'p-4 rounded-lg border-l-4';
+    const baseClasses = 'p-4 rounded-lg border-l-4 mb-4';
     
     const typeClasses = {
       success: 'bg-success/10 border-success text-success',
