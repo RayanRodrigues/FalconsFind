@@ -6,13 +6,10 @@
   "scripts": {
     "build": "tsc",
     "lint": "tsc --noEmit -p tsconfig.json",
-<<<<<<< HEAD
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-=======
     "test:ci": "npm run test:integration",
->>>>>>> origin/dev
     "test:integration": "npm run build && node --test test/integration/**/*.test.mjs"
   },
   "keywords": [],
