@@ -24,6 +24,9 @@ const reportsRoutesModule = await importRuntimeModule<{
     bucket: unknown,
   ) => express.Router;
 }>(__dirname, './src/routes/reports.routes');
+const rootRoutesModule = await importRuntimeModule<{
+  createRootRouter: (apiPrefix: string) => express.Router;
+}>(__dirname, './src/routes/root.routes');
 const itemsRoutesModule = await importRuntimeModule<{
   createItemsRouter: (
     db: FirebaseFirestore.Firestore,
@@ -42,6 +45,7 @@ await runStartupFirestoreCheck(db);
 app.use(cors());
 app.use(express.json());
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(openApiModule.openApiDocument));
+app.use(rootRoutesModule.createRootRouter(appConfig.apiPrefix));
 
 app.get('/health', (_req, res) => {
   res.json({ ok: true, service: 'backend' });
