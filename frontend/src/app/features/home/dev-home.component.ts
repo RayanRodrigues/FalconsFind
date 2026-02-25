@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 
 @Component({
   selector: 'app-dev-home',
@@ -42,8 +42,46 @@ import { RouterLink } from '@angular/router';
             Report Found Item
           </a>
         </div>
+
+        <div class="mt-8 border-t border-border pt-6 text-left">
+          <p class="text-sm font-medium text-text-primary mb-2">Open Item Details (dev)</p>
+          <div class="flex flex-col sm:flex-row gap-3">
+            <input
+              class="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-text-primary placeholder:text-text-secondary"
+              placeholder="Paste item id"
+              [value]="itemId"
+              (input)="onItemIdInput($event)"
+            />
+            <button
+              type="button"
+              class="inline-flex min-h-10 items-center justify-center rounded-lg border border-primary/30 bg-white px-4 py-2 text-sm font-medium text-primary transition hover:bg-primary/5 disabled:opacity-50 disabled:cursor-not-allowed"
+              [disabled]="!itemId.trim()"
+              (click)="openItemDetails()"
+            >
+              Open
+            </button>
+          </div>
+        </div>
       </div>
     </section>
   `
 })
-export class DevHomeComponent {}
+export class DevHomeComponent {
+  itemId = '';
+
+  constructor(private router: Router) {}
+
+  onItemIdInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.itemId = input.value;
+  }
+
+  openItemDetails(): void {
+    const value = this.itemId.trim();
+    if (!value) {
+      return;
+    }
+
+    void this.router.navigate(['/items', value]);
+  }
+}
