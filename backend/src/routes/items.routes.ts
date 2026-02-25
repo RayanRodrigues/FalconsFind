@@ -3,7 +3,7 @@ import type { Firestore } from 'firebase-admin/firestore';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { API_PREFIX, HttpError } from './route-utils.js';
+import { API_PREFIX } from './route-utils.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -41,10 +41,6 @@ export const createItemsRouter = (db: Firestore): Router => {
 
     // Safety clamp so someone can't request 10,000 records
     const limit = Math.min(limitRaw, 50);
-
-    if (limit < 1) {
-      throw new HttpError(400, 'BAD_REQUEST', 'limit must be >= 1');
-    }
 
     const result = await itemsServiceModule.listValidatedItems(db, { page, limit });
 

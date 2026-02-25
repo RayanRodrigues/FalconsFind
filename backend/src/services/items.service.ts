@@ -14,20 +14,14 @@ export const listValidatedItems = async (
   const limit = Math.max(1, Math.floor(params.limit));
   const offset = (page - 1) * limit;
 
-  // Base query: only FOUND + VALIDATED items
   const baseQuery = db
     .collection('reports')
     .where('kind', '==', 'FOUND')
     .where('status', '==', 'VALIDATED');
 
-  // 1) Total count (simple approach)
-  // NOTE: This reads all matching docs to count them.
-  // If your dataset grows huge, you’d switch to Firestore count() aggregation.
-  const totalSnap = await baseQuery.get();
-  const total = totalSnap.size;
+  const totalAgg = await baseQuery.count().get();
+  const total = totalAgg.data().count;
 
-  // 2) Paged results
-  // orderBy is required for stable pagination with offset
   const pageSnap = await baseQuery
     .orderBy('dateReported', 'desc')
     .offset(offset)
@@ -35,10 +29,21 @@ export const listValidatedItems = async (
     .get();
 
   const items = pageSnap.docs.map((doc) => {
-    const data = doc.data() as Omit<Report, 'id'>;
+    const data = doc.data() as Omit<Report, 'id'> & { dateReported?: unknown };
+    let dateReported = data.dateReported;
+
+    if (
+      typeof dateReported === 'object'
+      && dateReported !== null
+      && typeof (dateReported as { toDate?: unknown }).toDate === 'function'
+    ) {
+      dateReported = (dateReported as { toDate: () => Date }).toDate().toISOString();
+    }
+
     return {
       id: doc.id,
       ...data,
+      dateReported: dateReported as string,
     } as Report;
   });
 
