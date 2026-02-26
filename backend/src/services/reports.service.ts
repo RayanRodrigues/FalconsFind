@@ -3,6 +3,16 @@ import type { Bucket } from '@google-cloud/storage';
 import type { CreateFoundReportRequest, CreateLostReportRequest, Report } from '../contracts/index.js';
 import { randomUUID } from 'node:crypto';
 
+export class ReportPhotoUploadError extends Error {
+  constructor(
+    public readonly code: 'INVALID_PHOTO_DATA_URL' | 'PHOTO_UPLOAD_FAILED',
+    message: string,
+  ) {
+    super(message);
+    this.name = 'ReportPhotoUploadError';
+  }
+}
+
 const formatDateSegment = (date: Date): string => {
   const year = date.getUTCFullYear().toString();
   const month = String(date.getUTCMonth() + 1).padStart(2, '0');
@@ -19,7 +29,7 @@ const createReferenceCode = (prefix: 'LST' | 'FND', docId: string, createdAt: Da
 const uploadPhotoFromDataUrl = async (bucket: Bucket, photoDataUrl: string): Promise<string> => {
   const match = photoDataUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
   if (!match) {
-    throw new Error('Invalid photo data URL');
+    throw new ReportPhotoUploadError('INVALID_PHOTO_DATA_URL', 'Invalid photo data URL');
   }
 
   const contentType = match[1];
@@ -28,15 +38,22 @@ const uploadPhotoFromDataUrl = async (bucket: Bucket, photoDataUrl: string): Pro
   const fileName = `reports/lost/${Date.now()}-${randomUUID()}.${extension}`;
   const buffer = Buffer.from(base64, 'base64');
   if (buffer.length === 0) {
-    throw new Error('Invalid photo data URL');
+    throw new ReportPhotoUploadError('INVALID_PHOTO_DATA_URL', 'Invalid photo data URL');
   }
   const file = bucket.file(fileName);
 
-  await file.save(buffer, {
-    metadata: { contentType },
-    resumable: false,
-    public: false,
-  });
+  try {
+    await file.save(buffer, {
+      metadata: { contentType },
+      resumable: false,
+      public: false,
+    });
+  } catch {
+    throw new ReportPhotoUploadError(
+      'PHOTO_UPLOAD_FAILED',
+      'Could not upload the photo right now. Please try again or submit without photo.',
+    );
+  }
 
   return `gs://${bucket.name}/${fileName}`;
 };

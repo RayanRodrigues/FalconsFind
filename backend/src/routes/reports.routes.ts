@@ -33,6 +33,10 @@ const schemaModule = (await import(pathToFileURL(schemaPath).href)) as {
   };
 };
 const reportsServiceModule = (await import(pathToFileURL(servicePath).href)) as {
+  ReportPhotoUploadError: new (
+    code: 'INVALID_PHOTO_DATA_URL' | 'PHOTO_UPLOAD_FAILED',
+    message: string,
+  ) => Error & { code: 'INVALID_PHOTO_DATA_URL' | 'PHOTO_UPLOAD_FAILED' };
   createLostReport: (
     db: Firestore,
     bucket: Bucket,
@@ -72,7 +76,21 @@ export const createReportsRouter = (db: Firestore, bucket: Bucket): Router => {
       throw new HttpError(400, 'BAD_REQUEST', message);
     }
 
-    const result = await reportsServiceModule.createLostReport(db, bucket, parsed.data);
+    let result: { id: string; report: { referenceCode: string } };
+    try {
+      result = await reportsServiceModule.createLostReport(db, bucket, parsed.data);
+    } catch (error) {
+      if (error instanceof reportsServiceModule.ReportPhotoUploadError) {
+        if (error.code === 'INVALID_PHOTO_DATA_URL') {
+          throw new HttpError(400, 'BAD_REQUEST', error.message);
+        }
+
+        throw new HttpError(503, 'PHOTO_UPLOAD_FAILED', error.message);
+      }
+
+      throw error;
+    }
+
     res.status(201).json({
       id: result.id,
       referenceCode: result.report.referenceCode,
@@ -106,7 +124,21 @@ export const createReportsRouter = (db: Firestore, bucket: Bucket): Router => {
       throw new HttpError(400, 'BAD_REQUEST', message);
     }
 
-    const result = await reportsServiceModule.createFoundReport(db, bucket, parsed.data);
+    let result: { id: string; report: { referenceCode: string } };
+    try {
+      result = await reportsServiceModule.createFoundReport(db, bucket, parsed.data);
+    } catch (error) {
+      if (error instanceof reportsServiceModule.ReportPhotoUploadError) {
+        if (error.code === 'INVALID_PHOTO_DATA_URL') {
+          throw new HttpError(400, 'BAD_REQUEST', error.message);
+        }
+
+        throw new HttpError(503, 'PHOTO_UPLOAD_FAILED', error.message);
+      }
+
+      throw error;
+    }
+
     res.status(201).json({
       id: result.id,
       referenceCode: result.report.referenceCode,

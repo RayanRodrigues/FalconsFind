@@ -17,6 +17,7 @@ export class ErrorService {
       'NETWORK_ERROR': 'Network error. Please check your connection.',
       'FORBIDDEN': 'You are not allowed to perform this action.',
       'NOT_FOUND': 'The requested resource was not found.',
+      'PHOTO_UPLOAD_FAILED': 'Photo upload is temporarily unavailable. Please try again or submit without photo.',
       'UNKNOWN_ERROR': 'An unexpected error occurred. Please try again.'
     };
 
