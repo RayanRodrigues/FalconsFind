@@ -12,6 +12,16 @@ const createFakeDb = ({ items = {}, reports = {} } = {}) => {
     data: () => source,
   });
 
+  const normalizeDate = (value) => {
+    if (typeof value === 'string') {
+      return value;
+    }
+    if (value && typeof value.toDate === 'function') {
+      return value.toDate().toISOString();
+    }
+    return new Date(0).toISOString();
+  };
+
   return {
     collection: (collectionName) => {
       if (collectionName === 'items') {
@@ -52,6 +62,55 @@ const createFakeDb = ({ items = {}, reports = {} } = {}) => {
 
       if (collectionName === 'reports') {
         return {
+          where: (field, operator, value) => {
+            assert.equal(field, 'kind');
+            assert.equal(operator, '==');
+
+            const byKind = Object.entries(reports)
+              .filter(([, report]) => report.kind === value);
+
+            return {
+              where: (innerField, innerOperator, innerValue) => {
+                assert.equal(innerField, 'status');
+                assert.equal(innerOperator, '==');
+
+                const filtered = byKind
+                  .filter(([, report]) => report.status === innerValue);
+
+                return {
+                  count: () => ({
+                    get: async () => ({
+                      data: () => ({ count: filtered.length }),
+                    }),
+                  }),
+                  orderBy: (orderField, direction) => {
+                    assert.equal(orderField, 'dateReported');
+                    assert.equal(direction, 'desc');
+
+                    const sorted = [...filtered].sort((a, b) => {
+                      const aDate = normalizeDate(a[1].dateReported);
+                      const bDate = normalizeDate(b[1].dateReported);
+                      return bDate.localeCompare(aDate);
+                    });
+
+                    return {
+                      offset: (offsetValue) => ({
+                        limit: (limitValue) => ({
+                          get: async () => {
+                            const page = sorted
+                              .slice(offsetValue, offsetValue + limitValue)
+                              .map(([id, data]) => normalizeDoc(id, data));
+
+                            return { docs: page };
+                          },
+                        }),
+                      }),
+                    };
+                  },
+                };
+              },
+            };
+          },
           doc: (id) => ({
             get: async () => {
               const source = reports[id];
@@ -91,6 +150,87 @@ const buildTestApp = ({ items = {}, reports = {} } = {}) => {
   app.use(errorHandler);
   return app;
 };
+
+test('GET /api/v1/items returns paginated validated found items with thumbnailUrl', async () => {
+  const app = buildTestApp({
+    reports: {
+      'report-2': {
+        kind: 'FOUND',
+        title: 'Blue bottle',
+        status: 'VALIDATED',
+        referenceCode: 'FND-20260225-BLUE0002',
+        location: 'Gym',
+        dateReported: '2026-02-25T14:00:00.000Z',
+        photoUrl: 'gs://test-bucket/reports/found/report-2.jpg',
+      },
+      'report-1': {
+        kind: 'FOUND',
+        title: 'Black backpack',
+        status: 'VALIDATED',
+        referenceCode: 'FND-20260225-BACK0001',
+        location: 'Library',
+        dateReported: '2026-02-25T12:00:00.000Z',
+        photoUrl: 'https://cdn.example.com/report-1.jpg',
+      },
+      'report-hidden': {
+        kind: 'FOUND',
+        title: 'Pending item',
+        status: 'REPORTED',
+        referenceCode: 'FND-20260225-HIDE0003',
+        dateReported: '2026-02-25T15:00:00.000Z',
+      },
+      'report-lost': {
+        kind: 'LOST',
+        title: 'Lost laptop',
+        status: 'VALIDATED',
+        referenceCode: 'LST-20260225-LOST0004',
+        dateReported: '2026-02-25T16:00:00.000Z',
+      },
+    },
+  });
+
+  const response = await request(app).get('/api/v1/items?page=1&limit=2');
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.page, 1);
+  assert.equal(response.body.limit, 2);
+  assert.equal(response.body.total, 2);
+  assert.equal(response.body.totalPages, 1);
+  assert.equal(response.body.hasNextPage, false);
+  assert.equal(response.body.hasPrevPage, false);
+  assert.equal(response.body.items.length, 2);
+  assert.equal(response.body.items[0].id, 'report-2');
+  assert.match(response.body.items[0].thumbnailUrl, /^https:\/\/signed\.local\//);
+  assert.equal(response.body.items[1].id, 'report-1');
+  assert.equal(response.body.items[1].thumbnailUrl, 'https://cdn.example.com/report-1.jpg');
+});
+
+test('GET /api/v1/items skips malformed items from list payload', async () => {
+  const app = buildTestApp({
+    reports: {
+      'valid-item': {
+        kind: 'FOUND',
+        title: 'Wallet',
+        status: 'VALIDATED',
+        referenceCode: 'FND-20260225-WALLET01',
+        dateReported: '2026-02-25T12:00:00.000Z',
+      },
+      'invalid-item': {
+        kind: 'FOUND',
+        status: 'VALIDATED',
+        referenceCode: 'FND-20260225-BROKEN01',
+        dateReported: '2026-02-25T13:00:00.000Z',
+      },
+    },
+  });
+
+  const response = await request(app).get('/api/v1/items');
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.total, 2);
+  assert.equal(response.body.items.length, 1);
+  assert.equal(response.body.items[0].id, 'valid-item');
+});
 
 test('GET /api/v1/items/:id returns 200 for validated item id', async () => {
   const app = buildTestApp({

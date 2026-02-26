@@ -1,19 +1,9 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
 import { finalize, timeout } from 'rxjs/operators';
 import type { ItemPublicResponse } from '../../../../models';
-
-type ItemsResponse = {
-  page: number;
-  limit: number;
-  total: number;
-  totalPages: number;
-  hasNextPage: boolean;
-  hasPrevPage: boolean;
-  items: ItemPublicResponse[];
-};
+import { ItemsApiService, type ItemsListResponse } from '../../../../core/services/items-api.service';
 
 @Component({
   selector: 'app-found-items-page',
@@ -34,7 +24,7 @@ export class FoundItemsPageComponent implements OnInit {
   hasNextPage = false;
   hasPrevPage = false;
 
-  constructor(private http: HttpClient, private cdr: ChangeDetectorRef) {}
+  constructor(private itemsApi: ItemsApiService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit(): void {
     this.loadItems();
@@ -45,8 +35,8 @@ export class FoundItemsPageComponent implements OnInit {
     this.error = false;
     this.cdr.detectChanges();
 
-    this.http
-      .get<ItemsResponse>(`/items?page=${this.page}&limit=${this.limit}`)
+    this.itemsApi
+      .getFoundItems(this.page, this.limit)
       .pipe(
         timeout(3000),
         finalize(() => {
@@ -55,7 +45,7 @@ export class FoundItemsPageComponent implements OnInit {
         })
       )
       .subscribe({
-        next: (response) => {
+        next: (response: ItemsListResponse) => {
           this.items = response.items;
           this.page = response.page;
           this.limit = response.limit;

@@ -1,37 +1,23 @@
 import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import type { Observable } from 'rxjs';
+import type { ItemPublicResponse } from '../../models';
 
-export type FoundItem = {
-  id: string;
-  title: string;
-  dateReported?: any;
-  location?: string;
-  photoUrl?: string;
-  referenceCode?: string;
-};
-
-export type ItemsResponse = {
+export type ItemsListResponse = {
   page: number;
   limit: number;
   total: number;
   totalPages: number;
   hasNextPage: boolean;
   hasPrevPage: boolean;
-  items: FoundItem[];
+  items: ItemPublicResponse[];
 };
 
 @Injectable({ providedIn: 'root' })
 export class ItemsApiService {
-  private baseUrl = 'http://localhost:3000';
+  constructor(private readonly http: HttpClient) {}
 
-  async getFoundItems(page = 1, limit = 10): Promise<ItemsResponse> {
-    const url = `${this.baseUrl}/api/v1/items?page=${page}&limit=${limit}`;
-    const res = await fetch(url);
-
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(text || `Request failed with status ${res.status}`);
-    }
-
-    return (await res.json()) as ItemsResponse;
+  getFoundItems(page = 1, limit = 10): Observable<ItemsListResponse> {
+    return this.http.get<ItemsListResponse>(`/items?page=${page}&limit=${limit}`);
   }
 }

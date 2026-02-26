@@ -28,6 +28,7 @@ describe('listValidatedItems', () => {
             kind: 'FOUND',
             status: 'VALIDATED',
             title: 'B',
+            referenceCode: 'REF-B',
             dateReported: { toDate: () => new Date('2026-02-01T10:00:00.000Z') },
           }),
         },
