@@ -9,7 +9,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "test:ci": "npm run test:integration",
+    "test:ci": "npm run test && npm run test:integration",
     "test:integration": "npm run build && node --test test/integration/**/*.test.mjs"
   },
   "keywords": [],
