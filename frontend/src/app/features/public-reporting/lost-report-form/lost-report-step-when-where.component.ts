@@ -8,6 +8,7 @@ import {
 } from '@angular/forms';
 import { FormFieldComponent } from '../../../shared/components/forms/form-field.component';
 import { InputComponent } from '../../../shared/components/forms/input.component';
+import { PhotoUploadFieldComponent } from '../../../shared/components/forms/photo-upload-field.component';
 import { SelectComponent } from '../../../shared/components/forms/select.component';
 
 @Component({
@@ -18,6 +19,7 @@ import { SelectComponent } from '../../../shared/components/forms/select.compone
     ReactiveFormsModule,
     FormFieldComponent,
     InputComponent,
+    PhotoUploadFieldComponent,
     SelectComponent
   ],
   viewProviders: [{ provide: ControlContainer, useExisting: FormGroupDirective }],
@@ -53,6 +55,16 @@ import { SelectComponent } from '../../../shared/components/forms/select.compone
           <app-input id="time" type="time" formControlName="time" [invalid]="isFieldInvalid('time')" />
         </app-form-field>
       </div>
+
+      <app-photo-upload-field
+        id="photos"
+        inputId="photosInputLost"
+        label="Photos"
+        [photosCount]="form.get('photos')?.value?.length || 0"
+        [photoPreviewUrls]="photoPreviewUrls"
+        (filesSelected)="onPhotosSelected($event)"
+        (removePhoto)="onRemovePhoto($event)"
+      />
     </div>
   `
 })
@@ -60,6 +72,9 @@ export class LostReportStepWhenWhereComponent {
   @Input({ required: true }) form!: FormGroup;
   @Input({ required: true }) locations!: string[];
   @Input({ required: true }) todayDate!: string;
+  @Input({ required: true }) photoPreviewUrls: string[] = [];
   @Input({ required: true }) getFieldError!: (fieldName: string) => string | null;
   @Input({ required: true }) isFieldInvalid!: (fieldName: string) => boolean;
+  @Input({ required: true }) onPhotosSelected!: (files: File[]) => void;
+  @Input({ required: true }) onRemovePhoto!: (index: number) => void;
 }

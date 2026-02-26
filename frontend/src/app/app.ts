@@ -2,6 +2,8 @@ import { Component, signal, PLATFORM_ID, inject } from '@angular/core';
 import { isPlatformBrowser, JsonPipe } from '@angular/common';
 import { RouterOutlet } from '@angular/router';
 import type { ErrorResponse } from './models';
+import { NavbarComponent } from './shared/components/layout/navbar.component';
+import { FooterComponent } from './shared/components/layout/footer.component';
 
 type FirebaseStatus = 'idle' | 'ok' | 'error';
 
@@ -18,7 +20,7 @@ declare global {
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, JsonPipe],
+  imports: [RouterOutlet, JsonPipe, NavbarComponent, FooterComponent],
   templateUrl: './app.html',
   styleUrl: './app.css'
 })

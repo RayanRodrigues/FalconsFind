@@ -18,6 +18,17 @@ const healthRoutesModule = await importRuntimeModule<{
   createHealthRouter: (db: FirebaseFirestore.Firestore) => express.Router;
 }>(__dirname, './src/routes/health.routes');
 
+const rootRoutesModule = await importRuntimeModule<{
+  createRootRouter: (apiPrefix: string) => express.Router;
+}>(__dirname, './src/routes/root.routes');
+
+const itemsRoutesModule = await importRuntimeModule<{
+  createItemsRouter: (
+    db: FirebaseFirestore.Firestore,
+    bucket: unknown,
+  ) => express.Router;
+}>(__dirname, './src/routes/items.routes');
+
 const reportsRoutesModule = await importRuntimeModule<{
   createReportsRouter: (
     db: FirebaseFirestore.Firestore,
@@ -36,19 +47,22 @@ await runStartupFirestoreCheck(db);
 app.use(cors());
 app.use(express.json());
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(openApiModule.openApiDocument));
+app.use(rootRoutesModule.createRootRouter(appConfig.apiPrefix));
 
 app.get('/health', (_req, res) => {
   res.json({ ok: true, service: 'backend' });
 });
 
+
 app.use(healthRoutesModule.createHealthRouter(db));
 app.use(reportsRoutesModule.createReportsRouter(db, bucket));
+app.use(itemsRoutesModule.createItemsRouter(db, bucket));
 app.use(notFoundHandler);
 app.use(errorHandler);
 
-app.listen(appConfig.port, '0.0.0.0', () => {
-  const externalUrl = process.env.RENDER_EXTERNAL_URL;
-  const publicUrl = externalUrl ?? `http://localhost:${appConfig.port}`;
-  console.log(`Server running on port ${appConfig.port}`);
-  console.log(`Public URL: ${publicUrl}`);
+app.listen(appConfig.port, () => {
+  console.log(`Server running at http://localhost:${appConfig.port}`);
+  console.log(
+    `Environment: ${appConfig.appEnv} | Public API base: ${appConfig.apiBaseUrl}${appConfig.apiPrefix}`,
+  );
 });

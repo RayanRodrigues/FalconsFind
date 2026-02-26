@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - dev
+      - main
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: Build, Lint, and Test
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [24.x]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            frontend/package-lock.json
+            backend/package-lock.json
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Run frontend lint
+        run: |
+          if node -e "const p=require('./frontend/package.json');process.exit(p.scripts&&p.scripts.lint?0:1)"; then
+            npm run -s lint --prefix frontend
+          else
+            echo "Skipping frontend lint (no script)"
+          fi
+
+      - name: Run backend lint
+        run: |
+          if node -e "const p=require('./backend/package.json');process.exit(p.scripts&&p.scripts.lint?0:1)"; then
+            npm run -s lint --prefix backend
+          else
+            echo "Skipping backend lint (no script)"
+          fi
+
+      - name: Run all tests (CI)
+        run: |
+          if node -e "const p=require('./package.json');process.exit(p.scripts&&p.scripts['test:ci']?0:1)"; then
+            npm run -s test:ci
+          else
+            echo "Skipping tests (no root test:ci script)"
+          fi
+
+      - name: Build frontend
+        run: npm run build:front
+
+      - name: Build backend
+        run: npm run build:back
+
+      - name: CI Success
+        run: echo "✅ All CI checks passed!"

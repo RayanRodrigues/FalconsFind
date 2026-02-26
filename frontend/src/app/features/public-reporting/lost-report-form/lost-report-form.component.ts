@@ -18,6 +18,8 @@ import { AlertComponent } from '../../../shared/components/feedback/alert.compon
 import { LostReportStepBasicComponent } from './lost-report-step-basic.component';
 import { LostReportStepWhenWhereComponent } from './lost-report-step-when-where.component';
 import { LostReportStepContactComponent } from './lost-report-step-contact.component';
+import { ReportStepsComponent } from '../../../shared/components/navigation/report-steps.component';
+import { mergeSelectedPhotos } from '../../../shared/utils/photo-upload.util';
 
 @Component({
   selector: 'app-lost-report-form',
@@ -28,6 +30,7 @@ import { LostReportStepContactComponent } from './lost-report-step-contact.compo
     CardComponent,
     ButtonComponent,
     AlertComponent,
+    ReportStepsComponent,
     LostReportStepBasicComponent,
     LostReportStepWhenWhereComponent,
     LostReportStepContactComponent
@@ -40,7 +43,7 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
   submitError: string | null = null;
   submitSuccess = false;
   referenceCode: string | null = null;
-  photoPreviewUrl: string | null = null;
+  photoPreviewUrls: string[] = [];
   currentStep = 1;
   readonly totalSteps = 3;
   readonly todayDate = this.formatLocalDate(new Date());
@@ -59,8 +62,8 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
   private readonly stepFields: Record<number, string[]> = {
     1: ['title', 'category', 'description'],
-    2: ['location', 'date', 'time'],
-    3: ['contactName', 'contactEmail', 'contactPhone', 'photo', 'additionalInfo']
+    2: ['location', 'date', 'time', 'photos'],
+    3: ['contactName', 'contactEmail', 'contactPhone', 'additionalInfo']
   };
 
   constructor(
@@ -77,6 +80,7 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.destroy$.next();
+    this.revokePreviewUrls();
     this.destroy$.complete();
   }
 
@@ -91,7 +95,7 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
       contactName: ['', [Validators.required, Validators.minLength(2), Validators.maxLength(50)]],
       contactEmail: ['', [Validators.required, Validators.email]],
       contactPhone: ['', [Validators.pattern('^[0-9+\\-\\s()]{10,15}$')]],
-      photo: [null],
+      photos: [[] as File[]],
       additionalInfo: ['', Validators.maxLength(200)]
     });
   }
@@ -111,30 +115,40 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
     return control ? (control.invalid && control.touched) : false;
   }
 
-  onFileSelected(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    if (input.files && input.files.length > 0) {
-      const file = input.files[0];
-      
-      const validTypes = ['image/jpeg', 'image/png', 'image/jpg'];
-      if (!validTypes.includes(file.type)) {
-        this.submitError = 'Please select a valid image file (JPEG, PNG)';
-        input.value = '';
-        this.photoPreviewUrl = null;
-        return;
+  private revokePreviewUrls(urls: string[] = this.photoPreviewUrls): void {
+    for (const url of urls) {
+      try {
+        URL.revokeObjectURL(url);
+      } catch {
+        // ignore
       }
-      
-      if (file.size > 5 * 1024 * 1024) {
-        this.submitError = 'File size must be less than 5MB';
-        input.value = '';
-        this.photoPreviewUrl = null;
-        return;
-      }
-      
-      this.reportForm.patchValue({ photo: file });
-      this.photoPreviewUrl = URL.createObjectURL(file);
-      this.submitError = null;
     }
+  }
+
+  private rebuildPreviewUrls(files: File[]): void {
+    this.revokePreviewUrls();
+    this.photoPreviewUrls = files.map((file) => URL.createObjectURL(file));
+  }
+
+  onPhotosSelected(files: File[]): void {
+    this.handlePhotoFiles(files);
+  }
+
+  private handlePhotoFiles(files: File[]): void {
+    if (files.length === 0) return;
+    const currentPhotos: File[] = (this.reportForm.get('photos')?.value as File[]) ?? [];
+    const { photos: nextPhotos, error: nextError } = mergeSelectedPhotos(currentPhotos, files);
+
+    this.reportForm.patchValue({ photos: nextPhotos });
+    this.rebuildPreviewUrls(nextPhotos);
+    this.submitError = nextError;
+  }
+
+  removePhoto(index: number): void {
+    const currentPhotos: File[] = (this.reportForm.get('photos')?.value as File[]) ?? [];
+    const nextPhotos = currentPhotos.filter((_, currentIndex) => currentIndex !== index);
+    this.reportForm.patchValue({ photos: nextPhotos });
+    this.rebuildPreviewUrls(nextPhotos);
   }
 
   onSubmit(): void {
@@ -191,9 +205,11 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
       contactEmail: formValue.contactEmail
     };
 
-    if (formValue.photo instanceof File) {
-      request.photoDataUrl = await this.fileToDataUrl(formValue.photo);
-    }
+    const photos: File[] = Array.isArray(formValue.photos) ? formValue.photos : [];
+    if (photos.length > 0) {
+      // For now: send the first photo only (backend expects one)
+      request.photoDataUrl = await this.fileToDataUrl(photos[0]);
+    } 
 
     this.reportService.createLostReport(request)
       .pipe(
@@ -234,7 +250,8 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
     this.submitSuccess = false;
     this.referenceCode = null;
     this.submitError = null;
-    this.photoPreviewUrl = null;
+    this.revokePreviewUrls();
+    this.photoPreviewUrls = [];
     this.currentStep = 1;
   }
 
@@ -248,4 +265,5 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   }
+
 }
