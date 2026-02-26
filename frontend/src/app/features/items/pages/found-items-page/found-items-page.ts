@@ -1,7 +1,9 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { finalize, timeout } from 'rxjs/operators';
+import type { ItemPublicResponse } from '../../../../models';
 
 type ItemsResponse = {
   page: number;
@@ -10,13 +12,13 @@ type ItemsResponse = {
   totalPages: number;
   hasNextPage: boolean;
   hasPrevPage: boolean;
-  items: any[];
+  items: ItemPublicResponse[];
 };
 
 @Component({
   selector: 'app-found-items-page',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, RouterLink],
   templateUrl: './found-items-page.html',
   styleUrl: './found-items-page.css',
 })
@@ -24,7 +26,7 @@ export class FoundItemsPageComponent implements OnInit {
   loading = true;
   error = false;
 
-  items: any[] = [];
+  items: ItemPublicResponse[] = [];
 
   page = 1;
   limit = 10;
@@ -41,7 +43,7 @@ export class FoundItemsPageComponent implements OnInit {
   loadItems() {
     this.loading = true;
     this.error = false;
-    this.cdr.detectChanges(); // force UI update immediately
+    this.cdr.detectChanges();
 
     this.http
       .get<ItemsResponse>(`/items?page=${this.page}&limit=${this.limit}`)
@@ -49,7 +51,7 @@ export class FoundItemsPageComponent implements OnInit {
         timeout(3000),
         finalize(() => {
           this.loading = false;
-          this.cdr.detectChanges(); // force UI update when request finishes
+          this.cdr.detectChanges();
         })
       )
       .subscribe({
@@ -60,12 +62,12 @@ export class FoundItemsPageComponent implements OnInit {
           this.totalPages = response.totalPages;
           this.hasNextPage = response.hasNextPage;
           this.hasPrevPage = response.hasPrevPage;
-          this.cdr.detectChanges(); // force UI update with results
+          this.cdr.detectChanges();
         },
         error: (err) => {
           console.log('[FoundItems] request failed:', err);
           this.error = true;
-          this.cdr.detectChanges(); // force UI update to error state
+          this.cdr.detectChanges();
         },
       });
   }
@@ -84,5 +86,21 @@ export class FoundItemsPageComponent implements OnInit {
     if (!this.hasNextPage) return;
     this.page += 1;
     this.loadItems();
+  }
+
+  getStatusLabel(status: string): string {
+    return status.replace(/_/g, ' ');
+  }
+
+  getStatusClass(status: string): string {
+    const statusClasses: Record<string, string> = {
+      REPORTED: 'bg-info/10 text-info border-info/20',
+      PENDING_VALIDATION: 'bg-warning/20 text-text-primary border-warning/30',
+      VALIDATED: 'bg-success/10 text-success border-success/30',
+      CLAIMED: 'bg-primary/10 text-primary border-primary/30',
+      RETURNED: 'bg-secondary/10 text-secondary border-secondary/30',
+      ARCHIVED: 'bg-border/30 text-text-secondary border-border',
+    };
+    return statusClasses[status] ?? 'bg-border/30 text-text-secondary border-border';
   }
 }
