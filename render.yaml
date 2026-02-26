@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: falconfind-api
+    runtime: node
+    buildCommand: npm ci && npm ci --prefix backend && npm run build:back
+    startCommand: npm run start:back
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
