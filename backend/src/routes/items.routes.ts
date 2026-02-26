@@ -20,6 +20,7 @@ const itemsServiceModule = (await import(pathToFileURL(servicePath).href)) as {
   isItemPubliclyVisible: (item: ItemDetailsResponse) => boolean;
   listValidatedItems: (
     db: Firestore,
+    bucket: Bucket,
     params: { page: number; limit: number },
   ) => Promise<{
     items: unknown[];
@@ -42,7 +43,7 @@ export const createItemsRouter = (db: Firestore, bucket: Bucket): Router => {
     const limitRaw = parsePositiveInt(req.query.limit, 10);
     const limit = Math.min(limitRaw, 50);
 
-    const result = await itemsServiceModule.listValidatedItems(db, { page, limit });
+    const result = await itemsServiceModule.listValidatedItems(db, bucket, { page, limit });
     const totalPages = Math.max(1, Math.ceil(result.total / limit));
 
     res.status(200).json({

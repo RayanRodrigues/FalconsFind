@@ -1,7 +1,7 @@
 import type { DocumentData, Firestore } from 'firebase-admin/firestore';
 import type { Bucket } from '@google-cloud/storage';
 import { ItemStatus } from '../contracts/index.js';
-import type { ItemDetailsResponse, Report } from '../contracts/index.js';
+import type { ItemDetailsResponse, ItemPublicResponse, Report } from '../contracts/index.js';
 
 type StoredItem = {
   id?: string;
@@ -177,8 +177,9 @@ export const isItemPubliclyVisible = (item: ItemDetailsResponse): boolean => {
 
 export const listValidatedItems = async (
   db: Firestore,
+  bucket: Bucket,
   params: ListValidatedItemsParams,
-): Promise<{ items: Array<Report>; total: number }> => {
+): Promise<{ items: Array<ItemPublicResponse>; total: number }> => {
   const page = Math.max(1, Math.floor(params.page));
   const limit = Math.max(1, Math.floor(params.limit));
   const offset = (page - 1) * limit;
@@ -197,16 +198,46 @@ export const listValidatedItems = async (
     .limit(limit)
     .get();
 
-  const items = pageSnap.docs.map((doc) => {
-    const data = doc.data() as Omit<Report, 'id'> & { dateReported?: unknown };
+  const itemCandidates = await Promise.all(pageSnap.docs.map(async (doc) => {
+    const data = doc.data() as Omit<Report, 'id'> & { dateReported?: unknown; imageUrls?: string[] };
     const dateReported = normalizeDateReported(data.dateReported);
+    const thumbnailSource =
+      (Array.isArray(data.imageUrls) && data.imageUrls.length > 0 ? data.imageUrls[0] : undefined)
+      ?? data.photoUrl;
+
+    let thumbnailUrl: string | undefined;
+    if (typeof thumbnailSource === 'string' && thumbnailSource.trim().length > 0) {
+      try {
+        thumbnailUrl = await toPublicImageUrl(bucket, thumbnailSource);
+      } catch {
+        thumbnailUrl = thumbnailSource;
+      }
+    }
+
+    if (
+      typeof data.title !== 'string'
+      || data.title.trim().length === 0
+      || typeof data.referenceCode !== 'string'
+      || data.referenceCode.trim().length === 0
+      || !dateReported
+      || !data.status
+      || !Object.values(ItemStatus).includes(data.status)
+    ) {
+      return null;
+    }
 
     return {
       id: doc.id,
-      ...data,
-      dateReported: dateReported ?? new Date(0).toISOString(),
-    } as Report;
-  });
+      title: data.title,
+      status: data.status,
+      referenceCode: data.referenceCode,
+      location: data.location,
+      dateReported,
+      thumbnailUrl,
+    } as ItemPublicResponse;
+  }));
+
+  const items = itemCandidates.filter((item): item is ItemPublicResponse => item !== null);
 
   return { items, total };
 };

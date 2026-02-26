@@ -6,6 +6,7 @@ type FakeSnap = { docs: FakeDoc[] };
 
 describe('listValidatedItems', () => {
   let db: unknown;
+  let bucket: unknown;
 
   let collectionFn: ReturnType<typeof vi.fn>;
   let where1Fn: ReturnType<typeof vi.fn>;
@@ -62,16 +63,32 @@ describe('listValidatedItems', () => {
 
     collectionFn = vi.fn().mockReturnValue(collectionObj);
     db = { collection: collectionFn };
+    bucket = {
+      name: 'test-bucket',
+      file: (filePath: string) => ({
+        getSignedUrl: vi.fn().mockResolvedValue([`https://signed.local/${filePath}`]),
+      }),
+      storage: {
+        bucket: (bucketName: string) => ({
+          file: (filePath: string) => ({
+            getSignedUrl: vi
+              .fn()
+              .mockResolvedValue([`https://signed.local/${bucketName}/${filePath}`]),
+          }),
+        }),
+      },
+    };
   });
 
   it('filters FOUND + VALIDATED, returns total + paged items', async () => {
-    const result = await listValidatedItems(db as never, { page: 1, limit: 10 });
+    const result = await listValidatedItems(db as never, bucket as never, { page: 1, limit: 10 });
 
     expect(result.total).toBe(2);
     expect(result.items).toHaveLength(1);
     expect(result.items[0].id).toBe('b');
     expect(result.items[0].title).toBe('B');
     expect(result.items[0].dateReported).toBe('2026-02-01T10:00:00.000Z');
+    expect(result.items[0].thumbnailUrl).toBeUndefined();
 
     expect(collectionFn).toHaveBeenCalledWith('reports');
     expect(where1Fn).toHaveBeenCalledWith('kind', '==', 'FOUND');
@@ -87,14 +104,14 @@ describe('listValidatedItems', () => {
   });
 
   it('clamps page and limit to at least 1', async () => {
-    await listValidatedItems(db as never, { page: 0, limit: 0 });
+    await listValidatedItems(db as never, bucket as never, { page: 0, limit: 0 });
 
     expect(offsetFn).toHaveBeenCalledWith(0);
     expect(limitFn).toHaveBeenCalledWith(1);
   });
 
   it('uses correct offset for page 3 with limit 5', async () => {
-    await listValidatedItems(db as never, { page: 3, limit: 5 });
+    await listValidatedItems(db as never, bucket as never, { page: 3, limit: 5 });
 
     expect(offsetFn).toHaveBeenCalledWith(10);
     expect(limitFn).toHaveBeenCalledWith(5);
