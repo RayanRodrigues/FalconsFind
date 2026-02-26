@@ -6,8 +6,8 @@ export type PublicEnv = {
 };
 
 export const publicEnv: PublicEnv = {
-  appEnv: 'development',
-  apiBaseUrl: 'http://localhost:3000',
-  apiPrefix: '/api/v1',
+  appEnv: "development",
+  apiBaseUrl: "http://localhost:3000",
+  apiPrefix: "/api/v1",
   enableFirebaseHealthTest: false,
 };

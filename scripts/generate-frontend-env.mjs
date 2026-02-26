@@ -1,7 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const rootDir = process.cwd();
+// Resolve the project root from the script's own location so this script
+// works correctly regardless of which directory it is invoked from.
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const rootDir = path.resolve(scriptDir, '..');
 const envPath = path.join(rootDir, '.env');
 const examplePath = path.join(rootDir, '.env.example');
 const outPath = path.join(rootDir, 'frontend', 'src', 'app', 'config', 'public-env.generated.ts');
@@ -107,5 +111,6 @@ const output = [
   '};',
   '',
 ].join('\n');
+fs.mkdirSync(path.dirname(outPath), { recursive: true });
 fs.writeFileSync(outPath, output);
 console.log(`Generated ${path.relative(rootDir, outPath)}`);
