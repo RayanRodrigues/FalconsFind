@@ -6,7 +6,10 @@
   "scripts": {
     "build": "tsc",
     "lint": "tsc --noEmit -p tsconfig.json",
-    "test:ci": "npm run test:integration",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:ci": "npm run test && npm run test:integration",
     "test:integration": "npm run build && node --test test/integration/**/*.test.mjs"
   },
   "keywords": [],
@@ -28,6 +31,8 @@
     "@types/express": "^5.0.6",
     "@types/node": "^25.2.0",
     "@types/swagger-ui-express": "^4.1.8",
-    "supertest": "^7.1.4"
+    "@vitest/coverage-v8": "^4.0.18",
+    "supertest": "^7.1.4",
+    "vitest": "^4.0.18"
   }
 }

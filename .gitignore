@@ -58,7 +58,6 @@ messi.json
 
 .DS_Store
 Thumbs.db
+
 backend/serviceAccountKey.json
 backend/.env
-
-

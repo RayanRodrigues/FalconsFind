@@ -18,21 +18,23 @@ const healthRoutesModule = await importRuntimeModule<{
   createHealthRouter: (db: FirebaseFirestore.Firestore) => express.Router;
 }>(__dirname, './src/routes/health.routes');
 
-const reportsRoutesModule = await importRuntimeModule<{
-  createReportsRouter: (
-    db: FirebaseFirestore.Firestore,
-    bucket: unknown,
-  ) => express.Router;
-}>(__dirname, './src/routes/reports.routes');
 const rootRoutesModule = await importRuntimeModule<{
   createRootRouter: (apiPrefix: string) => express.Router;
 }>(__dirname, './src/routes/root.routes');
+
 const itemsRoutesModule = await importRuntimeModule<{
   createItemsRouter: (
     db: FirebaseFirestore.Firestore,
     bucket: unknown,
   ) => express.Router;
 }>(__dirname, './src/routes/items.routes');
+
+const reportsRoutesModule = await importRuntimeModule<{
+  createReportsRouter: (
+    db: FirebaseFirestore.Firestore,
+    bucket: unknown,
+  ) => express.Router;
+}>(__dirname, './src/routes/reports.routes');
 
 const openApiModule = await importRuntimeModule<{
   openApiDocument: object;
@@ -50,6 +52,7 @@ app.use(rootRoutesModule.createRootRouter(appConfig.apiPrefix));
 app.get('/health', (_req, res) => {
   res.json({ ok: true, service: 'backend' });
 });
+
 
 app.use(healthRoutesModule.createHealthRouter(db));
 app.use(reportsRoutesModule.createReportsRouter(db, bucket));

@@ -18,10 +18,44 @@ const itemsServiceModule = (await import(pathToFileURL(servicePath).href)) as {
   InvalidItemDataError: new () => Error;
   getItemById: (db: Firestore, bucket: Bucket, itemId: string) => Promise<ItemDetailsResponse | null>;
   isItemPubliclyVisible: (item: ItemDetailsResponse) => boolean;
+  listValidatedItems: (
+    db: Firestore,
+    bucket: Bucket,
+    params: { page: number; limit: number },
+  ) => Promise<{
+    items: unknown[];
+    total: number;
+  }>;
 };
+
+function parsePositiveInt(value: unknown, fallback: number): number {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  const i = Math.floor(n);
+  return i > 0 ? i : fallback;
+}
 
 export const createItemsRouter = (db: Firestore, bucket: Bucket): Router => {
   const router = Router();
+
+  router.get(`${API_PREFIX}/items`, async (req, res) => {
+    const page = parsePositiveInt(req.query.page, 1);
+    const limitRaw = parsePositiveInt(req.query.limit, 10);
+    const limit = Math.min(limitRaw, 50);
+
+    const result = await itemsServiceModule.listValidatedItems(db, bucket, { page, limit });
+    const totalPages = Math.max(1, Math.ceil(result.total / limit));
+
+    res.status(200).json({
+      page,
+      limit,
+      total: result.total,
+      totalPages,
+      hasNextPage: page < totalPages,
+      hasPrevPage: page > 1,
+      items: result.items,
+    });
+  });
 
   router.get(`${API_PREFIX}/items/:id`, async (req, res) => {
     const itemId = req.params.id?.trim();
@@ -39,6 +73,7 @@ export const createItemsRouter = (db: Firestore, bucket: Bucket): Router => {
 
       throw error;
     }
+
     if (!item) {
       throw new HttpError(404, 'NOT_FOUND', 'Item not found');
     }
