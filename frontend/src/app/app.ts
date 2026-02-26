@@ -4,19 +4,9 @@ import { RouterOutlet } from '@angular/router';
 import type { ErrorResponse } from './models';
 import { NavbarComponent } from './shared/components/layout/navbar.component';
 import { FooterComponent } from './shared/components/layout/footer.component';
+import { publicEnv } from './config/public-env.generated';
 
 type FirebaseStatus = 'idle' | 'ok' | 'error';
-
-type FrontendEnv = {
-  API_BASE_URL?: string;
-  ENABLE_FIREBASE_HEALTH_TEST?: string;
-};
-
-declare global {
-  interface Window {
-    __env?: FrontendEnv;
-  }
-}
 
 @Component({
   selector: 'app-root',
@@ -38,16 +28,20 @@ export class App {
       return;
     }
 
-    const healthTestEnabled =
-      (window.__env?.ENABLE_FIREBASE_HEALTH_TEST ?? 'false').toLowerCase() === 'true';
+    const healthTestEnabled = publicEnv.enableFirebaseHealthTest;
     this.showFirebaseHealthTest.set(healthTestEnabled);
     if (!healthTestEnabled) {
       return;
     }
 
     try {
-      const baseUrl = window.__env?.API_BASE_URL ?? 'http://localhost:3000';
-      const response = await fetch(`${baseUrl}/api/v1/health/firebase`);
+      const normalizedBase = publicEnv.apiBaseUrl.endsWith('/')
+        ? publicEnv.apiBaseUrl.slice(0, -1)
+        : publicEnv.apiBaseUrl;
+      const normalizedPrefix = publicEnv.apiPrefix.startsWith('/')
+        ? publicEnv.apiPrefix
+        : `/${publicEnv.apiPrefix}`;
+      const response = await fetch(`${normalizedBase}${normalizedPrefix}/health/firebase`);
       const contentType = response.headers.get('content-type') ?? '';
       const payload = contentType.includes('application/json')
         ? await response.json()

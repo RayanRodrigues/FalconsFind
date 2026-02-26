@@ -4,30 +4,23 @@ import path from 'node:path';
 const rootDir = process.cwd();
 const envPath = path.join(rootDir, '.env');
 const examplePath = path.join(rootDir, '.env.example');
-const outPath = path.join(rootDir, 'frontend', 'public', 'env.js');
+const outPath = path.join(rootDir, 'frontend', 'src', 'app', 'config', 'public-env.generated.ts');
 
 let sourcePath = envPath;
+let raw = '';
 
 if (!fs.existsSync(envPath)) {
   if (fs.existsSync(examplePath)) {
-    if (process.env.CI) {
-      console.warn('Missing .env in project root. Using .env.example for CI.');
-      sourcePath = examplePath;
-    } else {
-      console.error('Missing .env in project root. Copy .env.example to .env.');
-      process.exit(1);
-    }
-  } else if (process.env.CI) {
-    console.warn('Missing .env and .env.example. Generating empty env.js for CI.');
-    fs.writeFileSync(outPath, 'window.__env = {};');
-    process.exit(0);
+    console.warn('Missing .env in project root. Using .env.example values as fallback.');
+    sourcePath = examplePath;
   } else {
-    console.error('Missing .env in project root.');
-    process.exit(1);
+    console.warn('Missing .env and .env.example. Using only process environment variables.');
+    sourcePath = null;
   }
 }
-
-const raw = fs.readFileSync(sourcePath, 'utf8');
+if (sourcePath) {
+  raw = fs.readFileSync(sourcePath, 'utf8');
+}
 const env = {};
 
 for (const line of raw.split(/\r?\n/)) {
@@ -98,6 +91,21 @@ publicEnv.APP_ENV = appEnv;
 publicEnv.API_BASE_URL = resolveApiBaseUrl(appEnv);
 publicEnv.API_PREFIX = process.env.API_PREFIX ?? env.API_PREFIX ?? '/api/v1';
 
-const output = `window.__env = ${JSON.stringify(publicEnv, null, 2)};`;
+const output = [
+  "export type PublicEnv = {",
+  "  appEnv: 'development' | 'production';",
+  '  apiBaseUrl: string;',
+  '  apiPrefix: string;',
+  '  enableFirebaseHealthTest: boolean;',
+  '};',
+  '',
+  'export const publicEnv: PublicEnv = {',
+  `  appEnv: ${JSON.stringify(publicEnv.APP_ENV)},`,
+  `  apiBaseUrl: ${JSON.stringify(publicEnv.API_BASE_URL)},`,
+  `  apiPrefix: ${JSON.stringify(publicEnv.API_PREFIX)},`,
+  `  enableFirebaseHealthTest: ${(publicEnv.ENABLE_FIREBASE_HEALTH_TEST ?? 'false').toLowerCase() === 'true'},`,
+  '};',
+  '',
+].join('\n');
 fs.writeFileSync(outPath, output);
 console.log(`Generated ${path.relative(rootDir, outPath)}`);
