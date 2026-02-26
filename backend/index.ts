@@ -45,7 +45,7 @@ const { db, bucket } = initializeFirebaseServices(__dirname);
 await runStartupFirestoreCheck(db);
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(openApiModule.openApiDocument));
 app.use(rootRoutesModule.createRootRouter(appConfig.apiPrefix));
 
