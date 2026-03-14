@@ -62,7 +62,9 @@ app.use(
   }),
 );
 app.use(express.json({ limit: '10mb' }));
-app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(openApiModule.openApiDocument));
+if (appConfig.appEnv !== 'production') {
+  app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(openApiModule.openApiDocument));
+}
 app.use(rootRoutesModule.createRootRouter(appConfig.apiPrefix));
 
 app.get('/health', (_req, res) => {
