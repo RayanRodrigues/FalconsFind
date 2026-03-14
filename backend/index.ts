@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
@@ -13,6 +14,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 loadEnvironment(__dirname);
 const appConfig = getAppConfig();
+const faviconPathCandidates = [
+  path.resolve(__dirname, './public/favicon.ico'),
+  path.resolve(process.cwd(), 'backend/public/favicon.ico'),
+];
+const faviconPath = faviconPathCandidates.find((candidate) => fs.existsSync(candidate));
 
 const healthRoutesModule = await importRuntimeModule<{
   createHealthRouter: (db: FirebaseFirestore.Firestore) => express.Router;
@@ -65,6 +71,14 @@ app.use(express.json({ limit: '10mb' }));
 if (appConfig.appEnv !== 'production') {
   app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(openApiModule.openApiDocument));
 }
+app.get('/favicon.ico', (_req, res) => {
+  if (!faviconPath) {
+    res.sendStatus(404);
+    return;
+  }
+
+  res.sendFile(faviconPath);
+});
 app.use(rootRoutesModule.createRootRouter(appConfig.apiPrefix));
 
 app.get('/health', (_req, res) => {
