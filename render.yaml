@@ -9,3 +9,5 @@ services:
         value: production
       - key: PORT
         value: 3000
+      - key: CORS_ALLOWED_ORIGINS_PROD
+        sync: false

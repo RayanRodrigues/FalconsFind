@@ -44,7 +44,23 @@ const app = express();
 const { db, bucket } = initializeFirebaseServices(__dirname);
 await runStartupFirestoreCheck(db);
 
-app.use(cors());
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      if (appConfig.corsAllowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error('CORS origin not allowed'));
+    },
+  }),
+);
 app.use(express.json({ limit: '10mb' }));
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(openApiModule.openApiDocument));
 app.use(rootRoutesModule.createRootRouter(appConfig.apiPrefix));
@@ -65,4 +81,5 @@ app.listen(appConfig.port, () => {
   console.log(
     `Environment: ${appConfig.appEnv} | Public API base: ${appConfig.apiBaseUrl}${appConfig.apiPrefix}`,
   );
+  console.log(`CORS allowed origins: ${appConfig.corsAllowedOrigins.join(', ') || '(none)'}`);
 });
