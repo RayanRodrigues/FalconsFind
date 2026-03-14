@@ -61,3 +61,9 @@ Thumbs.db
 
 backend/serviceAccountKey.json
 backend/.env
+
+############################
+# Security — keep out of public repo
+############################
+firestore.rules
+docs/firestore-rules.md
