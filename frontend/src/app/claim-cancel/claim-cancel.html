@@ -1,0 +1,60 @@
+<div class="cancel-page">
+  <div class="cancel-card">
+    <h1>Cancel Claim Request</h1>
+    <p class="intro-text">
+      If you no longer want to proceed with your claim request, you can cancel it here.
+    </p>
+
+    @if (successMessage) {
+      <div class="message success-message">
+        {{ successMessage }}
+      </div>
+    }
+
+    @if (errorMessage) {
+      <div class="message error-message">
+        {{ errorMessage }}
+      </div>
+    }
+
+    <div class="claim-summary">
+      <h2>Claim Details</h2>
+      <p><strong>Claim ID:</strong> {{ claim.claimId }}</p>
+      <p><strong>Full Name:</strong> {{ claim.fullName }}</p>
+      <p><strong>Item Name:</strong> {{ claim.itemName }}</p>
+      <p><strong>Reference Code:</strong> {{ claim.referenceCode }}</p>
+      <p>
+        <strong>Status:</strong>
+        <span
+          class="status-badge"
+          [class.pending]="claim.status === 'Pending'"
+          [class.cancelled]="claim.status === 'Cancelled'"
+        >
+          {{ claim.status }}
+        </span>
+      </p>
+    </div>
+
+    <div class="cancel-section">
+      <label for="confirmationText">
+        Type <strong>CANCEL</strong> to confirm cancellation
+      </label>
+      <input
+        type="text"
+        id="confirmationText"
+        name="confirmationText"
+        [(ngModel)]="confirmationText"
+        placeholder="Type CANCEL"
+        [disabled]="claim.status === 'Cancelled'"
+      />
+
+      <button
+        type="button"
+        (click)="cancelClaim()"
+        [disabled]="isCancelling || claim.status === 'Cancelled'"
+      >
+        {{ isCancelling ? 'Cancelling...' : 'Cancel Claim Request' }}
+      </button>
+    </div>
+  </div>
+</div>

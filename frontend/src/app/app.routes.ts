@@ -6,6 +6,7 @@ import { FoundItemsPageComponent } from './features/items/pages/found-items-page
 import { ItemDetailsComponent } from './features/items/item-details/item-details.component';
 import { ClaimRequest } from './claim-request/claim-request';
 import { ClaimReview } from './claim-review/claim-review';
+import { ClaimCancel } from './claim-cancel/claim-cancel';
 
 export const routes: Routes = [
   {
@@ -36,6 +37,11 @@ export const routes: Routes = [
     path: 'admin/claims',
     component: ClaimReview,
     title: 'Claim Review - FalconFind'
+  },
+    {
+    path: 'claim-cancel',
+    component: ClaimCancel,
+    title: 'Cancel Claim Request - FalconFind'
   },
   {
     path: 'items/:id',
