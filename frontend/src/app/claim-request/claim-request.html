@@ -1,0 +1,110 @@
+<div class="claim-page">
+  <div class="claim-card">
+    <h1>Submit Claim Request</h1>
+    <p class="intro-text">
+      Complete this form to submit a structured claim request for a found item.
+      Campus Security will review your information to verify ownership.
+    </p>
+
+    @if (successMessage) {
+      <div class="message success-message">
+        {{ successMessage }}
+      </div>
+    }
+
+    @if (errorMessage) {
+      <div class="message error-message">
+        {{ errorMessage }}
+      </div>
+    }
+
+    <form (ngSubmit)="submitClaim()" #claimForm="ngForm" class="claim-form">
+      <div class="form-group">
+        <label for="fullName">Full Name <span>*</span></label>
+        <input
+          type="text"
+          id="fullName"
+          name="fullName"
+          [(ngModel)]="claim.fullName"
+          required
+          placeholder="Enter your full name"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="email">Email Address <span>*</span></label>
+        <input
+          type="email"
+          id="email"
+          name="email"
+          [(ngModel)]="claim.email"
+          required
+          placeholder="Enter your email address"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="phone">Phone Number</label>
+        <input
+          type="text"
+          id="phone"
+          name="phone"
+          [(ngModel)]="claim.phone"
+          placeholder="Enter your phone number"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="referenceCode">Reference Code <span>*</span></label>
+        <input
+          type="text"
+          id="referenceCode"
+          name="referenceCode"
+          [(ngModel)]="claim.referenceCode"
+          required
+          placeholder="Enter the item reference code"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="itemName">Item Name <span>*</span></label>
+        <input
+          type="text"
+          id="itemName"
+          name="itemName"
+          [(ngModel)]="claim.itemName"
+          required
+          placeholder="Example: Black backpack"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="claimReason">Why do you believe this item is yours? <span>*</span></label>
+        <textarea
+          id="claimReason"
+          name="claimReason"
+          [(ngModel)]="claim.claimReason"
+          required
+          rows="4"
+          placeholder="Describe why you believe this item belongs to you"
+        ></textarea>
+      </div>
+
+      <div class="form-group">
+        <label for="proofDetails">Proof of Ownership <span>*</span></label>
+        <textarea
+          id="proofDetails"
+          name="proofDetails"
+          [(ngModel)]="claim.proofDetails"
+          required
+          rows="4"
+          placeholder="Describe any identifying marks, contents, brand, or other proof"
+        ></textarea>
+      </div>
+
+      <button type="submit" [disabled]="isSubmitting">
+        {{ isSubmitting ? 'Submitting...' : 'Submit Claim Request' }}
+      </button>
+    </form>
+  </div>
+</div>
