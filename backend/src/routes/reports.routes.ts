@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type { Request } from 'express';
 import multer from 'multer';
+import rateLimit from 'express-rate-limit';
 import type { Firestore } from 'firebase-admin/firestore';
 import type { Bucket } from '@google-cloud/storage';
 import type { CreateFoundReportRequest, CreateLostReportRequest } from '../contracts/index.js';
@@ -51,6 +52,18 @@ const reportsServiceModule = (await import(pathToFileURL(servicePath).href)) as 
 
 export const createReportsRouter = (db: Firestore, bucket: Bucket): Router => {
   const router = Router();
+  const createReportLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+      error: {
+        code: 'RATE_LIMITED',
+        message: 'Too many report submissions. Please try again later.',
+      },
+    },
+  });
   const upload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: 5 * 1024 * 1024 },
@@ -69,7 +82,7 @@ export const createReportsRouter = (db: Firestore, bucket: Bucket): Router => {
     },
   });
 
-  router.post(`${API_PREFIX}/reports/lost`, async (req, res) => {
+  router.post(`${API_PREFIX}/reports/lost`, createReportLimiter, async (req, res) => {
     const parsed = schemaModule.createLostReportSchema.safeParse(req.body);
     if (!parsed.success) {
       const message = parsed.error.issues[0]?.message ?? 'Invalid request payload';
@@ -97,17 +110,21 @@ export const createReportsRouter = (db: Firestore, bucket: Bucket): Router => {
     });
   });
 
-  router.post(`${API_PREFIX}/reports/found`, (req, res, next) => {
-    upload.single('photo')(req, res, (error: unknown) => {
-      if (!error) {
-        next();
-        return;
-      }
+  router.post(
+    `${API_PREFIX}/reports/found`,
+    createReportLimiter,
+    (req, res, next) => {
+      upload.single('photo')(req, res, (error: unknown) => {
+        if (!error) {
+          next();
+          return;
+        }
 
-      const message = error instanceof Error ? error.message : 'Invalid upload payload';
-      next(new HttpError(400, 'BAD_REQUEST', message));
-    });
-  }, async (req, res) => {
+        const message = error instanceof Error ? error.message : 'Invalid upload payload';
+        next(new HttpError(400, 'BAD_REQUEST', message));
+      });
+    },
+    async (req, res) => {
     if (!req.file) {
       throw new HttpError(400, 'BAD_REQUEST', 'photo is required');
     }
@@ -143,7 +160,8 @@ export const createReportsRouter = (db: Firestore, bucket: Bucket): Router => {
       id: result.id,
       referenceCode: result.report.referenceCode,
     });
-  });
+    },
+  );
 
   return router;
 };
