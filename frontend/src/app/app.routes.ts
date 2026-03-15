@@ -5,6 +5,7 @@ import { LostReportFormComponent } from './features/public-reporting/lost-report
 import { FoundItemsPageComponent } from './features/items/pages/found-items-page/found-items-page';
 import { ItemDetailsComponent } from './features/items/item-details/item-details.component';
 import { ClaimRequest } from './claim-request/claim-request';
+import { ClaimReview } from './claim-review/claim-review';
 
 export const routes: Routes = [
   {
@@ -31,6 +32,11 @@ export const routes: Routes = [
   path: 'claim-request',
   component: ClaimRequest
 },
+  {
+    path: 'admin/claims',
+    component: ClaimReview,
+    title: 'Claim Review - FalconFind'
+  },
   {
     path: 'items/:id',
     component: ItemDetailsComponent,
