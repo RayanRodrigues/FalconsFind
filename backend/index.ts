@@ -42,6 +42,10 @@ const reportsRoutesModule = await importRuntimeModule<{
   ) => express.Router;
 }>(__dirname, './src/routes/reports.routes');
 
+const claimsRoutesModule = await importRuntimeModule<{
+  createClaimsRouter: (db: FirebaseFirestore.Firestore) => express.Router;
+}>(__dirname, './src/routes/claims.routes');
+
 const openApiModule = await importRuntimeModule<{
   openApiDocument: object;
 }>(__dirname, './src/docs/openapi');
@@ -89,6 +93,7 @@ app.get('/health', (_req, res) => {
 app.use(healthRoutesModule.createHealthRouter(db));
 app.use(reportsRoutesModule.createReportsRouter(db, bucket));
 app.use(itemsRoutesModule.createItemsRouter(db, bucket));
+app.use(claimsRoutesModule.createClaimsRouter(db));
 app.use(notFoundHandler);
 app.use(errorHandler);
 
