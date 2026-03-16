@@ -21,7 +21,7 @@ const itemsServiceModule = (await import(pathToFileURL(servicePath).href)) as {
   listValidatedItems: (
     db: Firestore,
     bucket: Bucket,
-    params: { page: number; limit: number },
+    params: { page: number; limit: number; keyword?: string },
   ) => Promise<{
     items: unknown[];
     total: number;
@@ -42,8 +42,12 @@ export const createItemsRouter = (db: Firestore, bucket: Bucket): Router => {
     const page = parsePositiveInt(req.query.page, 1);
     const limitRaw = parsePositiveInt(req.query.limit, 10);
     const limit = Math.min(limitRaw, 50);
+    const keyword =
+      typeof req.query.keyword === 'string' && req.query.keyword.trim().length > 0
+        ? req.query.keyword.trim()
+        : undefined;
 
-    const result = await itemsServiceModule.listValidatedItems(db, bucket, { page, limit });
+    const result = await itemsServiceModule.listValidatedItems(db, bucket, { page, limit, keyword });
     const totalPages = Math.max(1, Math.ceil(result.total / limit));
 
     res.status(200).json({

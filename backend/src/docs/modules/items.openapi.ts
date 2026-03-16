@@ -31,6 +31,16 @@ export const itemsOpenApi: OpenApiModule = {
             },
             description: 'Items per page',
           },
+          {
+            name: 'keyword',
+            in: 'query',
+            required: false,
+            schema: {
+              type: 'string',
+              minLength: 1,
+            },
+            description: 'Case-insensitive keyword search over item title and description',
+          },
         ],
         responses: {
           200: {

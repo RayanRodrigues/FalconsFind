@@ -18,6 +18,7 @@ describe('listValidatedItems', () => {
   let offsetFn: ReturnType<typeof vi.fn>;
   let limitFn: ReturnType<typeof vi.fn>;
   let getPageFn: ReturnType<typeof vi.fn>;
+  let getOrderedFn: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     const pageSnap: FakeSnap = {
@@ -36,6 +37,7 @@ describe('listValidatedItems', () => {
     };
 
     getPageFn = vi.fn().mockResolvedValue(pageSnap);
+    getOrderedFn = vi.fn().mockResolvedValue(pageSnap);
 
     const queryAfterLimit = { get: getPageFn };
     limitFn = vi.fn().mockReturnValue(queryAfterLimit);
@@ -43,7 +45,7 @@ describe('listValidatedItems', () => {
     const queryAfterOffset = { limit: limitFn };
     offsetFn = vi.fn().mockReturnValue(queryAfterOffset);
 
-    const queryAfterOrderBy = { offset: offsetFn };
+    const queryAfterOrderBy = { offset: offsetFn, get: getOrderedFn };
     orderByFn = vi.fn().mockReturnValue(queryAfterOrderBy);
 
     countGetFn = vi.fn().mockResolvedValue({
@@ -116,5 +118,58 @@ describe('listValidatedItems', () => {
 
     expect(offsetFn).toHaveBeenCalledWith(10);
     expect(limitFn).toHaveBeenCalledWith(5);
+  });
+
+  it('filters validated items by keyword across title and description', async () => {
+    getOrderedFn.mockResolvedValue({
+      docs: [
+        {
+          id: 'match-title',
+          data: () => ({
+            kind: 'FOUND',
+            status: 'VALIDATED',
+            title: 'Black Macbook Air',
+            description: 'Left near the atrium',
+            referenceCode: 'REF-TITLE',
+            dateReported: '2026-02-01T10:00:00.000Z',
+          }),
+        },
+        {
+          id: 'match-description',
+          data: () => ({
+            kind: 'FOUND',
+            status: 'VALIDATED',
+            title: 'Laptop sleeve',
+            description: 'Contains a silver macbook charger',
+            referenceCode: 'REF-DESC',
+            dateReported: '2026-02-01T09:00:00.000Z',
+          }),
+        },
+        {
+          id: 'no-match',
+          data: () => ({
+            kind: 'FOUND',
+            status: 'VALIDATED',
+            title: 'Blue bottle',
+            description: 'Found in the gym',
+            referenceCode: 'REF-NOPE',
+            dateReported: '2026-02-01T08:00:00.000Z',
+          }),
+        },
+      ],
+    });
+
+    const result = await listValidatedItems(
+      db as never,
+      bucket as never,
+      { page: 1, limit: 10, keyword: 'MacBook' },
+    );
+
+    expect(result.total).toBe(2);
+    expect(result.items).toHaveLength(2);
+    expect(result.items.map((item) => item.id)).toEqual(['match-title', 'match-description']);
+    expect(getOrderedFn).toHaveBeenCalledTimes(1);
+    expect(offsetFn).not.toHaveBeenCalled();
+    expect(countFn).not.toHaveBeenCalled();
   });
 });

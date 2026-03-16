@@ -22,6 +22,7 @@ type StoredItem = {
 type ListValidatedItemsParams = {
   page: number;
   limit: number;
+  keyword?: string;
 };
 
 export class InvalidItemDataError extends Error {
@@ -182,6 +183,7 @@ export const listValidatedItems = async (
 ): Promise<{ items: Array<ItemPublicResponse>; total: number }> => {
   const page = Math.max(1, Math.floor(params.page));
   const limit = Math.max(1, Math.floor(params.limit));
+  const keyword = typeof params.keyword === 'string' ? params.keyword.trim().toLowerCase() : '';
   const offset = (page - 1) * limit;
 
   const baseQuery = db
@@ -189,14 +191,13 @@ export const listValidatedItems = async (
     .where('kind', '==', 'FOUND')
     .where('status', '==', 'VALIDATED');
 
-  const totalAgg = await baseQuery.count().get();
-  const total = totalAgg.data().count;
-
-  const pageSnap = await baseQuery
-    .orderBy('dateReported', 'desc')
-    .offset(offset)
-    .limit(limit)
-    .get();
+  const orderedQuery = baseQuery.orderBy('dateReported', 'desc');
+  const pageSnap = keyword.length > 0
+    ? await orderedQuery.get()
+    : await orderedQuery
+      .offset(offset)
+      .limit(limit)
+      .get();
 
   const itemCandidates = await Promise.all(pageSnap.docs.map(async (doc) => {
     const data = doc.data() as Omit<Report, 'id'> & { dateReported?: unknown; imageUrls?: string[] };
@@ -226,6 +227,11 @@ export const listValidatedItems = async (
       return null;
     }
 
+    const searchableText = `${data.title} ${data.description ?? ''}`.toLowerCase();
+    if (keyword.length > 0 && !searchableText.includes(keyword)) {
+      return null;
+    }
+
     return {
       id: doc.id,
       title: data.title,
@@ -238,6 +244,12 @@ export const listValidatedItems = async (
   }));
 
   const items = itemCandidates.filter((item): item is ItemPublicResponse => item !== null);
+  const total = keyword.length > 0
+    ? items.length
+    : (await baseQuery.count().get()).data().count;
+  const pagedItems = keyword.length > 0
+    ? items.slice(offset, offset + limit)
+    : items;
 
-  return { items, total };
+  return { items: pagedItems, total };
 };
