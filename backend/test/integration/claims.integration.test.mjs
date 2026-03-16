@@ -91,19 +91,19 @@ const buildTestApp = (db) => {
 };
 
 test('PATCH /api/v1/claims/:id/status approves a pending claim and marks the item as claimed', async () => {
-  const db = createFakeDb({
-    claims: {
-      'claim-1': {
-        itemId: 'item-1',
-        status: 'PENDING',
-      },
+  const items = {
+    'item-1': {
+      status: 'VALIDATED',
+      claimStatus: 'PENDING',
     },
-    items: {
-      'item-1': {
-        status: 'VALIDATED',
-      },
+  };
+  const claims = {
+    'claim-1': {
+      itemId: 'item-1',
+      status: 'PENDING',
     },
-  });
+  };
+  const db = createFakeDb({ claims, items });
 
   const response = await request(buildTestApp(db))
     .patch('/api/v1/claims/claim-1/status')
@@ -113,7 +113,11 @@ test('PATCH /api/v1/claims/:id/status approves a pending claim and marks the ite
   assert.equal(response.body.id, 'claim-1');
   assert.equal(response.body.status, 'APPROVED');
   assert.equal(response.body.itemStatus, 'CLAIMED');
-  assert.equal(db.collection('claims').doc('claim-1').get instanceof Function, true);
+  assert.equal(claims['claim-1'].status, 'APPROVED');
+  assert.match(claims['claim-1'].reviewedAt, /^\d{4}-\d{2}-\d{2}T/);
+  assert.equal(items['item-1'].status, 'CLAIMED');
+  assert.equal(items['item-1'].claimStatus, 'APPROVED');
+  assert.match(items['item-1'].updatedAt, /^\d{4}-\d{2}-\d{2}T/);
 });
 
 test('PATCH /api/v1/claims/:id/status rejects a pending claim and keeps the item validated', async () => {

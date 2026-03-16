@@ -12,11 +12,22 @@ import { ClaimStatus, ItemStatus } from '../contracts/index.js';
 type StoredClaim = {
   itemId?: string;
   status?: ClaimStatus;
+  reviewedAt?: string;
 };
 
 type StoredItem = {
   status?: ItemStatus;
   claimStatus?: ClaimStatus;
+  updatedAt?: string;
+};
+
+type StoredClaimReviewPatch = Partial<StoredClaim> & {
+  status: Extract<ClaimStatus, 'APPROVED' | 'REJECTED'>;
+  reviewedAt: string;
+};
+
+type StoredItemReviewPatch = Partial<StoredItem> & {
+  updatedAt: string;
 };
 
 type ClaimUpdateResult = {
@@ -118,13 +129,13 @@ export const updateClaimStatus = async (
     transaction.update(claimRef, {
       status: targetStatus,
       reviewedAt,
-    });
+    } satisfies StoredClaimReviewPatch);
 
     transaction.update(itemRef, {
       status: nextItemStatus,
       claimStatus: targetStatus,
       updatedAt: reviewedAt,
-    } satisfies Partial<StoredItem> & { updatedAt: string });
+    } satisfies StoredItemReviewPatch);
 
     return {
       id: claimId,
