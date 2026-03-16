@@ -7,6 +7,7 @@ type StoredItem = {
   id?: string;
   reportId?: string;
   title?: string;
+  category?: string;
   description?: string;
   status?: ItemStatus;
   referenceCode?: string;
@@ -22,6 +23,10 @@ type StoredItem = {
 type ListValidatedItemsParams = {
   page: number;
   limit: number;
+  category?: string;
+  location?: string;
+  dateFrom?: string;
+  dateTo?: string;
 };
 
 export class InvalidItemDataError extends Error {
@@ -130,6 +135,7 @@ const mapItemDetails = async (
   return {
     id,
     title: source.title,
+    category: source.category,
     description: source.description,
     status: source.status,
     location: source.location,
@@ -184,10 +190,26 @@ export const listValidatedItems = async (
   const limit = Math.max(1, Math.floor(params.limit));
   const offset = (page - 1) * limit;
 
-  const baseQuery = db
+  let baseQuery = db
     .collection('reports')
     .where('kind', '==', 'FOUND')
     .where('status', '==', 'VALIDATED');
+
+  if (params.category) {
+    baseQuery = baseQuery.where('category', '==', params.category);
+  }
+
+  if (params.location) {
+    baseQuery = baseQuery.where('location', '==', params.location);
+  }
+
+  if (params.dateFrom) {
+    baseQuery = baseQuery.where('dateReported', '>=', params.dateFrom);
+  }
+
+  if (params.dateTo) {
+    baseQuery = baseQuery.where('dateReported', '<=', params.dateTo);
+  }
 
   const totalAgg = await baseQuery.count().get();
   const total = totalAgg.data().count;
@@ -229,6 +251,7 @@ export const listValidatedItems = async (
     return {
       id: doc.id,
       title: data.title,
+      category: data.category,
       status: data.status,
       referenceCode: data.referenceCode,
       location: data.location,

@@ -119,6 +119,9 @@ export const createFoundReport = async (
     photoUrl,
   };
 
+  if (payload.category) {
+    reportToSave.category = payload.category;
+  }
   if (payload.description) {
     reportToSave.description = payload.description;
   }
