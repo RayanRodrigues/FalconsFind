@@ -71,7 +71,56 @@ export const reportsOpenApi: OpenApiModule = {
             content: {
               'application/json': {
                 schema: {
-                  $ref: '#/components/schemas/CreateLostReportResponse',
+                  $ref: '#/components/schemas/CreateFoundReportResponse',
+                },
+              },
+            },
+          },
+          400: {
+            description: 'Request validation failed',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          500: {
+            description: 'Unexpected server error',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    '/api/v1/reports/found/{id}/validate': {
+      patch: {
+        tags: ['Reports'],
+        summary: 'Validate a pending found-item report before publication',
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: {
+              type: 'string',
+            },
+            description: 'Found report document id',
+          },
+        ],
+        responses: {
+          200: {
+            description: 'Found report validated successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ValidateFoundReportResponse',
                 },
               },
             },
@@ -119,6 +168,23 @@ export const reportsOpenApi: OpenApiModule = {
       properties: {
         id: { type: 'string', example: 'AbCdEF123456' },
         referenceCode: { type: 'string', example: 'LST-20260214-ABC12345' },
+      },
+    },
+    CreateFoundReportResponse: {
+      type: 'object',
+      required: ['id', 'referenceCode'],
+      properties: {
+        id: { type: 'string', example: 'AbCdEF123456' },
+        referenceCode: { type: 'string', example: 'FND-20260214-ABC12345' },
+      },
+    },
+    ValidateFoundReportResponse: {
+      type: 'object',
+      required: ['id', 'referenceCode', 'status'],
+      properties: {
+        id: { type: 'string', example: 'AbCdEF123456' },
+        referenceCode: { type: 'string', example: 'FND-20260214-ABC12345' },
+        status: { type: 'string', enum: ['VALIDATED'], example: 'VALIDATED' },
       },
     },
     CreateFoundReportRequest: {

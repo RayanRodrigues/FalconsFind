@@ -1,6 +1,7 @@
 import type { Firestore } from 'firebase-admin/firestore';
 import type { Bucket } from '@google-cloud/storage';
 import type { CreateFoundReportRequest, CreateLostReportRequest, Report } from '../contracts/index.js';
+import { ItemStatus } from '../contracts/index.js';
 import { randomUUID } from 'node:crypto';
 
 export class ReportPhotoUploadError extends Error {
@@ -10,6 +11,20 @@ export class ReportPhotoUploadError extends Error {
   ) {
     super(message);
     this.name = 'ReportPhotoUploadError';
+  }
+}
+
+export class ReportNotFoundError extends Error {
+  constructor() {
+    super('Report not found');
+    this.name = 'ReportNotFoundError';
+  }
+}
+
+export class ReportValidationConflictError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ReportValidationConflictError';
   }
 }
 
@@ -112,7 +127,7 @@ export const createFoundReport = async (
   const reportToSave: Omit<Report, 'id'> = {
     kind: 'FOUND' as const,
     title: payload.title,
-    status: 'REPORTED' as Report['status'],
+    status: ItemStatus.PENDING_VALIDATION,
     referenceCode: createReferenceCode('FND', docRef.id, createdAt),
     location: payload.foundLocation,
     dateReported: payload.foundAt ?? createdAt.toISOString(),
@@ -135,6 +150,41 @@ export const createFoundReport = async (
     report: {
       id: docRef.id,
       ...reportToSave,
+    },
+  };
+};
+
+export const validateFoundReport = async (
+  db: Firestore,
+  reportId: string,
+): Promise<{ id: string; report: Pick<Report, 'status' | 'referenceCode'> }> => {
+  const reportRef = db.collection('reports').doc(reportId);
+  const reportSnap = await reportRef.get();
+
+  if (!reportSnap.exists) {
+    throw new ReportNotFoundError();
+  }
+
+  const report = reportSnap.data() as Report | undefined;
+  if (!report) {
+    throw new ReportNotFoundError();
+  }
+
+  if (report.kind !== 'FOUND') {
+    throw new ReportValidationConflictError('Only found-item reports can be validated.');
+  }
+
+  if (report.status !== ItemStatus.PENDING_VALIDATION) {
+    throw new ReportValidationConflictError('Only pending validation found-item reports can be validated.');
+  }
+
+  await reportRef.update({ status: ItemStatus.VALIDATED });
+
+  return {
+    id: reportId,
+    report: {
+      status: ItemStatus.VALIDATED,
+      referenceCode: report.referenceCode,
     },
   };
 };
