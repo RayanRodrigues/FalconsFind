@@ -21,7 +21,15 @@ const itemsServiceModule = (await import(pathToFileURL(servicePath).href)) as {
   listValidatedItems: (
     db: Firestore,
     bucket: Bucket,
-    params: { page: number; limit: number; keyword?: string },
+    params: {
+      page: number;
+      limit: number;
+      keyword?: string;
+      category?: string;
+      location?: string;
+      dateFrom?: string;
+      dateTo?: string;
+    },
   ) => Promise<{
     items: unknown[];
     total: number;
@@ -35,6 +43,48 @@ function parsePositiveInt(value: unknown, fallback: number): number {
   return i > 0 ? i : fallback;
 }
 
+function parseOptionalString(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function parseOptionalDate(
+  value: unknown,
+  bound: 'start' | 'end',
+): string | undefined {
+  const raw = parseOptionalString(value);
+  if (!raw) {
+    return undefined;
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const baseDate = new Date(`${raw}T00:00:00.000Z`);
+    if (Number.isNaN(baseDate.getTime()) || baseDate.toISOString().slice(0, 10) !== raw) {
+      throw new HttpError(
+        400,
+        'BAD_REQUEST',
+        `Invalid ${bound === 'start' ? 'dateFrom' : 'dateTo'} query parameter`,
+      );
+    }
+
+    return bound === 'start'
+      ? `${raw}T00:00:00.000Z`
+      : `${raw}T23:59:59.999Z`;
+  }
+
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new HttpError(
+      400,
+      'BAD_REQUEST',
+      `Invalid ${bound === 'start' ? 'dateFrom' : 'dateTo'} query parameter`,
+    );
+  }
+
+  return parsed.toISOString();
+}
+
 export const createItemsRouter = (db: Firestore, bucket: Bucket): Router => {
   const router = Router();
 
@@ -42,12 +92,23 @@ export const createItemsRouter = (db: Firestore, bucket: Bucket): Router => {
     const page = parsePositiveInt(req.query.page, 1);
     const limitRaw = parsePositiveInt(req.query.limit, 10);
     const limit = Math.min(limitRaw, 50);
-    const keyword =
-      typeof req.query.keyword === 'string' && req.query.keyword.trim().length > 0
-        ? req.query.keyword.trim()
-        : undefined;
 
-    const result = await itemsServiceModule.listValidatedItems(db, bucket, { page, limit, keyword });
+    const keyword = parseOptionalString(req.query.keyword);
+    const category = parseOptionalString(req.query.category);
+    const location = parseOptionalString(req.query.location);
+    const dateFrom = parseOptionalDate(req.query.dateFrom, 'start');
+    const dateTo = parseOptionalDate(req.query.dateTo, 'end');
+
+    if (dateFrom && dateTo && dateFrom > dateTo) {
+      throw new HttpError(400, 'BAD_REQUEST', 'dateFrom must be before or equal to dateTo');
+    }
+
+    const result = await itemsServiceModule.listValidatedItems(
+      db,
+      bucket,
+      { page, limit, keyword, category, location, dateFrom, dateTo },
+    );
+
     const totalPages = Math.max(1, Math.ceil(result.total / limit));
 
     res.status(200).json({
@@ -57,6 +118,13 @@ export const createItemsRouter = (db: Firestore, bucket: Bucket): Router => {
       totalPages,
       hasNextPage: page < totalPages,
       hasPrevPage: page > 1,
+      filters: {
+        keyword: keyword ?? null,
+        category: category ?? null,
+        location: location ?? null,
+        dateFrom: dateFrom ?? null,
+        dateTo: dateTo ?? null,
+      },
       items: result.items,
     });
   });

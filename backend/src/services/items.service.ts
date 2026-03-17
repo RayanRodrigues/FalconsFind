@@ -7,6 +7,7 @@ type StoredItem = {
   id?: string;
   reportId?: string;
   title?: string;
+  category?: string;
   description?: string;
   status?: ItemStatus;
   referenceCode?: string;
@@ -23,6 +24,10 @@ type ListValidatedItemsParams = {
   page: number;
   limit: number;
   keyword?: string;
+  category?: string;
+  location?: string;
+  dateFrom?: string;
+  dateTo?: string;
 };
 
 export class InvalidItemDataError extends Error {
@@ -131,6 +136,7 @@ const mapItemDetails = async (
   return {
     id,
     title: source.title,
+    category: source.category,
     description: source.description,
     status: source.status,
     location: source.location,
@@ -183,27 +189,51 @@ export const listValidatedItems = async (
 ): Promise<{ items: Array<ItemPublicResponse>; total: number }> => {
   const page = Math.max(1, Math.floor(params.page));
   const limit = Math.max(1, Math.floor(params.limit));
-  const keyword = typeof params.keyword === 'string' ? params.keyword.trim().toLowerCase() : '';
   const offset = (page - 1) * limit;
-  const MAX_KEYWORD_SCAN = 1000;
-  const scanLimit = keyword.length > 0
-    ? Math.min(MAX_KEYWORD_SCAN, offset + limit)
-    : limit;
+  const keyword = typeof params.keyword === 'string' ? params.keyword.trim().toLowerCase() : '';
 
-  const baseQuery = db
+  let baseQuery = db
     .collection('reports')
     .where('kind', '==', 'FOUND')
     .where('status', '==', 'VALIDATED');
 
+  if (params.category) {
+    baseQuery = baseQuery.where('category', '==', params.category);
+  }
+
+  if (params.location) {
+    baseQuery = baseQuery.where('location', '==', params.location);
+  }
+
+  if (params.dateFrom) {
+    baseQuery = baseQuery.where('dateReported', '>=', params.dateFrom);
+  }
+
+  if (params.dateTo) {
+    baseQuery = baseQuery.where('dateReported', '<=', params.dateTo);
+  }
+
   const orderedQuery = baseQuery.orderBy('dateReported', 'desc');
-  const pageSnap = keyword.length > 0
-    ? await orderedQuery
+
+  let pageSnap;
+  let total: number;
+
+  if (keyword.length > 0) {
+    const MAX_KEYWORD_SCAN = 1000;
+    const scanLimit = Math.min(MAX_KEYWORD_SCAN, offset + limit);
+
+    pageSnap = await orderedQuery
       .limit(scanLimit)
-      .get()
-    : await orderedQuery
+      .get();
+  } else {
+    const totalAgg = await baseQuery.count().get();
+    total = totalAgg.data().count;
+
+    pageSnap = await orderedQuery
       .offset(offset)
       .limit(limit)
       .get();
+  }
 
   const itemCandidates = await Promise.all(pageSnap.docs.map(async (doc) => {
     const data = doc.data() as Omit<Report, 'id'> & { dateReported?: unknown; imageUrls?: string[] };
@@ -226,6 +256,7 @@ export const listValidatedItems = async (
 
     const descriptionText = typeof data.description === 'string' ? data.description : '';
     const searchableText = `${data.title} ${descriptionText}`.toLowerCase();
+
     if (keyword.length > 0 && !searchableText.includes(keyword)) {
       return null;
     }
@@ -233,22 +264,24 @@ export const listValidatedItems = async (
     return {
       id: doc.id,
       title: data.title,
+      category: data.category,
       status: data.status,
       referenceCode: data.referenceCode,
       location: data.location,
       dateReported,
-      // Defer signing of the thumbnail URL until after filtering/pagination.
       thumbnailUrl: thumbnailSource,
     } as ItemPublicResponse;
   }));
 
   const items = itemCandidates.filter((item): item is ItemPublicResponse => item !== null);
-  const total = keyword.length > 0
-    ? items.length
-    : (await baseQuery.count().get()).data().count;
+
   const pagedItems = keyword.length > 0
     ? items.slice(offset, offset + limit)
     : items;
+
+  if (keyword.length > 0) {
+    total = items.length;
+  }
 
   const itemsWithSignedThumbnails = await Promise.all(pagedItems.map(async (item) => {
     const source = item.thumbnailUrl;
@@ -260,7 +293,6 @@ export const listValidatedItems = async (
     try {
       signedUrl = await toPublicImageUrl(bucket, source);
     } catch {
-      // On failure, fall back to the original source URL as before.
       signedUrl = source;
     }
 

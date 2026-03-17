@@ -6,6 +6,7 @@ export type Report = {
   id: string;
   kind: ReportKind;
   title: string;
+  category?: string;
   description?: string;
   status: ItemStatus;
   referenceCode: string;

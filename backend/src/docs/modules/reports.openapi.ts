@@ -126,6 +126,7 @@ export const reportsOpenApi: OpenApiModule = {
       required: ['title', 'foundLocation', 'photo'],
       properties: {
         title: { type: 'string', minLength: 1 },
+        category: { type: 'string', minLength: 1 },
         description: { type: 'string', minLength: 1 },
         foundLocation: { type: 'string', minLength: 1 },
         foundAt: { type: 'string', format: 'date-time' },

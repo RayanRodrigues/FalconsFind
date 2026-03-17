@@ -4,6 +4,7 @@ import type { ClaimStatus } from '../enums/claim-status.enum.js';
 export type ItemDetailsResponse = {
   id: string;
   title: string;
+  category?: string;
   description?: string;
   status: ItemStatus;
   referenceCode: string;

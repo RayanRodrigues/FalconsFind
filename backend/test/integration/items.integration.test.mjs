@@ -61,59 +61,77 @@ const createFakeDb = ({ items = {}, reports = {} } = {}) => {
       }
 
       if (collectionName === 'reports') {
-        return {
-          where: (field, operator, value) => {
-            assert.equal(field, 'kind');
-            assert.equal(operator, '==');
+        const buildReportsQuery = (entries) => {
+          const query = {
+            where: (field, operator, value) => {
+              const filtered = entries.filter(([, report]) => {
+                const fieldValue = report[field];
+                const normalizedFieldValue = normalizeDate(fieldValue);
+                const normalizedFilterValue = typeof value === 'string' ? value : normalizeDate(value);
 
-            const byKind = Object.entries(reports)
-              .filter(([, report]) => report.kind === value);
+                if (operator === '==') {
+                  return fieldValue === value;
+                }
+                if (operator === '>=') {
+                  return normalizedFieldValue >= normalizedFilterValue;
+                }
+                if (operator === '<=') {
+                  return normalizedFieldValue <= normalizedFilterValue;
+                }
 
-            return {
-              where: (innerField, innerOperator, innerValue) => {
-                assert.equal(innerField, 'status');
-                assert.equal(innerOperator, '==');
+                throw new Error(`Unexpected operator: ${operator}`);
+              });
 
-                const filtered = byKind
-                  .filter(([, report]) => report.status === innerValue);
+              return buildReportsQuery(filtered);
+            },
+            count: () => ({
+              get: async () => ({
+                data: () => ({ count: entries.length }),
+              }),
+            }),
+            orderBy: (orderField, direction) => {
+              assert.equal(orderField, 'dateReported');
+              assert.equal(direction, 'desc');
 
-                return {
-                  count: () => ({
-                    get: async () => ({
-                      data: () => ({ count: filtered.length }),
-                    }),
+              const sorted = [...entries].sort((a, b) => {
+                const aDate = normalizeDate(a[1].dateReported);
+                const bDate = normalizeDate(b[1].dateReported);
+                return bDate.localeCompare(aDate);
+              });
+
+              return {
+                get: async () => ({
+                  docs: sorted.map(([id, data]) => normalizeDoc(id, data)),
+                }),
+                offset: (offsetValue) => ({
+                  limit: (limitValue) => ({
+                    get: async () => {
+                      const page = sorted
+                        .slice(offsetValue, offsetValue + limitValue)
+                        .map(([id, data]) => normalizeDoc(id, data));
+
+                      return { docs: page };
+                    },
                   }),
-                  orderBy: (orderField, direction) => {
-                    assert.equal(orderField, 'dateReported');
-                    assert.equal(direction, 'desc');
+                }),
+                limit: (limitValue) => ({
+                  get: async () => {
+                    const docs = sorted
+                      .slice(0, limitValue)
+                      .map(([id, data]) => normalizeDoc(id, data));
 
-                    const sorted = [...filtered].sort((a, b) => {
-                      const aDate = normalizeDate(a[1].dateReported);
-                      const bDate = normalizeDate(b[1].dateReported);
-                      return bDate.localeCompare(aDate);
-                    });
-
-                    return {
-                      get: async () => ({
-                        docs: sorted.map(([id, data]) => normalizeDoc(id, data)),
-                      }),
-                      offset: (offsetValue) => ({
-                        limit: (limitValue) => ({
-                          get: async () => {
-                            const page = sorted
-                              .slice(offsetValue, offsetValue + limitValue)
-                              .map(([id, data]) => normalizeDoc(id, data));
-
-                            return { docs: page };
-                          },
-                        }),
-                      }),
-                    };
+                    return { docs };
                   },
-                };
-              },
-            };
-          },
+                }),
+              };
+            },
+          };
+
+          return query;
+        };
+
+        return {
+          where: (field, operator, value) => buildReportsQuery(Object.entries(reports)).where(field, operator, value),
           doc: (id) => ({
             get: async () => {
               const source = reports[id];
@@ -206,6 +224,91 @@ test('GET /api/v1/items returns paginated validated found items with thumbnailUr
   assert.match(response.body.items[0].thumbnailUrl, /^https:\/\/signed\.local\//);
   assert.equal(response.body.items[1].id, 'report-1');
   assert.equal(response.body.items[1].thumbnailUrl, 'https://cdn.example.com/report-1.jpg');
+  assert.deepEqual(response.body.filters, {
+    keyword: null,
+    category: null,
+    location: null,
+    dateFrom: null,
+    dateTo: null,
+  });
+});
+
+test('GET /api/v1/items filters validated found items by category, location, and date range', async () => {
+  const app = buildTestApp({
+    reports: {
+      'report-match': {
+        kind: 'FOUND',
+        title: 'Silver water bottle',
+        category: 'Accessories',
+        status: 'VALIDATED',
+        referenceCode: 'FND-20260225-MATCH001',
+        location: 'Library',
+        dateReported: '2026-02-25T10:00:00.000Z',
+      },
+      'report-wrong-category': {
+        kind: 'FOUND',
+        title: 'Blue bottle',
+        category: 'Electronics',
+        status: 'VALIDATED',
+        referenceCode: 'FND-20260225-OTHER002',
+        location: 'Library',
+        dateReported: '2026-02-25T11:00:00.000Z',
+      },
+      'report-wrong-location': {
+        kind: 'FOUND',
+        title: 'Wallet',
+        category: 'Accessories',
+        status: 'VALIDATED',
+        referenceCode: 'FND-20260225-OTHER003',
+        location: 'Gym',
+        dateReported: '2026-02-25T12:00:00.000Z',
+      },
+      'report-wrong-date': {
+        kind: 'FOUND',
+        title: 'Keys',
+        category: 'Accessories',
+        status: 'VALIDATED',
+        referenceCode: 'FND-20260220-OTHER004',
+        location: 'Library',
+        dateReported: '2026-02-20T10:00:00.000Z',
+      },
+    },
+  });
+
+  const response = await request(app)
+    .get('/api/v1/items?category=Accessories&location=Library&dateFrom=2026-02-24&dateTo=2026-02-26');
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.total, 1);
+  assert.equal(response.body.items.length, 1);
+  assert.equal(response.body.items[0].id, 'report-match');
+  assert.equal(response.body.items[0].category, 'Accessories');
+  assert.deepEqual(response.body.filters, {
+    keyword: null,
+    category: 'Accessories',
+    location: 'Library',
+    dateFrom: '2026-02-24T00:00:00.000Z',
+    dateTo: '2026-02-26T23:59:59.999Z',
+  });
+});
+
+test('GET /api/v1/items returns 400 for invalid date range filters', async () => {
+  const app = buildTestApp();
+
+  const response = await request(app).get('/api/v1/items?dateFrom=2026-02-30');
+
+  assert.equal(response.status, 400);
+  assert.equal(response.body.error.code, 'BAD_REQUEST');
+});
+
+test('GET /api/v1/items returns 400 when dateFrom is after dateTo', async () => {
+  const app = buildTestApp();
+
+  const response = await request(app)
+    .get('/api/v1/items?dateFrom=2026-02-27&dateTo=2026-02-26');
+
+  assert.equal(response.status, 400);
+  assert.equal(response.body.error.code, 'BAD_REQUEST');
 });
 
 test('GET /api/v1/items skips malformed items from list payload', async () => {
@@ -274,6 +377,13 @@ test('GET /api/v1/items filters validated found items by keyword in title or des
     response.body.items.map((item) => item.id),
     ['report-title', 'report-description'],
   );
+  assert.deepEqual(response.body.filters, {
+    keyword: 'macbook',
+    category: null,
+    location: null,
+    dateFrom: null,
+    dateTo: null,
+  });
 });
 
 test('GET /api/v1/items paginates keyword search results after filtering', async () => {
@@ -306,9 +416,9 @@ test('GET /api/v1/items paginates keyword search results after filtering', async
   const response = await request(app).get('/api/v1/items?keyword=macbook&page=2&limit=1');
 
   assert.equal(response.status, 200);
-  assert.equal(response.body.total, 3);
-  assert.equal(response.body.totalPages, 3);
-  assert.equal(response.body.hasNextPage, true);
+  assert.equal(response.body.total, 2);
+  assert.equal(response.body.totalPages, 2);
+  assert.equal(response.body.hasNextPage, false);
   assert.equal(response.body.hasPrevPage, true);
   assert.equal(response.body.items.length, 1);
   assert.equal(response.body.items[0].id, 'report-2');

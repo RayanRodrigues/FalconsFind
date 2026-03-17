@@ -41,6 +41,44 @@ export const itemsOpenApi: OpenApiModule = {
             },
             description: 'Case-insensitive keyword search over item title and description',
           },
+          {
+            name: 'category',
+            in: 'query',
+            required: false,
+            schema: {
+              type: 'string',
+            },
+            description: 'Exact found-item category match',
+          },
+          {
+            name: 'location',
+            in: 'query',
+            required: false,
+            schema: {
+              type: 'string',
+            },
+            description: 'Exact found-item location match',
+          },
+          {
+            name: 'dateFrom',
+            in: 'query',
+            required: false,
+            schema: {
+              type: 'string',
+              format: 'date-time',
+            },
+            description: 'Inclusive start of the reported date range. Also accepts YYYY-MM-DD.',
+          },
+          {
+            name: 'dateTo',
+            in: 'query',
+            required: false,
+            schema: {
+              type: 'string',
+              format: 'date-time',
+            },
+            description: 'Inclusive end of the reported date range. Also accepts YYYY-MM-DD.',
+          },
         ],
         responses: {
           200: {
@@ -161,6 +199,7 @@ export const itemsOpenApi: OpenApiModule = {
       properties: {
         id: { type: 'string', example: 'item-abc123' },
         title: { type: 'string', example: 'Black Backpack' },
+        category: { type: 'string', example: 'Accessories' },
         status: { $ref: '#/components/schemas/ItemStatus' },
         referenceCode: { type: 'string', example: 'FND-20260225-ABC12345' },
         location: { type: 'string', example: 'Library' },
@@ -178,6 +217,16 @@ export const itemsOpenApi: OpenApiModule = {
         totalPages: { type: 'integer', minimum: 1, example: 5 },
         hasNextPage: { type: 'boolean', example: true },
         hasPrevPage: { type: 'boolean', example: false },
+        filters: {
+          type: 'object',
+          properties: {
+            keyword: { type: 'string', example: 'backpack' },
+            category: { type: 'string', example: 'Accessories' },
+            location: { type: 'string', example: 'Library' },
+            dateFrom: { type: 'string', format: 'date-time' },
+            dateTo: { type: 'string', format: 'date-time' },
+          },
+        },
         items: {
           type: 'array',
           items: {
@@ -192,6 +241,7 @@ export const itemsOpenApi: OpenApiModule = {
       properties: {
         id: { type: 'string', example: 'item-abc123' },
         title: { type: 'string', example: 'Black Backpack' },
+        category: { type: 'string', example: 'Accessories' },
         description: { type: 'string', example: 'Black backpack with laptop sleeve' },
         status: { $ref: '#/components/schemas/ItemStatus' },
         referenceCode: { type: 'string', example: 'FND-20260225-ABC12345' },

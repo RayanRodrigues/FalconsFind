@@ -7,6 +7,7 @@ import { ItemDetailsComponent } from './features/items/item-details/item-details
 import { ClaimRequest } from './claim-request/claim-request';
 import { ClaimReview } from './claim-review/claim-review';
 import { ClaimCancel } from './claim-cancel/claim-cancel';
+import { EditReportPageComponent } from './features/public-reporting/edit-report-page/edit-report-page.component';
 
 export const routes: Routes = [
   {
@@ -43,6 +44,11 @@ export const routes: Routes = [
     component: ClaimCancel,
     title: 'Cancel Claim Request - FalconFind'
   },
+ {
+  path: 'edit-report',
+  component: EditReportPageComponent,
+  title: 'Edit Report - FalconFind',
+},
   {
     path: 'items/:id',
     component: ItemDetailsComponent,

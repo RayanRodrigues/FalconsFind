@@ -11,6 +11,7 @@ export const createLostReportSchema = z.object({
 
 export const createFoundReportSchema = z.object({
   title: z.string().trim().min(1, 'title is required'),
+  category: z.string().trim().min(1).optional(),
   description: z.string().trim().min(1).optional(),
   foundLocation: z.string().trim().min(1, 'foundLocation is required'),
   foundAt: z.string().datetime().optional(),
