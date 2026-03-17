@@ -1,49 +1,146 @@
-<section class="p-6">
-  <h1 class="text-3xl font-semibold text-text-primary mb-3">Admin Dashboard</h1>
-  <p class="text-text-secondary mb-6">
-    Review reported found items before they are published.
-  </p>
+<section class="admin-dashboard">
+  <div class="dashboard-header">
+    <div>
+      <h1>Admin Dashboard</h1>
+      <p>View and manage all lost and found reports in one place.</p>
+    </div>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card">
+      <span class="stat-label">Total Reports</span>
+      <span class="stat-value">{{ totalReports }}</span>
+    </div>
+
+    <div class="stat-card">
+      <span class="stat-label">Pending</span>
+      <span class="stat-value">{{ pendingCount }}</span>
+    </div>
+
+    <div class="stat-card">
+      <span class="stat-label">Approved</span>
+      <span class="stat-value">{{ approvedCount }}</span>
+    </div>
+
+    <div class="stat-card">
+      <span class="stat-label">Rejected</span>
+      <span class="stat-value">{{ rejectedCount }}</span>
+    </div>
+  </div>
+
+  <div class="filters-bar">
+    <div class="filter-group">
+      <label for="search">Search reports</label>
+      <input
+        #searchInput
+        id="search"
+        type="text"
+        placeholder="Search by item, description, category, location, or status"
+        (input)="onSearchChange(searchInput.value)"
+      />
+    </div>
+
+    <div class="filter-group">
+      <label for="statusFilter">Filter by status</label>
+      <select
+        #statusSelect
+        id="statusFilter"
+        (change)="onStatusFilterChange(statusSelect.value)"
+      >
+        <option value="all">All</option>
+        <option value="pending">Pending</option>
+        <option value="approved">Approved</option>
+        <option value="rejected">Rejected</option>
+        <option value="claimed">Claimed</option>
+        <option value="returned">Returned</option>
+      </select>
+    </div>
+  </div>
 
   @if (loading) {
-    <p>Loading pending items...</p>
+    <p class="status-message">Loading reports...</p>
   }
 
   @if (error) {
-    <p class="text-red-600 font-medium">{{ error }}</p>
+    <p class="error-message">{{ error }}</p>
   }
 
-  @if (!loading && !error && pendingItems.length === 0) {
-    <p>No pending found items to review.</p>
+  @if (!loading && !error && filteredItems.length === 0) {
+    <p class="status-message">No reports found for the current filters.</p>
   }
 
-  @for (item of pendingItems; track item._id) {
-    <div class="border rounded-lg p-4 mb-4 bg-white shadow-sm">
-      <h2 class="text-xl font-semibold mb-2">
-        {{ item.itemName || item.title || 'Untitled Item' }}
-      </h2>
+  @if (!loading && !error && filteredItems.length > 0) {
+    <div class="reports-table-wrapper">
+      <table class="reports-table">
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th>Category</th>
+            <th>Location</th>
+            <th>Date Found</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
 
-      <p class="mb-1"><strong>Description:</strong> {{ item.description || 'No description provided.' }}</p>
-      <p class="mb-1"><strong>Category:</strong> {{ item.category || 'N/A' }}</p>
-      <p class="mb-1"><strong>Location:</strong> {{ item.locationFound || item.location || 'N/A' }}</p>
-      <p class="mb-3"><strong>Date:</strong> {{ item.dateFound || 'N/A' }}</p>
+        <tbody>
+          @for (item of filteredItems; track trackByItemId($index, item)) {
+            <tr>
+              <td>
+                <div class="item-name">
+                  {{ item.itemName || item.title || 'Untitled Item' }}
+                </div>
+                <div class="item-description">
+                  {{ item.description || 'No description provided.' }}
+                </div>
+              </td>
 
-      <div class="flex gap-3">
-        <button
-          type="button"
-          (click)="approveItem(item._id)"
-          class="rounded-lg px-4 py-2 bg-green-600 text-white hover:bg-green-700 transition-colors"
-        >
-          Approve
-        </button>
+              <td>{{ item.category || 'N/A' }}</td>
+              <td>{{ item.locationFound || item.location || 'N/A' }}</td>
+              <td>{{ item.dateFound || 'N/A' }}</td>
 
-        <button
-          type="button"
-          (click)="rejectItem(item._id)"
-          class="rounded-lg px-4 py-2 bg-red-600 text-white hover:bg-red-700 transition-colors"
-        >
-          Reject
-        </button>
-      </div>
+              <td>
+                <span
+                  class="status-badge"
+                  [ngClass]="{
+                    'pending': item.status === 'pending',
+                    'approved': item.status === 'approved',
+                    'rejected': item.status === 'rejected',
+                    'claimed': item.status === 'claimed',
+                    'returned': item.status === 'returned'
+                  }"
+                >
+                  {{ formatStatus(item.status) }}
+                </span>
+              </td>
+
+              <td>
+                @if (item.status === 'pending') {
+                  <div class="actions">
+                    <button
+                      type="button"
+                      class="approve-btn"
+                      (click)="approveItem(item._id)"
+                    >
+                      Approve
+                    </button>
+
+                    <button
+                      type="button"
+                      class="reject-btn"
+                      (click)="rejectItem(item._id)"
+                    >
+                      Reject
+                    </button>
+                  </div>
+                } @else {
+                  <span class="no-actions">No actions</span>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
     </div>
   }
 </section>
