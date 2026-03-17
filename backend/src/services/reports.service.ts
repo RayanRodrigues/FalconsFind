@@ -1,4 +1,4 @@
-import type { Firestore, Query } from 'firebase-admin/firestore';
+import type { Firestore, Query, Transaction } from 'firebase-admin/firestore';
 import type { Bucket } from '@google-cloud/storage';
 import type {
   AdminReportResponse,
@@ -16,6 +16,20 @@ export class ReportPhotoUploadError extends Error {
   ) {
     super(message);
     this.name = 'ReportPhotoUploadError';
+  }
+}
+
+export class ReportNotFoundError extends Error {
+  constructor() {
+    super('Report not found');
+    this.name = 'ReportNotFoundError';
+  }
+}
+
+export class ReportValidationConflictError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ReportValidationConflictError';
   }
 }
 
@@ -176,7 +190,7 @@ export const createFoundReport = async (
   const reportToSave: Omit<Report, 'id'> = {
     kind: 'FOUND' as const,
     title: payload.title,
-    status: 'REPORTED' as Report['status'],
+    status: ItemStatus.PENDING_VALIDATION,
     referenceCode: createReferenceCode('FND', docRef.id, createdAt),
     location: payload.foundLocation,
     dateReported: payload.foundAt ?? createdAt.toISOString(),
@@ -203,6 +217,43 @@ export const createFoundReport = async (
   };
 };
 
+export const validateFoundReport = async (
+  db: Firestore,
+  reportId: string,
+): Promise<{ id: string; report: Pick<Report, 'status' | 'referenceCode'> }> => {
+  return db.runTransaction(async (transaction: Transaction) => {
+    const reportRef = db.collection('reports').doc(reportId);
+    const reportSnap = await transaction.get(reportRef);
+
+    if (!reportSnap.exists) {
+      throw new ReportNotFoundError();
+    }
+
+    const report = reportSnap.data() as Report | undefined;
+    if (!report) {
+      throw new ReportNotFoundError();
+    }
+
+    if (report.kind !== 'FOUND') {
+      throw new ReportValidationConflictError('Only found-item reports can be validated.');
+    }
+
+    if (report.status !== ItemStatus.PENDING_VALIDATION) {
+      throw new ReportValidationConflictError('Only pending validation found-item reports can be validated.');
+    }
+
+    transaction.update(reportRef, { status: ItemStatus.VALIDATED });
+
+    return {
+      id: reportId,
+      report: {
+        status: ItemStatus.VALIDATED,
+        referenceCode: report.referenceCode,
+      },
+    };
+  });
+};
+
 export const listAdminReports = async (
   db: Firestore,
   params: ListAdminReportsParams,
@@ -213,7 +264,7 @@ export const listAdminReports = async (
     totalReports: number;
     lostReports: number;
     foundReports: number;
-    byStatus: Record<string, number>;
+    byStatus: Partial<Record<ItemStatus, number>>;
   };
 }> => {
   const page = Math.max(1, Math.floor(params.page));

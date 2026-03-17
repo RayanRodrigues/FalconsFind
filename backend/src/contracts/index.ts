@@ -11,6 +11,7 @@ export * from './dtos/create-found-report.request.dto.js';
 export * from './dtos/admin-report.response.dto.js';
 export * from './dtos/admin-reports-list.response.dto.js';
 export * from './dtos/create-claim.request.dto.js';
+export * from './dtos/request-additional-proof.request.dto.js';
 export * from './dtos/update-claim-status.request.dto.js';
 export * from './dtos/item-public.response.dto.js';
 export * from './dtos/item-details.response.dto.js';

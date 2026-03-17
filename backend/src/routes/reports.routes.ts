@@ -33,11 +33,14 @@ const schemaModule = (await import(pathToFileURL(schemaPath).href)) as {
     ) => { success: true; data: CreateFoundReportRequest } | { success: false; error: { issues: Array<{ message?: string }> } };
   };
 };
+
 const reportsServiceModule = (await import(pathToFileURL(servicePath).href)) as {
   ReportPhotoUploadError: new (
     code: 'INVALID_PHOTO_DATA_URL' | 'PHOTO_UPLOAD_FAILED',
     message: string,
   ) => Error & { code: 'INVALID_PHOTO_DATA_URL' | 'PHOTO_UPLOAD_FAILED' };
+  ReportNotFoundError: new () => Error;
+  ReportValidationConflictError: new (message: string) => Error;
   createLostReport: (
     db: Firestore,
     bucket: Bucket,
@@ -48,6 +51,10 @@ const reportsServiceModule = (await import(pathToFileURL(servicePath).href)) as 
     bucket: Bucket,
     payload: CreateFoundReportRequest,
   ) => Promise<{ id: string; report: { referenceCode: string } }>;
+  validateFoundReport: (
+    db: Firestore,
+    reportId: string,
+  ) => Promise<{ id: string; report: { status: string; referenceCode: string } }>;
   listAdminReports: (
     db: Firestore,
     params: {
@@ -175,6 +182,34 @@ export const createReportsRouter = (db: Firestore, bucket: Bucket): Router => {
     res.status(201).json({
       id: result.id,
       referenceCode: result.report.referenceCode,
+    });
+  });
+
+  router.patch(`${API_PREFIX}/reports/found/:id/validate`, async (req, res) => {
+    const reportId = req.params.id?.trim();
+    if (!reportId) {
+      throw new HttpError(400, 'BAD_REQUEST', 'id is required');
+    }
+
+    let result: { id: string; report: { status: string; referenceCode: string } };
+    try {
+      result = await reportsServiceModule.validateFoundReport(db, reportId);
+    } catch (error) {
+      if (error instanceof reportsServiceModule.ReportNotFoundError) {
+        throw new HttpError(404, 'NOT_FOUND', error.message);
+      }
+
+      if (error instanceof reportsServiceModule.ReportValidationConflictError) {
+        throw new HttpError(409, 'REPORT_VALIDATION_CONFLICT', error.message);
+      }
+
+      throw error;
+    }
+
+    res.status(200).json({
+      id: result.id,
+      referenceCode: result.report.referenceCode,
+      status: result.report.status,
     });
   });
 

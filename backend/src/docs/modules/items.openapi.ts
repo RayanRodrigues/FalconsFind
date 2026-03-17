@@ -191,7 +191,7 @@ export const itemsOpenApi: OpenApiModule = {
     },
     ClaimStatus: {
       type: 'string',
-      enum: ['PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'],
+      enum: ['PENDING', 'NEEDS_PROOF', 'APPROVED', 'REJECTED', 'CANCELLED'],
     },
     ItemPublicResponse: {
       type: 'object',
