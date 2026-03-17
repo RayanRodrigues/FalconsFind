@@ -1,4 +1,4 @@
-import type { Firestore } from 'firebase-admin/firestore';
+import type { Firestore, Query } from 'firebase-admin/firestore';
 import type { Bucket } from '@google-cloud/storage';
 import type {
   AdminReportResponse,
@@ -6,6 +6,7 @@ import type {
   CreateLostReportRequest,
   Report,
 } from '../contracts/index.js';
+import { ItemStatus } from '../contracts/index.js';
 import { randomUUID } from 'node:crypto';
 
 export class ReportPhotoUploadError extends Error {
@@ -87,6 +88,10 @@ const normalizeDateReported = (value: unknown): string | undefined => {
   return undefined;
 };
 
+const isItemStatus = (value: unknown): value is ItemStatus => {
+  return typeof value === 'string' && Object.values(ItemStatus).includes(value as ItemStatus);
+};
+
 const mapAdminReport = (id: string, source: Partial<Report>): AdminReportResponse | null => {
   const dateReported = normalizeDateReported(source.dateReported);
 
@@ -96,7 +101,7 @@ const mapAdminReport = (id: string, source: Partial<Report>): AdminReportRespons
     || source.title.trim().length === 0
     || typeof source.referenceCode !== 'string'
     || source.referenceCode.trim().length === 0
-    || typeof source.status !== 'string'
+    || !isItemStatus(source.status)
     || !dateReported
   ) {
     return null;
@@ -216,21 +221,21 @@ export const listAdminReports = async (
   const offset = (page - 1) * limit;
   const search = typeof params.search === 'string' ? params.search.trim().toLowerCase() : '';
 
-  const reportsSnap = await db.collection('reports').get();
+  let reportsQuery: Query = db.collection('reports');
+  if (params.kind) {
+    reportsQuery = reportsQuery.where('kind', '==', params.kind);
+  }
+  if (params.status) {
+    reportsQuery = reportsQuery.where('status', '==', params.status);
+  }
+
+  const reportsSnap = await reportsQuery.get();
   const allReports = reportsSnap.docs
     .map((doc) => mapAdminReport(doc.id, doc.data() as Partial<Report>))
     .filter((report): report is AdminReportResponse => report !== null)
     .sort((a, b) => b.dateReported.localeCompare(a.dateReported));
 
   const filteredReports = allReports.filter((report) => {
-    if (params.kind && report.kind !== params.kind) {
-      return false;
-    }
-
-    if (params.status && report.status !== params.status) {
-      return false;
-    }
-
     if (search.length > 0) {
       const searchableText = [
         report.title,
@@ -246,7 +251,7 @@ export const listAdminReports = async (
     return true;
   });
 
-  const byStatus = filteredReports.reduce<Record<string, number>>((acc, report) => {
+  const byStatus = filteredReports.reduce<Partial<Record<ItemStatus, number>>>((acc, report) => {
     acc[report.status] = (acc[report.status] ?? 0) + 1;
     return acc;
   }, {});

@@ -3,6 +3,7 @@ import type { Request } from 'express';
 import multer from 'multer';
 import type { Firestore } from 'firebase-admin/firestore';
 import type { Bucket } from '@google-cloud/storage';
+import { ItemStatus } from '../contracts/index.js';
 import type { CreateFoundReportRequest, CreateLostReportRequest } from '../contracts/index.js';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -53,7 +54,7 @@ const reportsServiceModule = (await import(pathToFileURL(servicePath).href)) as 
       page: number;
       limit: number;
       kind?: 'LOST' | 'FOUND';
-      status?: string;
+      status?: ItemStatus;
       search?: string;
     },
   ) => Promise<{
@@ -182,12 +183,18 @@ export const createReportsRouter = (db: Firestore, bucket: Bucket): Router => {
     const limitRaw = parsePositiveInt(req.query.limit, 20);
     const limit = Math.min(limitRaw, 100);
     const kindRaw = parseOptionalString(req.query.kind);
-    const status = parseOptionalString(req.query.status);
+    const statusRaw = parseOptionalString(req.query.status);
     const search = parseOptionalString(req.query.search);
 
     const kind = kindRaw === 'LOST' || kindRaw === 'FOUND' ? kindRaw : undefined;
     if (kindRaw && !kind) {
       throw new HttpError(400, 'BAD_REQUEST', 'kind must be LOST or FOUND');
+    }
+
+    const allowedStatuses = new Set<string>(Object.values(ItemStatus));
+    const status = statusRaw && allowedStatuses.has(statusRaw) ? statusRaw as ItemStatus : undefined;
+    if (statusRaw && !status) {
+      throw new HttpError(400, 'BAD_REQUEST', `status must be one of: ${Object.values(ItemStatus).join(', ')}`);
     }
 
     const result = await reportsServiceModule.listAdminReports(db, {

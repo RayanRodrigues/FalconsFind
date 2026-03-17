@@ -14,13 +14,24 @@ const createFakeDb = (initialReports = {}) => {
     db: {
       collection: (collectionName) => {
         assert.equal(collectionName, 'reports');
-        return {
+        const buildQuery = (filters = []) => ({
+          where: (field, operator, value) => {
+            assert.equal(operator, '==');
+            return buildQuery([...filters, { field, value }]);
+          },
           get: async () => ({
-            docs: Object.entries(reports).map(([id, data]) => ({
-              id,
-              data: () => data,
-            })),
+            docs: Object.entries(reports)
+              .filter(([, data]) => filters.every(({ field, value }) => data[field] === value))
+              .map(([id, data]) => ({
+                id,
+                data: () => data,
+              })),
           }),
+        });
+
+        return {
+          get: buildQuery().get,
+          where: buildQuery().where,
           doc: (id) => {
             if (id) {
               return {
@@ -235,6 +246,15 @@ test('GET /api/v1/admin/reports returns 400 for invalid kind filter', async () =
   const { app } = buildTestApp();
 
   const response = await request(app).get('/api/v1/admin/reports?kind=INVALID');
+
+  assert.equal(response.status, 400);
+  assert.equal(response.body.error.code, 'BAD_REQUEST');
+});
+
+test('GET /api/v1/admin/reports returns 400 for invalid status filter', async () => {
+  const { app } = buildTestApp();
+
+  const response = await request(app).get('/api/v1/admin/reports?status=INVALID');
 
   assert.equal(response.status, 400);
   assert.equal(response.body.error.code, 'BAD_REQUEST');

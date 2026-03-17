@@ -17,7 +17,7 @@ export type AdminReportsListResponse = {
     totalReports: number;
     lostReports: number;
     foundReports: number;
-    byStatus: Record<ItemStatus, number>;
+    byStatus: Partial<Record<ItemStatus, number>>;
   };
   reports: AdminReportResponse[];
 };
