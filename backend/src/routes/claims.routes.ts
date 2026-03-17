@@ -3,7 +3,7 @@ import type { Firestore } from 'firebase-admin/firestore';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import type { CreateClaimRequest } from '../contracts/index.js';
+import type { CreateClaimRequest, UpdateClaimStatusRequest } from '../contracts/index.js';
 import { API_PREFIX, HttpError } from './route-utils.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -25,9 +25,18 @@ const schemaModule = (await import(pathToFileURL(schemaPath).href)) as {
       | { success: true; data: CreateClaimRequest }
       | { success: false; error: { issues: Array<{ message?: string }> } };
   };
+  updateClaimStatusSchema: {
+    safeParse: (
+      input: unknown,
+    ) =>
+      | { success: true; data: UpdateClaimStatusRequest }
+      | { success: false; error: { issues: Array<{ message?: string }> } };
+  };
 };
 
 const claimsServiceModule = (await import(pathToFileURL(servicePath).href)) as {
+  ClaimNotFoundError: new () => Error;
+  ClaimConflictError: new (message: string) => Error;
   ClaimItemNotFoundError: new () => Error;
   ClaimItemNotEligibleError: new () => Error;
   createClaim: (
@@ -39,6 +48,16 @@ const claimsServiceModule = (await import(pathToFileURL(servicePath).href)) as {
       status: string;
       createdAt: string;
     };
+  }>;
+  updateClaimStatus: (
+    db: Firestore,
+    claimId: string,
+    targetStatus: UpdateClaimStatusRequest['status'],
+  ) => Promise<{
+    id: string;
+    status: UpdateClaimStatusRequest['status'];
+    itemId: string;
+    itemStatus: string;
   }>;
 };
 
@@ -66,6 +85,38 @@ export const createClaimsRouter = (db: Firestore): Router => {
 
       if (error instanceof claimsServiceModule.ClaimItemNotEligibleError) {
         throw new HttpError(409, 'ITEM_NOT_ELIGIBLE_FOR_CLAIM', error.message);
+      }
+
+      throw error;
+    }
+  });
+
+  router.patch(`${API_PREFIX}/claims/:id/status`, async (req, res) => {
+    const claimId = req.params.id?.trim();
+    if (!claimId) {
+      throw new HttpError(400, 'BAD_REQUEST', 'id is required');
+    }
+
+    const parsed = schemaModule.updateClaimStatusSchema.safeParse(req.body);
+    if (!parsed.success) {
+      const message = parsed.error.issues[0]?.message ?? 'Invalid request payload';
+      throw new HttpError(400, 'BAD_REQUEST', message);
+    }
+
+    try {
+      const result = await claimsServiceModule.updateClaimStatus(db, claimId, parsed.data.status);
+      res.status(200).json(result);
+    } catch (error) {
+      if (error instanceof claimsServiceModule.ClaimNotFoundError) {
+        throw new HttpError(404, 'NOT_FOUND', error.message);
+      }
+
+      if (error instanceof claimsServiceModule.ClaimItemNotFoundError) {
+        throw new HttpError(404, 'CLAIM_ITEM_NOT_FOUND', error.message);
+      }
+
+      if (error instanceof claimsServiceModule.ClaimConflictError) {
+        throw new HttpError(409, 'CLAIM_STATUS_CONFLICT', error.message);
       }
 
       throw error;

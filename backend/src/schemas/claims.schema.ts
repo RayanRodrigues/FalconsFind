@@ -8,3 +8,9 @@ export const createClaimSchema = z.object({
 });
 
 export type CreateClaimInput = z.infer<typeof createClaimSchema>;
+
+export const updateClaimStatusSchema = z.object({
+  status: z.enum(['APPROVED', 'REJECTED']),
+});
+
+export type UpdateClaimStatusInput = z.infer<typeof updateClaimStatusSchema>;
