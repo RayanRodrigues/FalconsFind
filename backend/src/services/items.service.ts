@@ -224,7 +224,8 @@ export const listValidatedItems = async (
       return null;
     }
 
-    const searchableText = `${data.title} ${data.description ?? ''}`.toLowerCase();
+    const descriptionText = typeof data.description === 'string' ? data.description : '';
+    const searchableText = `${data.title} ${descriptionText}`.toLowerCase();
     if (keyword.length > 0 && !searchableText.includes(keyword)) {
       return null;
     }
