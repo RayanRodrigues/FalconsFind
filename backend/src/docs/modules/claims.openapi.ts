@@ -229,6 +229,75 @@ export const claimsOpenApi: OpenApiModule = {
         },
       },
     },
+    '/api/v1/claims/{id}/cancel': {
+      patch: {
+        tags: ['Claims'],
+        summary: 'Cancel a pending or proof-requested claim',
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: {
+              type: 'string',
+            },
+            description: 'Claim document id',
+          },
+        ],
+        responses: {
+          200: {
+            description: 'Claim cancelled successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/CancelClaimResponse',
+                },
+              },
+            },
+          },
+          400: {
+            description: 'Invalid claim id',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          404: {
+            description: 'Claim or related item was not found',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          409: {
+            description: 'Claim can no longer be cancelled',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          500: {
+            description: 'Unexpected server error',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   },
   schemas: {
     CreateClaimRequest: {
@@ -295,6 +364,20 @@ export const claimsOpenApi: OpenApiModule = {
           type: 'string',
           enum: ['CLAIMED', 'VALIDATED'],
           example: 'CLAIMED',
+        },
+      },
+    },
+    CancelClaimResponse: {
+      type: 'object',
+      required: ['id', 'status', 'itemId', 'itemStatus'],
+      properties: {
+        id: { type: 'string', example: 'claim-123' },
+        status: { type: 'string', enum: ['CANCELLED'], example: 'CANCELLED' },
+        itemId: { type: 'string', example: 'item-abc123' },
+        itemStatus: {
+          type: 'string',
+          enum: ['VALIDATED'],
+          example: 'VALIDATED',
         },
       },
     },

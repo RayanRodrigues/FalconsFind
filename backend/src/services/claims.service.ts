@@ -47,6 +47,16 @@ type StoredItemProofRequestPatch = Partial<StoredItem> & {
   updatedAt: string;
 };
 
+type StoredClaimCancellationPatch = Partial<StoredClaim> & {
+  status: Extract<ClaimStatus, 'CANCELLED'>;
+};
+
+type StoredItemCancellationPatch = Partial<StoredItem> & {
+  status: ItemStatus;
+  claimStatus: Extract<ClaimStatus, 'CANCELLED'>;
+  updatedAt: string;
+};
+
 type StoredItemReviewPatch = Partial<StoredItem> & {
   updatedAt: string;
 };
@@ -63,6 +73,13 @@ type AdditionalProofRequestResult = {
   status: Extract<ClaimStatus, 'NEEDS_PROOF'>;
   additionalProofRequest: string;
   proofRequestedAt: string;
+};
+
+type ClaimCancellationResult = {
+  id: string;
+  status: Extract<ClaimStatus, 'CANCELLED'>;
+  itemId: string;
+  itemStatus: ItemStatus;
 };
 
 export class ClaimNotFoundError extends Error {
@@ -119,6 +136,42 @@ const getFirstExistingItemRef = async (
   const legacyReportSnap = await reader.get(legacyReportRef);
   if (legacyReportSnap.exists) {
     return legacyReportRef;
+  }
+
+  throw new ClaimItemNotFoundError();
+};
+
+const getFirstExistingItem = async (
+  reader: TransactionReader,
+  db: Firestore,
+  itemId: string,
+): Promise<{ ref: DocumentReference<DocumentData>; data: StoredItem }> => {
+  const directItemRef = db.collection('items').doc(itemId);
+  const directItemSnap = await reader.get(directItemRef);
+  if (directItemSnap.exists) {
+    return {
+      ref: directItemRef,
+      data: (directItemSnap.data() as StoredItem | undefined) ?? {},
+    };
+  }
+
+  const byReportIdQuery = db.collection('items').where('reportId', '==', itemId).limit(1);
+  const byReportIdSnap = await reader.get(byReportIdQuery);
+  if (!byReportIdSnap.empty) {
+    const matchedRef = byReportIdSnap.docs[0].ref as DocumentReference<DocumentData>;
+    return {
+      ref: matchedRef,
+      data: (byReportIdSnap.docs[0].data() as StoredItem | undefined) ?? {},
+    };
+  }
+
+  const legacyReportRef = db.collection('reports').doc(itemId);
+  const legacyReportSnap = await reader.get(legacyReportRef);
+  if (legacyReportSnap.exists) {
+    return {
+      ref: legacyReportRef,
+      data: (legacyReportSnap.data() as StoredItem | undefined) ?? {},
+    };
   }
 
   throw new ClaimItemNotFoundError();
@@ -301,6 +354,55 @@ export const requestAdditionalProof = async (
       status: ClaimStatus.NEEDS_PROOF,
       additionalProofRequest: payload.message,
       proofRequestedAt,
+    };
+  });
+};
+
+export const cancelClaim = async (
+  db: Firestore,
+  claimId: string,
+): Promise<ClaimCancellationResult> => {
+  return db.runTransaction(async (transaction: Transaction) => {
+    const claimRef = db.collection('claims').doc(claimId);
+    const claimSnap = await transaction.get(claimRef);
+
+    if (!claimSnap.exists) {
+      throw new ClaimNotFoundError();
+    }
+
+    const claim = claimSnap.data() as StoredClaim | undefined;
+    if (!claim) {
+      throw new ClaimNotFoundError();
+    }
+
+    const itemId = claim.itemId?.trim();
+    if (!itemId) {
+      throw new ClaimItemNotFoundError();
+    }
+
+    if (!isClaimAwaitingReview(claim.status)) {
+      throw new ClaimConflictError('Only pending or proof-requested claims can be cancelled.');
+    }
+
+    const { ref: itemRef, data: item } = await getFirstExistingItem(transaction, db, itemId);
+    const cancelledAt = new Date().toISOString();
+    const nextItemStatus = item.status ?? ItemStatus.VALIDATED;
+
+    transaction.update(claimRef, {
+      status: ClaimStatus.CANCELLED,
+    } satisfies StoredClaimCancellationPatch);
+
+    transaction.update(itemRef, {
+      status: nextItemStatus,
+      claimStatus: ClaimStatus.CANCELLED,
+      updatedAt: cancelledAt,
+    } satisfies StoredItemCancellationPatch);
+
+    return {
+      id: claimId,
+      status: ClaimStatus.CANCELLED,
+      itemId,
+      itemStatus: nextItemStatus,
     };
   });
 };
