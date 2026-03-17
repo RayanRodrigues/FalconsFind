@@ -212,15 +212,6 @@ export const listValidatedItems = async (
       (Array.isArray(data.imageUrls) && data.imageUrls.length > 0 ? data.imageUrls[0] : undefined)
       ?? data.photoUrl;
 
-    let thumbnailUrl: string | undefined;
-    if (typeof thumbnailSource === 'string' && thumbnailSource.trim().length > 0) {
-      try {
-        thumbnailUrl = await toPublicImageUrl(bucket, thumbnailSource);
-      } catch {
-        thumbnailUrl = thumbnailSource;
-      }
-    }
-
     if (
       typeof data.title !== 'string'
       || data.title.trim().length === 0
@@ -245,7 +236,8 @@ export const listValidatedItems = async (
       referenceCode: data.referenceCode,
       location: data.location,
       dateReported,
-      thumbnailUrl,
+      // Defer signing of the thumbnail URL until after filtering/pagination.
+      thumbnailUrl: thumbnailSource,
     } as ItemPublicResponse;
   }));
 
@@ -257,5 +249,25 @@ export const listValidatedItems = async (
     ? items.slice(offset, offset + limit)
     : items;
 
-  return { items: pagedItems, total };
+  const itemsWithSignedThumbnails = await Promise.all(pagedItems.map(async (item) => {
+    const source = item.thumbnailUrl;
+    if (typeof source !== 'string' || source.trim().length === 0) {
+      return item;
+    }
+
+    let signedUrl = source;
+    try {
+      signedUrl = await toPublicImageUrl(bucket, source);
+    } catch {
+      // On failure, fall back to the original source URL as before.
+      signedUrl = source;
+    }
+
+    return {
+      ...item,
+      thumbnailUrl: signedUrl,
+    };
+  }));
+
+  return { items: itemsWithSignedThumbnails, total };
 };
