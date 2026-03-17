@@ -1,4 +1,4 @@
-import type { Firestore } from 'firebase-admin/firestore';
+import type { Firestore, Transaction } from 'firebase-admin/firestore';
 import type { Bucket } from '@google-cloud/storage';
 import type { CreateFoundReportRequest, CreateLostReportRequest, Report } from '../contracts/index.js';
 import { ItemStatus } from '../contracts/index.js';
@@ -158,33 +158,35 @@ export const validateFoundReport = async (
   db: Firestore,
   reportId: string,
 ): Promise<{ id: string; report: Pick<Report, 'status' | 'referenceCode'> }> => {
-  const reportRef = db.collection('reports').doc(reportId);
-  const reportSnap = await reportRef.get();
+  return db.runTransaction(async (transaction: Transaction) => {
+    const reportRef = db.collection('reports').doc(reportId);
+    const reportSnap = await transaction.get(reportRef);
 
-  if (!reportSnap.exists) {
-    throw new ReportNotFoundError();
-  }
+    if (!reportSnap.exists) {
+      throw new ReportNotFoundError();
+    }
 
-  const report = reportSnap.data() as Report | undefined;
-  if (!report) {
-    throw new ReportNotFoundError();
-  }
+    const report = reportSnap.data() as Report | undefined;
+    if (!report) {
+      throw new ReportNotFoundError();
+    }
 
-  if (report.kind !== 'FOUND') {
-    throw new ReportValidationConflictError('Only found-item reports can be validated.');
-  }
+    if (report.kind !== 'FOUND') {
+      throw new ReportValidationConflictError('Only found-item reports can be validated.');
+    }
 
-  if (report.status !== ItemStatus.PENDING_VALIDATION) {
-    throw new ReportValidationConflictError('Only pending validation found-item reports can be validated.');
-  }
+    if (report.status !== ItemStatus.PENDING_VALIDATION) {
+      throw new ReportValidationConflictError('Only pending validation found-item reports can be validated.');
+    }
 
-  await reportRef.update({ status: ItemStatus.VALIDATED });
+    transaction.update(reportRef, { status: ItemStatus.VALIDATED });
 
-  return {
-    id: reportId,
-    report: {
-      status: ItemStatus.VALIDATED,
-      referenceCode: report.referenceCode,
-    },
-  };
+    return {
+      id: reportId,
+      report: {
+        status: ItemStatus.VALIDATED,
+        referenceCode: report.referenceCode,
+      },
+    };
+  });
 };
