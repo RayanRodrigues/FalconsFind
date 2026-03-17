@@ -185,6 +185,10 @@ export const listValidatedItems = async (
   const limit = Math.max(1, Math.floor(params.limit));
   const keyword = typeof params.keyword === 'string' ? params.keyword.trim().toLowerCase() : '';
   const offset = (page - 1) * limit;
+  const MAX_KEYWORD_SCAN = 1000;
+  const scanLimit = keyword.length > 0
+    ? Math.min(MAX_KEYWORD_SCAN, offset + limit)
+    : limit;
 
   const baseQuery = db
     .collection('reports')
@@ -193,7 +197,9 @@ export const listValidatedItems = async (
 
   const orderedQuery = baseQuery.orderBy('dateReported', 'desc');
   const pageSnap = keyword.length > 0
-    ? await orderedQuery.get()
+    ? await orderedQuery
+      .limit(scanLimit)
+      .get()
     : await orderedQuery
       .offset(offset)
       .limit(limit)
