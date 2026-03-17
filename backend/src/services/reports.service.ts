@@ -1,6 +1,11 @@
-import type { Firestore, Transaction } from 'firebase-admin/firestore';
+import type { Firestore, Query, Transaction } from 'firebase-admin/firestore';
 import type { Bucket } from '@google-cloud/storage';
-import type { CreateFoundReportRequest, CreateLostReportRequest, Report } from '../contracts/index.js';
+import type {
+  AdminReportResponse,
+  CreateFoundReportRequest,
+  CreateLostReportRequest,
+  Report,
+} from '../contracts/index.js';
 import { ItemStatus } from '../contracts/index.js';
 import { randomUUID } from 'node:crypto';
 
@@ -27,6 +32,14 @@ export class ReportValidationConflictError extends Error {
     this.name = 'ReportValidationConflictError';
   }
 }
+
+type ListAdminReportsParams = {
+  page: number;
+  limit: number;
+  kind?: Report['kind'];
+  status?: Report['status'];
+  search?: string;
+};
 
 const formatDateSegment = (date: Date): string => {
   const year = date.getUTCFullYear().toString();
@@ -71,6 +84,56 @@ const uploadPhotoFromDataUrl = async (bucket: Bucket, photoDataUrl: string): Pro
   }
 
   return `gs://${bucket.name}/${fileName}`;
+};
+
+const normalizeDateReported = (value: unknown): string | undefined => {
+  if (typeof value === 'string' && value.trim().length > 0) {
+    return value;
+  }
+
+  if (
+    typeof value === 'object'
+    && value !== null
+    && typeof (value as { toDate?: unknown }).toDate === 'function'
+  ) {
+    return (value as { toDate: () => Date }).toDate().toISOString();
+  }
+
+  return undefined;
+};
+
+const isItemStatus = (value: unknown): value is ItemStatus => {
+  return typeof value === 'string' && Object.values(ItemStatus).includes(value as ItemStatus);
+};
+
+const mapAdminReport = (id: string, source: Partial<Report>): AdminReportResponse | null => {
+  const dateReported = normalizeDateReported(source.dateReported);
+
+  if (
+    (source.kind !== 'LOST' && source.kind !== 'FOUND')
+    || typeof source.title !== 'string'
+    || source.title.trim().length === 0
+    || typeof source.referenceCode !== 'string'
+    || source.referenceCode.trim().length === 0
+    || !isItemStatus(source.status)
+    || !dateReported
+  ) {
+    return null;
+  }
+
+  return {
+    id,
+    kind: source.kind,
+    title: source.title,
+    category: source.category,
+    description: source.description,
+    status: source.status,
+    referenceCode: source.referenceCode,
+    location: source.location,
+    dateReported,
+    contactEmail: source.contactEmail,
+    photoUrl: source.photoUrl,
+  };
 };
 
 export const createLostReport = async (
@@ -189,4 +252,69 @@ export const validateFoundReport = async (
       },
     };
   });
+};
+
+export const listAdminReports = async (
+  db: Firestore,
+  params: ListAdminReportsParams,
+): Promise<{
+  reports: AdminReportResponse[];
+  total: number;
+  summary: {
+    totalReports: number;
+    lostReports: number;
+    foundReports: number;
+    byStatus: Partial<Record<ItemStatus, number>>;
+  };
+}> => {
+  const page = Math.max(1, Math.floor(params.page));
+  const limit = Math.max(1, Math.floor(params.limit));
+  const offset = (page - 1) * limit;
+  const search = typeof params.search === 'string' ? params.search.trim().toLowerCase() : '';
+
+  let reportsQuery: Query = db.collection('reports');
+  if (params.kind) {
+    reportsQuery = reportsQuery.where('kind', '==', params.kind);
+  }
+  if (params.status) {
+    reportsQuery = reportsQuery.where('status', '==', params.status);
+  }
+
+  const reportsSnap = await reportsQuery.get();
+  const allReports = reportsSnap.docs
+    .map((doc) => mapAdminReport(doc.id, doc.data() as Partial<Report>))
+    .filter((report): report is AdminReportResponse => report !== null)
+    .sort((a, b) => b.dateReported.localeCompare(a.dateReported));
+
+  const filteredReports = allReports.filter((report) => {
+    if (search.length > 0) {
+      const searchableText = [
+        report.title,
+        report.description ?? '',
+        report.referenceCode,
+        report.location ?? '',
+        report.contactEmail ?? '',
+      ].join(' ').toLowerCase();
+
+      return searchableText.includes(search);
+    }
+
+    return true;
+  });
+
+  const byStatus = filteredReports.reduce<Partial<Record<ItemStatus, number>>>((acc, report) => {
+    acc[report.status] = (acc[report.status] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  return {
+    reports: filteredReports.slice(offset, offset + limit),
+    total: filteredReports.length,
+    summary: {
+      totalReports: filteredReports.length,
+      lostReports: filteredReports.filter((report) => report.kind === 'LOST').length,
+      foundReports: filteredReports.filter((report) => report.kind === 'FOUND').length,
+      byStatus,
+    },
+  };
 };

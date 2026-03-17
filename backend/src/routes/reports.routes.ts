@@ -3,6 +3,7 @@ import type { Request } from 'express';
 import multer from 'multer';
 import type { Firestore } from 'firebase-admin/firestore';
 import type { Bucket } from '@google-cloud/storage';
+import { ItemStatus } from '../contracts/index.js';
 import type { CreateFoundReportRequest, CreateLostReportRequest } from '../contracts/index.js';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -32,6 +33,7 @@ const schemaModule = (await import(pathToFileURL(schemaPath).href)) as {
     ) => { success: true; data: CreateFoundReportRequest } | { success: false; error: { issues: Array<{ message?: string }> } };
   };
 };
+
 const reportsServiceModule = (await import(pathToFileURL(servicePath).href)) as {
   ReportPhotoUploadError: new (
     code: 'INVALID_PHOTO_DATA_URL' | 'PHOTO_UPLOAD_FAILED',
@@ -53,7 +55,39 @@ const reportsServiceModule = (await import(pathToFileURL(servicePath).href)) as 
     db: Firestore,
     reportId: string,
   ) => Promise<{ id: string; report: { status: string; referenceCode: string } }>;
+  listAdminReports: (
+    db: Firestore,
+    params: {
+      page: number;
+      limit: number;
+      kind?: 'LOST' | 'FOUND';
+      status?: ItemStatus;
+      search?: string;
+    },
+  ) => Promise<{
+    reports: unknown[];
+    total: number;
+    summary: {
+      totalReports: number;
+      lostReports: number;
+      foundReports: number;
+      byStatus: Record<string, number>;
+    };
+  }>;
 };
+
+function parsePositiveInt(value: unknown, fallback: number): number {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  const i = Math.floor(n);
+  return i > 0 ? i : fallback;
+}
+
+function parseOptionalString(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
 
 export const createReportsRouter = (db: Firestore, bucket: Bucket): Router => {
   const router = Router();
@@ -176,6 +210,52 @@ export const createReportsRouter = (db: Firestore, bucket: Bucket): Router => {
       id: result.id,
       referenceCode: result.report.referenceCode,
       status: result.report.status,
+    });
+  });
+
+  router.get(`${API_PREFIX}/admin/reports`, async (req, res) => {
+    const page = parsePositiveInt(req.query.page, 1);
+    const limitRaw = parsePositiveInt(req.query.limit, 20);
+    const limit = Math.min(limitRaw, 100);
+    const kindRaw = parseOptionalString(req.query.kind);
+    const statusRaw = parseOptionalString(req.query.status);
+    const search = parseOptionalString(req.query.search);
+
+    const kind = kindRaw === 'LOST' || kindRaw === 'FOUND' ? kindRaw : undefined;
+    if (kindRaw && !kind) {
+      throw new HttpError(400, 'BAD_REQUEST', 'kind must be LOST or FOUND');
+    }
+
+    const allowedStatuses = new Set<string>(Object.values(ItemStatus));
+    const status = statusRaw && allowedStatuses.has(statusRaw) ? statusRaw as ItemStatus : undefined;
+    if (statusRaw && !status) {
+      throw new HttpError(400, 'BAD_REQUEST', `status must be one of: ${Object.values(ItemStatus).join(', ')}`);
+    }
+
+    const result = await reportsServiceModule.listAdminReports(db, {
+      page,
+      limit,
+      kind,
+      status,
+      search,
+    });
+
+    const totalPages = Math.max(1, Math.ceil(result.total / limit));
+
+    res.status(200).json({
+      page,
+      limit,
+      total: result.total,
+      totalPages,
+      hasNextPage: page < totalPages,
+      hasPrevPage: page > 1,
+      filters: {
+        kind: kind ?? null,
+        status: status ?? null,
+        search: search ?? null,
+      },
+      summary: result.summary,
+      reports: result.reports,
     });
   });
 
