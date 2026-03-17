@@ -80,6 +80,15 @@ const claimsServiceModule = (await import(pathToFileURL(servicePath).href)) as {
     additionalProofRequest: string;
     proofRequestedAt: string;
   }>;
+  cancelClaim: (
+    db: Firestore,
+    claimId: string,
+  ) => Promise<{
+    id: string;
+    status: string;
+    itemId: string;
+    itemStatus: string;
+  }>;
 };
 
 export const createClaimsRouter = (db: Firestore): Router => {
@@ -158,6 +167,32 @@ export const createClaimsRouter = (db: Firestore): Router => {
 
     try {
       const result = await claimsServiceModule.requestAdditionalProof(db, claimId, parsed.data);
+      res.status(200).json(result);
+    } catch (error) {
+      if (error instanceof claimsServiceModule.ClaimNotFoundError) {
+        throw new HttpError(404, 'NOT_FOUND', error.message);
+      }
+
+      if (error instanceof claimsServiceModule.ClaimItemNotFoundError) {
+        throw new HttpError(404, 'CLAIM_ITEM_NOT_FOUND', error.message);
+      }
+
+      if (error instanceof claimsServiceModule.ClaimConflictError) {
+        throw new HttpError(409, 'CLAIM_STATUS_CONFLICT', error.message);
+      }
+
+      throw error;
+    }
+  });
+
+  router.patch(`${API_PREFIX}/claims/:id/cancel`, async (req, res) => {
+    const claimId = req.params.id?.trim();
+    if (!claimId) {
+      throw new HttpError(400, 'BAD_REQUEST', 'id is required');
+    }
+
+    try {
+      const result = await claimsServiceModule.cancelClaim(db, claimId);
       res.status(200).json(result);
     } catch (error) {
       if (error instanceof claimsServiceModule.ClaimNotFoundError) {

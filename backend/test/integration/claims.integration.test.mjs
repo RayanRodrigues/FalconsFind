@@ -506,3 +506,116 @@ test('PATCH /api/v1/claims/:id/proof-request returns 400 for invalid request pay
   assert.equal(response.status, 400);
   assert.equal(response.body.error.code, 'BAD_REQUEST');
 });
+
+test('PATCH /api/v1/claims/:id/cancel cancels a pending claim and keeps the item validated', async () => {
+  const { db, claims, items } = createFakeDb({
+    items: {
+      'item-cancel': {
+        status: 'VALIDATED',
+        claimStatus: 'PENDING',
+      },
+    },
+    claims: {
+      'claim-cancel': {
+        itemId: 'item-cancel',
+        status: 'PENDING',
+      },
+    },
+  });
+
+  const response = await request(buildTestApp(db))
+    .patch('/api/v1/claims/claim-cancel/cancel')
+    .send();
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.id, 'claim-cancel');
+  assert.equal(response.body.status, 'CANCELLED');
+  assert.equal(response.body.itemId, 'item-cancel');
+  assert.equal(response.body.itemStatus, 'VALIDATED');
+  assert.equal(claims['claim-cancel'].status, 'CANCELLED');
+  assert.equal(items['item-cancel'].status, 'VALIDATED');
+  assert.equal(items['item-cancel'].claimStatus, 'CANCELLED');
+  assert.match(items['item-cancel'].updatedAt, /^\d{4}-\d{2}-\d{2}T/);
+});
+
+test('PATCH /api/v1/claims/:id/cancel cancels a proof-requested claim', async () => {
+  const { db, claims, items } = createFakeDb({
+    items: {
+      'item-cancel-proof': {
+        status: 'VALIDATED',
+        claimStatus: 'NEEDS_PROOF',
+      },
+    },
+    claims: {
+      'claim-cancel-proof': {
+        itemId: 'item-cancel-proof',
+        status: 'NEEDS_PROOF',
+        additionalProofRequest: 'Please provide the serial number.',
+        proofRequestedAt: '2026-03-17T12:00:00.000Z',
+      },
+    },
+  });
+
+  const response = await request(buildTestApp(db))
+    .patch('/api/v1/claims/claim-cancel-proof/cancel')
+    .send();
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.status, 'CANCELLED');
+  assert.equal(claims['claim-cancel-proof'].status, 'CANCELLED');
+  assert.equal(items['item-cancel-proof'].status, 'VALIDATED');
+  assert.equal(items['item-cancel-proof'].claimStatus, 'CANCELLED');
+});
+
+test('PATCH /api/v1/claims/:id/cancel returns 404 when the claim does not exist', async () => {
+  const { db } = createFakeDb();
+
+  const response = await request(buildTestApp(db))
+    .patch('/api/v1/claims/missing-claim/cancel')
+    .send();
+
+  assert.equal(response.status, 404);
+  assert.equal(response.body.error.code, 'NOT_FOUND');
+});
+
+test('PATCH /api/v1/claims/:id/cancel returns 404 when the related item cannot be found', async () => {
+  const { db } = createFakeDb({
+    claims: {
+      'claim-cancel-missing-item': {
+        itemId: 'missing-item',
+        status: 'PENDING',
+      },
+    },
+  });
+
+  const response = await request(buildTestApp(db))
+    .patch('/api/v1/claims/claim-cancel-missing-item/cancel')
+    .send();
+
+  assert.equal(response.status, 404);
+  assert.equal(response.body.error.code, 'CLAIM_ITEM_NOT_FOUND');
+});
+
+test('PATCH /api/v1/claims/:id/cancel returns 409 when the claim is already finalized', async () => {
+  const { db } = createFakeDb({
+    claims: {
+      'claim-cancel-final': {
+        itemId: 'item-cancel-final',
+        status: 'APPROVED',
+      },
+    },
+    items: {
+      'item-cancel-final': {
+        status: 'CLAIMED',
+        claimStatus: 'APPROVED',
+      },
+    },
+  });
+
+  const response = await request(buildTestApp(db))
+    .patch('/api/v1/claims/claim-cancel-final/cancel')
+    .send();
+
+  assert.equal(response.status, 409);
+  assert.equal(response.body.error.code, 'CLAIM_STATUS_CONFLICT');
+});
