@@ -8,6 +8,7 @@ import type {
   Transaction,
 } from 'firebase-admin/firestore';
 import { ClaimStatus, ItemStatus } from '../contracts/index.js';
+import type { Claim, CreateClaimRequest } from '../contracts/index.js';
 
 type StoredClaim = {
   itemId?: string;
@@ -19,6 +20,13 @@ type StoredItem = {
   status?: ItemStatus;
   claimStatus?: ClaimStatus;
   updatedAt?: string;
+};
+
+type StoredItemLike = {
+  id: string;
+  reportId?: string;
+  status?: ItemStatus;
+  kind?: string;
 };
 
 type StoredClaimReviewPatch = Partial<StoredClaim> & {
@@ -53,8 +61,15 @@ export class ClaimConflictError extends Error {
 
 export class ClaimItemNotFoundError extends Error {
   constructor() {
-    super('Claim item not found');
+    super('Item not found');
     this.name = 'ClaimItemNotFoundError';
+  }
+}
+
+export class ClaimItemNotEligibleError extends Error {
+  constructor() {
+    super('This item is not eligible for claim requests.');
+    this.name = 'ClaimItemNotEligibleError';
   }
 }
 
@@ -89,59 +104,43 @@ const getFirstExistingItemRef = async (
   throw new ClaimItemNotFoundError();
 };
 
+const findClaimableItem = async (db: Firestore, itemId: string): Promise<StoredItemLike> => {
+  const directItemSnapshot = await db.collection('items').doc(itemId).get();
+  if (directItemSnapshot.exists) {
+    const data = directItemSnapshot.data() as DocumentData;
+    return {
+      id: directItemSnapshot.id,
+      ...data,
+    } as StoredItemLike;
+  }
+
+  const itemByReportSnapshot = await db
+    .collection('items')
+    .where('reportId', '==', itemId)
+    .limit(1)
+    .get();
+  if (!itemByReportSnapshot.empty) {
+    const doc = itemByReportSnapshot.docs[0];
+    const data = doc.data() as DocumentData;
+    return {
+      id: doc.id,
+      ...data,
+    } as StoredItemLike;
+  }
+
+  const reportSnapshot = await db.collection('reports').doc(itemId).get();
+  if (reportSnapshot.exists) {
+    const data = reportSnapshot.data() as DocumentData;
+    return {
+      id: reportSnapshot.id,
+      ...data,
+    } as StoredItemLike;
+  }
+
+  throw new ClaimItemNotFoundError();
+};
+
 const resolveTargetItemStatus = (
   targetClaimStatus: Extract<ClaimStatus, 'APPROVED' | 'REJECTED'>,
 ): ItemStatus => (
-  targetClaimStatus === ClaimStatus.APPROVED ? ItemStatus.CLAIMED : ItemStatus.VALIDATED
-);
-
-export const updateClaimStatus = async (
-  db: Firestore,
-  claimId: string,
-  targetStatus: Extract<ClaimStatus, 'APPROVED' | 'REJECTED'>,
-): Promise<ClaimUpdateResult> => {
-  return db.runTransaction(async (transaction: Transaction) => {
-    const claimRef = db.collection('claims').doc(claimId);
-    const claimSnap = await transaction.get(claimRef);
-
-    if (!claimSnap.exists) {
-      throw new ClaimNotFoundError();
-    }
-
-    const claim = claimSnap.data() as StoredClaim | undefined;
-    if (!claim) {
-      throw new ClaimNotFoundError();
-    }
-
-    const itemId = claim.itemId?.trim();
-    if (!itemId) {
-      throw new ClaimItemNotFoundError();
-    }
-
-    if (claim.status !== ClaimStatus.PENDING) {
-      throw new ClaimConflictError('Only pending claims can be reviewed.');
-    }
-
-    const itemRef = await getFirstExistingItemRef(transaction, db, itemId);
-    const nextItemStatus = resolveTargetItemStatus(targetStatus);
-    const reviewedAt = new Date().toISOString();
-
-    transaction.update(claimRef, {
-      status: targetStatus,
-      reviewedAt,
-    } satisfies StoredClaimReviewPatch);
-
-    transaction.update(itemRef, {
-      status: nextItemStatus,
-      claimStatus: targetStatus,
-      updatedAt: reviewedAt,
-    } satisfies StoredItemReviewPatch);
-
-    return {
-      id: claimId,
-      status: targetStatus,
-      itemId,
-      itemStatus: nextItemStatus,
-    };
-  });
-};
+  targetClaim

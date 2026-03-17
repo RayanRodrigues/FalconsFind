@@ -12,74 +12,109 @@ const createDocSnapshot = (ref, source) => ({
   data: () => source,
 });
 
-const createFakeDb = ({ claims = {}, items = {}, reports = {} } = {}) => ({
-  collection: (collectionName) => {
-    const collectionStore =
-      collectionName === 'claims' ? claims :
-        collectionName === 'items' ? items :
-          collectionName === 'reports' ? reports :
-            null;
+const createFakeDb = ({ claims = {}, items = {}, reports = {} } = {}) => {
+  const savedClaims = [];
+  let counter = 0;
 
-    if (!collectionStore) {
-      throw new Error(`Unexpected collection: ${collectionName}`);
-    }
-
-    return {
-      doc: (id) => ({
-        id,
-        collectionName,
-        get: async () => createDocSnapshot({ id, collectionName }, collectionStore[id]),
-      }),
-      where: (field, operator, value) => {
-        assert.equal(collectionName, 'items');
-        assert.equal(field, 'reportId');
-        assert.equal(operator, '==');
-
-        const matches = Object.entries(items)
-          .filter(([, item]) => item.reportId === value)
-          .map(([id, item]) => createDocSnapshot({ id, collectionName: 'items' }, item));
-
+  const db = {
+    collection: (collectionName) => {
+      if (collectionName === 'claims') {
         return {
-          limit: (limitValue) => {
-            assert.equal(limitValue, 1);
+          doc: (id) => {
+            if (id) {
+              return {
+                id,
+                collectionName,
+                get: async () => createDocSnapshot({ id, collectionName }, claims[id]),
+              };
+            }
+
+            counter += 1;
+            const generatedId = `claim-${counter}`;
             return {
-              get: async () => {
-                const docs = matches.slice(0, limitValue);
+              id: generatedId,
+              collectionName,
+              set: async (data) => {
+                claims[generatedId] = data;
+                savedClaims.push({ id: generatedId, data });
+              },
+            };
+          },
+        };
+      }
+
+      if (collectionName === 'items') {
+        return {
+          doc: (id) => ({
+            id,
+            collectionName,
+            get: async () => createDocSnapshot({ id, collectionName }, items[id]),
+          }),
+          where: (field, operator, value) => {
+            assert.equal(field, 'reportId');
+            assert.equal(operator, '==');
+
+            const matches = Object.entries(items)
+              .filter(([, item]) => item.reportId === value)
+              .map(([id, item]) => createDocSnapshot({ id, collectionName: 'items' }, item));
+
+            return {
+              limit: (limitValue) => {
+                assert.equal(limitValue, 1);
                 return {
-                  empty: docs.length === 0,
-                  docs,
+                  get: async () => {
+                    const docs = matches.slice(0, limitValue);
+                    return {
+                      empty: docs.length === 0,
+                      docs,
+                    };
+                  },
                 };
               },
             };
           },
         };
-      },
-    };
-  },
-  runTransaction: async (handler) => {
-    const transaction = {
-      get: async (target) => target.get(),
-      update: (ref, patch) => {
-        const store =
-          ref.collectionName === 'claims' ? claims :
-            ref.collectionName === 'items' ? items :
-              ref.collectionName === 'reports' ? reports :
-                null;
+      }
 
-        if (!store?.[ref.id]) {
-          throw new Error(`Cannot update missing doc ${ref.collectionName}/${ref.id}`);
-        }
-
-        store[ref.id] = {
-          ...store[ref.id],
-          ...patch,
+      if (collectionName === 'reports') {
+        return {
+          doc: (id) => ({
+            id,
+            collectionName,
+            get: async () => createDocSnapshot({ id, collectionName }, reports[id]),
+          }),
         };
-      },
-    };
+      }
 
-    return handler(transaction);
-  },
-});
+      throw new Error(`Unexpected collection: ${collectionName}`);
+    },
+    runTransaction: async (handler) => {
+      const transaction = {
+        get: async (target) => target.get(),
+        update: (ref, patch) => {
+          const store =
+            ref.collectionName === 'claims' ? claims
+            : ref.collectionName === 'items' ? items
+            : ref.collectionName === 'reports' ? reports
+            : null;
+
+          if (!store?.[ref.id]) {
+            throw new Error(`Cannot update missing doc ${ref.collectionName}/${ref.id}`);
+          }
+
+          store[ref.id] = {
+            ...store[ref.id],
+            ...patch,
+          };
+        },
+      };
+
+      return handler(transaction);
+    },
+  };
+
+  return { db, savedClaims, claims, items, reports };
+};
 
 const buildTestApp = (db) => {
   const app = express();
@@ -90,20 +125,124 @@ const buildTestApp = (db) => {
   return app;
 };
 
+test('POST /api/v1/claims creates a pending claim for a validated item', async () => {
+  const { db, savedClaims } = createFakeDb({
+    reports: {
+      'report-1': {
+        kind: 'FOUND',
+        status: 'VALIDATED',
+      },
+    },
+  });
+
+  const response = await request(buildTestApp(db))
+    .post('/api/v1/claims')
+    .send({
+      itemId: 'report-1',
+      claimantName: 'Jane Doe',
+      claimantEmail: 'jane@example.com',
+      message: 'I can identify the item.',
+    });
+
+  assert.equal(response.status, 201);
+  assert.equal(response.body.id, 'claim-1');
+  assert.equal(response.body.status, 'PENDING');
+  assert.match(response.body.createdAt, /^\d{4}-\d{2}-\d{2}T/);
+  assert.equal(savedClaims.length, 1);
+  assert.equal(savedClaims[0].data.itemId, 'report-1');
+  assert.equal(savedClaims[0].data.status, 'PENDING');
+  assert.equal(savedClaims[0].data.claimantName, 'Jane Doe');
+});
+
+test('POST /api/v1/claims returns 404 when the target item does not exist', async () => {
+  const { db } = createFakeDb();
+
+  const response = await request(buildTestApp(db))
+    .post('/api/v1/claims')
+    .send({
+      itemId: 'missing-item',
+      claimantName: 'Jane Doe',
+      claimantEmail: 'jane@example.com',
+    });
+
+  assert.equal(response.status, 404);
+  assert.equal(response.body.error.code, 'NOT_FOUND');
+});
+
+test('POST /api/v1/claims returns 409 when the target item is not validated', async () => {
+  const { db } = createFakeDb({
+    reports: {
+      'report-2': {
+        kind: 'FOUND',
+        status: 'CLAIMED',
+      },
+    },
+  });
+
+  const response = await request(buildTestApp(db))
+    .post('/api/v1/claims')
+    .send({
+      itemId: 'report-2',
+      claimantName: 'Jane Doe',
+      claimantEmail: 'jane@example.com',
+    });
+
+  assert.equal(response.status, 409);
+  assert.equal(response.body.error.code, 'ITEM_NOT_ELIGIBLE_FOR_CLAIM');
+});
+
+test('POST /api/v1/claims returns 409 when the target item is not a found item', async () => {
+  const { db } = createFakeDb({
+    reports: {
+      'report-3': {
+        kind: 'LOST',
+        status: 'VALIDATED',
+      },
+    },
+  });
+
+  const response = await request(buildTestApp(db))
+    .post('/api/v1/claims')
+    .send({
+      itemId: 'report-3',
+      claimantName: 'Jane Doe',
+      claimantEmail: 'jane@example.com',
+    });
+
+  assert.equal(response.status, 409);
+  assert.equal(response.body.error.code, 'ITEM_NOT_ELIGIBLE_FOR_CLAIM');
+});
+
+test('POST /api/v1/claims returns 400 for invalid request payload', async () => {
+  const { db } = createFakeDb();
+
+  const response = await request(buildTestApp(db))
+    .post('/api/v1/claims')
+    .send({
+      itemId: '',
+      claimantName: '',
+      claimantEmail: 'not-an-email',
+    });
+
+  assert.equal(response.status, 400);
+  assert.equal(response.body.error.code, 'BAD_REQUEST');
+});
+
 test('PATCH /api/v1/claims/:id/status approves a pending claim and marks the item as claimed', async () => {
-  const items = {
-    'item-1': {
-      status: 'VALIDATED',
-      claimStatus: 'PENDING',
+  const { db, claims, items } = createFakeDb({
+    items: {
+      'item-1': {
+        status: 'VALIDATED',
+        claimStatus: 'PENDING',
+      },
     },
-  };
-  const claims = {
-    'claim-1': {
-      itemId: 'item-1',
-      status: 'PENDING',
+    claims: {
+      'claim-1': {
+        itemId: 'item-1',
+        status: 'PENDING',
+      },
     },
-  };
-  const db = createFakeDb({ claims, items });
+  });
 
   const response = await request(buildTestApp(db))
     .patch('/api/v1/claims/claim-1/status')
@@ -121,20 +260,21 @@ test('PATCH /api/v1/claims/:id/status approves a pending claim and marks the ite
 });
 
 test('PATCH /api/v1/claims/:id/status rejects a pending claim and keeps the item validated', async () => {
-  const items = {
-    'item-2': {
-      reportId: 'report-2',
-      status: 'CLAIMED',
-      claimStatus: 'PENDING',
+  const { db, claims, items } = createFakeDb({
+    items: {
+      'item-2': {
+        reportId: 'report-2',
+        status: 'CLAIMED',
+        claimStatus: 'PENDING',
+      },
     },
-  };
-  const claims = {
-    'claim-2': {
-      itemId: 'report-2',
-      status: 'PENDING',
+    claims: {
+      'claim-2': {
+        itemId: 'report-2',
+        status: 'PENDING',
+      },
     },
-  };
-  const db = createFakeDb({ claims, items });
+  });
 
   const response = await request(buildTestApp(db))
     .patch('/api/v1/claims/claim-2/status')
@@ -150,18 +290,19 @@ test('PATCH /api/v1/claims/:id/status rejects a pending claim and keeps the item
 });
 
 test('PATCH /api/v1/claims/:id/status updates legacy report docs when no item doc exists', async () => {
-  const reports = {
-    'report-legacy': {
-      status: 'VALIDATED',
+  const { db, reports } = createFakeDb({
+    reports: {
+      'report-legacy': {
+        status: 'VALIDATED',
+      },
     },
-  };
-  const claims = {
-    'claim-legacy': {
-      itemId: 'report-legacy',
-      status: 'PENDING',
+    claims: {
+      'claim-legacy': {
+        itemId: 'report-legacy',
+        status: 'PENDING',
+      },
     },
-  };
-  const db = createFakeDb({ claims, reports });
+  });
 
   const response = await request(buildTestApp(db))
     .patch('/api/v1/claims/claim-legacy/status')
@@ -173,7 +314,7 @@ test('PATCH /api/v1/claims/:id/status updates legacy report docs when no item do
 });
 
 test('PATCH /api/v1/claims/:id/status returns 409 when the claim is already reviewed', async () => {
-  const db = createFakeDb({
+  const { db } = createFakeDb({
     claims: {
       'claim-closed': {
         itemId: 'item-closed',
@@ -196,7 +337,7 @@ test('PATCH /api/v1/claims/:id/status returns 409 when the claim is already revi
 });
 
 test('PATCH /api/v1/claims/:id/status returns 404 when the related item cannot be found', async () => {
-  const db = createFakeDb({
+  const { db } = createFakeDb({
     claims: {
       'claim-orphan': {
         itemId: 'missing-item',
@@ -214,7 +355,7 @@ test('PATCH /api/v1/claims/:id/status returns 404 when the related item cannot b
 });
 
 test('PATCH /api/v1/claims/:id/status returns 400 for unsupported review status', async () => {
-  const db = createFakeDb();
+  const { db } = createFakeDb();
 
   const response = await request(buildTestApp(db))
     .patch('/api/v1/claims/claim-1/status')
