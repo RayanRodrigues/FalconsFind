@@ -5,29 +5,57 @@ import request from 'supertest';
 import { createReportsRouter } from '../../dist/src/routes/reports.routes.js';
 import { errorHandler, notFoundHandler } from '../../dist/src/middleware/error-handler.js';
 
-const createFakeDb = () => {
+const createFakeDb = (initialReports = {}) => {
   const savedReports = [];
   let counter = 0;
+  const reports = { ...initialReports };
 
   return {
     db: {
       collection: (collectionName) => {
         assert.equal(collectionName, 'reports');
         return {
-          doc: () => {
+          doc: (id) => {
+            if (id) {
+              return {
+                id,
+                get: async () => ({
+                  id,
+                  exists: reports[id] !== undefined,
+                  data: () => reports[id],
+                }),
+                update: async (patch) => {
+                  reports[id] = {
+                    ...reports[id],
+                    ...patch,
+                  };
+                },
+              };
+            }
+
             counter += 1;
-            const id = `doc-${counter}`;
+            const generatedId = `doc-${counter}`;
             return {
-              id,
+              id: generatedId,
               set: async (data) => {
-                savedReports.push({ id, data });
+                reports[generatedId] = data;
+                savedReports.push({ id: generatedId, data });
               },
             };
           },
         };
       },
+      runTransaction: async (handler) => {
+        const transaction = {
+          get: async (target) => target.get(),
+          update: (target, patch) => target.update(patch),
+        };
+
+        return handler(transaction);
+      },
     },
     savedReports,
+    reports,
   };
 };
 
@@ -47,8 +75,8 @@ const createFakeBucket = () => {
   };
 };
 
-const buildTestApp = () => {
-  const { db, savedReports } = createFakeDb();
+const buildTestApp = (initialReports = {}) => {
+  const { db, savedReports, reports } = createFakeDb(initialReports);
   const { bucket, uploads } = createFakeBucket();
 
   const app = express();
@@ -57,7 +85,7 @@ const buildTestApp = () => {
   app.use(notFoundHandler);
   app.use(errorHandler);
 
-  return { app, savedReports, uploads };
+  return { app, savedReports, uploads, reports };
 };
 
 test('POST /api/v1/reports/lost creates a report', async () => {
@@ -112,5 +140,79 @@ test('POST /api/v1/reports/found creates a report with photo upload', async () =
   assert.equal(savedReports.length, 1);
   assert.equal(savedReports[0].data.kind, 'FOUND');
   assert.equal(savedReports[0].data.title, 'Found wallet');
+  assert.equal(savedReports[0].data.status, 'PENDING_VALIDATION');
   assert.equal(uploads.length, 1);
+});
+
+test('PATCH /api/v1/reports/found/:id/validate validates a pending found-item report', async () => {
+  const { app, reports } = buildTestApp({
+    'found-1': {
+      kind: 'FOUND',
+      title: 'Found wallet',
+      status: 'PENDING_VALIDATION',
+      referenceCode: 'FND-20260317-FOUND001',
+      location: 'Gym',
+      dateReported: '2026-03-17T10:00:00.000Z',
+    },
+  });
+
+  const response = await request(app)
+    .patch('/api/v1/reports/found/found-1/validate')
+    .send();
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.id, 'found-1');
+  assert.equal(response.body.referenceCode, 'FND-20260317-FOUND001');
+  assert.equal(response.body.status, 'VALIDATED');
+  assert.equal(reports['found-1'].status, 'VALIDATED');
+});
+
+test('PATCH /api/v1/reports/found/:id/validate returns 404 when report does not exist', async () => {
+  const { app } = buildTestApp();
+
+  const response = await request(app)
+    .patch('/api/v1/reports/found/missing-report/validate')
+    .send();
+
+  assert.equal(response.status, 404);
+  assert.equal(response.body.error.code, 'NOT_FOUND');
+});
+
+test('PATCH /api/v1/reports/found/:id/validate returns 409 for non-found reports', async () => {
+  const { app } = buildTestApp({
+    'lost-1': {
+      kind: 'LOST',
+      title: 'Lost backpack',
+      status: 'REPORTED',
+      referenceCode: 'LST-20260317-LOST0001',
+      dateReported: '2026-03-17T10:00:00.000Z',
+    },
+  });
+
+  const response = await request(app)
+    .patch('/api/v1/reports/found/lost-1/validate')
+    .send();
+
+  assert.equal(response.status, 409);
+  assert.equal(response.body.error.code, 'REPORT_VALIDATION_CONFLICT');
+});
+
+test('PATCH /api/v1/reports/found/:id/validate returns 409 when report is not pending validation', async () => {
+  const { app } = buildTestApp({
+    'found-validated': {
+      kind: 'FOUND',
+      title: 'Found wallet',
+      status: 'VALIDATED',
+      referenceCode: 'FND-20260317-FOUND002',
+      location: 'Gym',
+      dateReported: '2026-03-17T10:00:00.000Z',
+    },
+  });
+
+  const response = await request(app)
+    .patch('/api/v1/reports/found/found-validated/validate')
+    .send();
+
+  assert.equal(response.status, 409);
+  assert.equal(response.body.error.code, 'REPORT_VALIDATION_CONFLICT');
 });
