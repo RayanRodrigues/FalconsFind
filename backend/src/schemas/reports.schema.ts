@@ -19,5 +19,18 @@ export const createFoundReportSchema = z.object({
   photoDataUrl: z.string().startsWith('data:image/', 'photo must be an image data URL'),
 });
 
+export const updateReportByReferenceSchema = z.object({
+  title: z.string().trim().min(1, 'title cannot be empty').optional(),
+  category: z.string().trim().min(1, 'category cannot be empty').optional(),
+  description: z.string().trim().min(1, 'description cannot be empty').optional(),
+  location: z.string().trim().min(1, 'location cannot be empty').optional(),
+  dateReported: z.string().datetime('dateReported must be a valid ISO date-time').optional(),
+  contactEmail: z.string().email('contactEmail must be a valid email').optional(),
+}).refine(
+  (payload) => Object.keys(payload).length > 0,
+  { message: 'At least one editable field must be provided' },
+);
+
 export type CreateLostReportInput = z.infer<typeof createLostReportSchema>;
 export type CreateFoundReportInput = z.infer<typeof createFoundReportSchema>;
+export type UpdateReportByReferenceInput = z.infer<typeof updateReportByReferenceSchema>;

@@ -10,22 +10,47 @@ const createFakeDb = (initialReports = {}) => {
   let counter = 0;
   const reports = { ...initialReports };
 
+  const createReportDoc = (id, data) => ({
+    id,
+    ref: {
+      id,
+      update: async (patch) => {
+        reports[id] = {
+          ...reports[id],
+          ...patch,
+        };
+      },
+    },
+    data: () => data,
+  });
+
   return {
     db: {
       collection: (collectionName) => {
         assert.equal(collectionName, 'reports');
+
         const buildQuery = (filters = []) => ({
           where: (field, operator, value) => {
             assert.equal(operator, '==');
             return buildQuery([...filters, { field, value }]);
           },
+          limit: (limitValue) => {
+            assert.equal(limitValue, 1);
+            const matches = Object.entries(reports)
+              .filter(([, data]) => filters.every(({ field, value }) => data[field] === value))
+              .map(([id, data]) => createReportDoc(id, data));
+
+            return {
+              get: async () => ({
+                empty: matches.length === 0,
+                docs: matches.slice(0, limitValue),
+              }),
+            };
+          },
           get: async () => ({
             docs: Object.entries(reports)
               .filter(([, data]) => filters.every(({ field, value }) => data[field] === value))
-              .map(([id, data]) => ({
-                id,
-                data: () => data,
-              })),
+              .map(([id, data]) => createReportDoc(id, data)),
           }),
         });
 
@@ -159,6 +184,111 @@ test('POST /api/v1/reports/found creates a report with photo upload', async () =
   assert.equal(savedReports[0].data.title, 'Found wallet');
   assert.equal(savedReports[0].data.status, 'PENDING_VALIDATION');
   assert.equal(uploads.length, 1);
+});
+
+test('GET /api/v1/reports/reference/:referenceCode returns a report by reference code', async () => {
+  const { app } = buildTestApp({
+    'report-edit-1': {
+      kind: 'FOUND',
+      title: 'Black wallet',
+      status: 'REPORTED',
+      referenceCode: 'FND-20260317-EDIT0001',
+      location: 'Library',
+      description: 'Black leather wallet',
+      dateReported: '2026-03-17T10:00:00.000Z',
+      contactEmail: 'user@example.com',
+    },
+  });
+
+  const response = await request(app).get('/api/v1/reports/reference/FND-20260317-EDIT0001');
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.id, 'report-edit-1');
+  assert.equal(response.body.referenceCode, 'FND-20260317-EDIT0001');
+  assert.equal(response.body.kind, 'FOUND');
+  assert.equal(response.body.title, 'Black wallet');
+});
+
+test('GET /api/v1/reports/reference/:referenceCode returns 404 when report is missing', async () => {
+  const { app } = buildTestApp();
+
+  const response = await request(app).get('/api/v1/reports/reference/FND-20260317-MISSING01');
+
+  assert.equal(response.status, 404);
+  assert.equal(response.body.error.code, 'NOT_FOUND');
+});
+
+test('PATCH /api/v1/reports/reference/:referenceCode updates an editable report', async () => {
+  const { app, reports } = buildTestApp({
+    'report-edit-2': {
+      kind: 'LOST',
+      title: 'Blue backpack',
+      status: 'REPORTED',
+      referenceCode: 'LST-20260317-EDIT0002',
+      location: 'Student Centre',
+      description: 'Blue backpack with notebooks',
+      dateReported: '2026-03-17T09:00:00.000Z',
+      contactEmail: 'owner@example.com',
+    },
+  });
+
+  const response = await request(app)
+    .patch('/api/v1/reports/reference/LST-20260317-EDIT0002')
+    .send({
+      title: 'Blue backpack with charger',
+      location: 'Student Center',
+      dateReported: '2026-03-17T12:30:00.000Z',
+    });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.title, 'Blue backpack with charger');
+  assert.equal(response.body.location, 'Student Center');
+  assert.equal(response.body.dateReported, '2026-03-17T12:30:00.000Z');
+  assert.equal(reports['report-edit-2'].title, 'Blue backpack with charger');
+  assert.equal(reports['report-edit-2'].location, 'Student Center');
+  assert.equal(reports['report-edit-2'].dateReported, '2026-03-17T12:30:00.000Z');
+});
+
+test('PATCH /api/v1/reports/reference/:referenceCode returns 409 when report is no longer editable', async () => {
+  const { app } = buildTestApp({
+    'report-edit-3': {
+      kind: 'FOUND',
+      title: 'Black wallet',
+      status: 'VALIDATED',
+      referenceCode: 'FND-20260317-EDIT0003',
+      location: 'Library',
+      dateReported: '2026-03-17T10:00:00.000Z',
+    },
+  });
+
+  const response = await request(app)
+    .patch('/api/v1/reports/reference/FND-20260317-EDIT0003')
+    .send({
+      title: 'Updated title',
+    });
+
+  assert.equal(response.status, 409);
+  assert.equal(response.body.error.code, 'REPORT_EDIT_CONFLICT');
+});
+
+test('PATCH /api/v1/reports/reference/:referenceCode returns 400 for invalid payload', async () => {
+  const { app } = buildTestApp({
+    'report-edit-4': {
+      kind: 'FOUND',
+      title: 'Keys',
+      status: 'REPORTED',
+      referenceCode: 'FND-20260317-EDIT0004',
+      location: 'Gym',
+      dateReported: '2026-03-17T10:00:00.000Z',
+    },
+  });
+
+  const response = await request(app)
+    .patch('/api/v1/reports/reference/FND-20260317-EDIT0004')
+    .send({});
+
+  assert.equal(response.status, 400);
+  assert.equal(response.body.error.code, 'BAD_REQUEST');
 });
 
 test('PATCH /api/v1/reports/found/:id/validate validates a pending found-item report', async () => {

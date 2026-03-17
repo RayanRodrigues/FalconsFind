@@ -4,7 +4,9 @@ import type {
   AdminReportResponse,
   CreateFoundReportRequest,
   CreateLostReportRequest,
+  EditableReportResponse,
   Report,
+  UpdateReportByReferenceRequest,
 } from '../contracts/index.js';
 import { ItemStatus } from '../contracts/index.js';
 import { randomUUID } from 'node:crypto';
@@ -23,6 +25,13 @@ export class ReportNotFoundError extends Error {
   constructor() {
     super('Report not found');
     this.name = 'ReportNotFoundError';
+  }
+}
+
+export class ReportEditConflictError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ReportEditConflictError';
   }
 }
 
@@ -84,6 +93,25 @@ const uploadPhotoFromDataUrl = async (bucket: Bucket, photoDataUrl: string): Pro
   }
 
   return `gs://${bucket.name}/${fileName}`;
+};
+
+const isEditableReportStatus = (status: Report['status']): boolean => {
+  return status === ItemStatus.REPORTED || status === ItemStatus.PENDING_VALIDATION;
+};
+
+const mapEditableReport = (id: string, report: Report): EditableReportResponse => {
+  return {
+    id,
+    referenceCode: report.referenceCode,
+    kind: report.kind,
+    status: report.status,
+    title: report.title,
+    category: report.category,
+    description: report.description,
+    location: report.location,
+    dateReported: report.dateReported,
+    contactEmail: report.contactEmail,
+  };
 };
 
 const normalizeDateReported = (value: unknown): string | undefined => {
@@ -151,7 +179,7 @@ export const createLostReport = async (
   const reportToSave: Omit<Report, 'id'> = {
     kind: 'LOST' as const,
     title: payload.title,
-    status: 'REPORTED' as Report['status'],
+    status: ItemStatus.REPORTED,
     referenceCode: createReferenceCode('LST', docRef.id, createdAt),
     dateReported: payload.lastSeenAt ?? createdAt.toISOString(),
   };
@@ -215,6 +243,79 @@ export const createFoundReport = async (
       ...reportToSave,
     },
   };
+};
+
+export const getReportByReferenceCode = async (
+  db: Firestore,
+  referenceCode: string,
+): Promise<EditableReportResponse> => {
+  const snapshot = await db
+    .collection('reports')
+    .where('referenceCode', '==', referenceCode)
+    .limit(1)
+    .get();
+
+  if (snapshot.empty) {
+    throw new ReportNotFoundError();
+  }
+
+  const doc = snapshot.docs[0];
+  const report = doc.data() as Report;
+
+  return mapEditableReport(doc.id, report);
+};
+
+export const updateReportByReferenceCode = async (
+  db: Firestore,
+  referenceCode: string,
+  payload: UpdateReportByReferenceRequest,
+): Promise<EditableReportResponse> => {
+  return db.runTransaction(async (transaction: Transaction) => {
+    const snapshot = await transaction.get(
+      db.collection('reports')
+        .where('referenceCode', '==', referenceCode)
+        .limit(1),
+    );
+
+    if (snapshot.empty) {
+      throw new ReportNotFoundError();
+    }
+
+    const doc = snapshot.docs[0];
+    const report = doc.data() as Report;
+
+    if (!isEditableReportStatus(report.status)) {
+      throw new ReportEditConflictError('Only reports still under review can be edited.');
+    }
+
+    const updatePatch: Partial<Report> = {};
+
+    if (payload.title !== undefined) {
+      updatePatch.title = payload.title;
+    }
+    if (payload.category !== undefined) {
+      updatePatch.category = payload.category;
+    }
+    if (payload.description !== undefined) {
+      updatePatch.description = payload.description;
+    }
+    if (payload.location !== undefined) {
+      updatePatch.location = payload.location;
+    }
+    if (payload.dateReported !== undefined) {
+      updatePatch.dateReported = payload.dateReported;
+    }
+    if (payload.contactEmail !== undefined) {
+      updatePatch.contactEmail = payload.contactEmail;
+    }
+
+    transaction.update(doc.ref, updatePatch);
+
+    return mapEditableReport(doc.id, {
+      ...report,
+      ...updatePatch,
+    });
+  });
 };
 
 export const validateFoundReport = async (
