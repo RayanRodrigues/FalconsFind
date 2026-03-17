@@ -153,6 +153,28 @@ test('POST /api/v1/claims returns 409 when the target item is not validated', as
   assert.equal(response.body.error.code, 'ITEM_NOT_ELIGIBLE_FOR_CLAIM');
 });
 
+test('POST /api/v1/claims returns 409 when the target item is not a found item', async () => {
+  const { db } = createFakeDb({
+    reports: {
+      'report-3': {
+        kind: 'LOST',
+        status: 'VALIDATED',
+      },
+    },
+  });
+
+  const response = await request(buildTestApp(db))
+    .post('/api/v1/claims')
+    .send({
+      itemId: 'report-3',
+      claimantName: 'Jane Doe',
+      claimantEmail: 'jane@example.com',
+    });
+
+  assert.equal(response.status, 409);
+  assert.equal(response.body.error.code, 'ITEM_NOT_ELIGIBLE_FOR_CLAIM');
+});
+
 test('POST /api/v1/claims returns 400 for invalid request payload', async () => {
   const { db } = createFakeDb();
 
