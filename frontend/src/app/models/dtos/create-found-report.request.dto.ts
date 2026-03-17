@@ -4,5 +4,5 @@ export type CreateFoundReportRequest = {
   foundLocation: string;
   foundAt?: string;
   contactEmail?: string;
-  photoDataUrl: string;
+  photo: File;
 };
