@@ -8,6 +8,8 @@ export * from './types/claim.type.js';
 
 export * from './dtos/create-lost-report.request.dto.js';
 export * from './dtos/create-found-report.request.dto.js';
+export * from './dtos/update-report-by-reference.request.dto.js';
+export * from './dtos/editable-report.response.dto.js';
 export * from './dtos/create-claim.request.dto.js';
 export * from './dtos/update-claim-status.request.dto.js';
 export * from './dtos/item-public.response.dto.js';
