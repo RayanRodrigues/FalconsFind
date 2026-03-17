@@ -24,6 +24,7 @@ const itemsServiceModule = (await import(pathToFileURL(servicePath).href)) as {
     params: {
       page: number;
       limit: number;
+      keyword?: string;
       category?: string;
       location?: string;
       dateFrom?: string;
@@ -74,7 +75,11 @@ function parseOptionalDate(
 
   const parsed = new Date(raw);
   if (Number.isNaN(parsed.getTime())) {
-    throw new HttpError(400, 'BAD_REQUEST', `Invalid ${bound === 'start' ? 'dateFrom' : 'dateTo'} query parameter`);
+    throw new HttpError(
+      400,
+      'BAD_REQUEST',
+      `Invalid ${bound === 'start' ? 'dateFrom' : 'dateTo'} query parameter`,
+    );
   }
 
   return parsed.toISOString();
@@ -87,6 +92,8 @@ export const createItemsRouter = (db: Firestore, bucket: Bucket): Router => {
     const page = parsePositiveInt(req.query.page, 1);
     const limitRaw = parsePositiveInt(req.query.limit, 10);
     const limit = Math.min(limitRaw, 50);
+
+    const keyword = parseOptionalString(req.query.keyword);
     const category = parseOptionalString(req.query.category);
     const location = parseOptionalString(req.query.location);
     const dateFrom = parseOptionalDate(req.query.dateFrom, 'start');
@@ -99,8 +106,9 @@ export const createItemsRouter = (db: Firestore, bucket: Bucket): Router => {
     const result = await itemsServiceModule.listValidatedItems(
       db,
       bucket,
-      { page, limit, category, location, dateFrom, dateTo },
+      { page, limit, keyword, category, location, dateFrom, dateTo },
     );
+
     const totalPages = Math.max(1, Math.ceil(result.total / limit));
 
     res.status(200).json({
@@ -111,6 +119,7 @@ export const createItemsRouter = (db: Firestore, bucket: Bucket): Router => {
       hasNextPage: page < totalPages,
       hasPrevPage: page > 1,
       filters: {
+        keyword: keyword ?? null,
         category: category ?? null,
         location: location ?? null,
         dateFrom: dateFrom ?? null,

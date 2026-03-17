@@ -100,6 +100,9 @@ const createFakeDb = ({ items = {}, reports = {} } = {}) => {
               });
 
               return {
+                get: async () => ({
+                  docs: sorted.map(([id, data]) => normalizeDoc(id, data)),
+                }),
                 offset: (offsetValue) => ({
                   limit: (limitValue) => ({
                     get: async () => {
@@ -110,6 +113,15 @@ const createFakeDb = ({ items = {}, reports = {} } = {}) => {
                       return { docs: page };
                     },
                   }),
+                }),
+                limit: (limitValue) => ({
+                  get: async () => {
+                    const docs = sorted
+                      .slice(0, limitValue)
+                      .map(([id, data]) => normalizeDoc(id, data));
+
+                    return { docs };
+                  },
                 }),
               };
             },
@@ -213,6 +225,7 @@ test('GET /api/v1/items returns paginated validated found items with thumbnailUr
   assert.equal(response.body.items[1].id, 'report-1');
   assert.equal(response.body.items[1].thumbnailUrl, 'https://cdn.example.com/report-1.jpg');
   assert.deepEqual(response.body.filters, {
+    keyword: null,
     category: null,
     location: null,
     dateFrom: null,
@@ -271,6 +284,7 @@ test('GET /api/v1/items filters validated found items by category, location, and
   assert.equal(response.body.items[0].id, 'report-match');
   assert.equal(response.body.items[0].category, 'Accessories');
   assert.deepEqual(response.body.filters, {
+    keyword: null,
     category: 'Accessories',
     location: 'Library',
     dateFrom: '2026-02-24T00:00:00.000Z',
@@ -322,6 +336,92 @@ test('GET /api/v1/items skips malformed items from list payload', async () => {
   assert.equal(response.body.total, 2);
   assert.equal(response.body.items.length, 1);
   assert.equal(response.body.items[0].id, 'valid-item');
+});
+
+test('GET /api/v1/items filters validated found items by keyword in title or description', async () => {
+  const app = buildTestApp({
+    reports: {
+      'report-title': {
+        kind: 'FOUND',
+        title: 'Black Macbook Air',
+        description: 'Found in Building T',
+        status: 'VALIDATED',
+        referenceCode: 'FND-20260219-MAC0001',
+        dateReported: '2026-02-19T07:10:00.000Z',
+      },
+      'report-description': {
+        kind: 'FOUND',
+        title: 'Laptop sleeve',
+        description: 'Contains notes about a MacBook charger',
+        status: 'VALIDATED',
+        referenceCode: 'FND-20260219-SLV0002',
+        dateReported: '2026-02-19T07:00:00.000Z',
+      },
+      'report-other': {
+        kind: 'FOUND',
+        title: 'Blue water bottle',
+        description: 'Found near the gym entrance',
+        status: 'VALIDATED',
+        referenceCode: 'FND-20260219-BTL0003',
+        dateReported: '2026-02-19T06:50:00.000Z',
+      },
+    },
+  });
+
+  const response = await request(app).get('/api/v1/items?keyword=macbook');
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.total, 2);
+  assert.equal(response.body.items.length, 2);
+  assert.deepEqual(
+    response.body.items.map((item) => item.id),
+    ['report-title', 'report-description'],
+  );
+  assert.deepEqual(response.body.filters, {
+    keyword: 'macbook',
+    category: null,
+    location: null,
+    dateFrom: null,
+    dateTo: null,
+  });
+});
+
+test('GET /api/v1/items paginates keyword search results after filtering', async () => {
+  const app = buildTestApp({
+    reports: {
+      'report-3': {
+        kind: 'FOUND',
+        title: 'Macbook charger',
+        status: 'VALIDATED',
+        referenceCode: 'FND-20260219-MAC0003',
+        dateReported: '2026-02-19T08:00:00.000Z',
+      },
+      'report-2': {
+        kind: 'FOUND',
+        title: 'Macbook sleeve',
+        status: 'VALIDATED',
+        referenceCode: 'FND-20260219-MAC0002',
+        dateReported: '2026-02-19T07:30:00.000Z',
+      },
+      'report-1': {
+        kind: 'FOUND',
+        title: 'Macbook Air',
+        status: 'VALIDATED',
+        referenceCode: 'FND-20260219-MAC0001',
+        dateReported: '2026-02-19T07:00:00.000Z',
+      },
+    },
+  });
+
+  const response = await request(app).get('/api/v1/items?keyword=macbook&page=2&limit=1');
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.total, 2);
+  assert.equal(response.body.totalPages, 2);
+  assert.equal(response.body.hasNextPage, false);
+  assert.equal(response.body.hasPrevPage, true);
+  assert.equal(response.body.items.length, 1);
+  assert.equal(response.body.items[0].id, 'report-2');
 });
 
 test('GET /api/v1/items/:id returns 200 for validated item id', async () => {

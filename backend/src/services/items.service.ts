@@ -23,6 +23,7 @@ type StoredItem = {
 type ListValidatedItemsParams = {
   page: number;
   limit: number;
+  keyword?: string;
   category?: string;
   location?: string;
   dateFrom?: string;
@@ -189,6 +190,7 @@ export const listValidatedItems = async (
   const page = Math.max(1, Math.floor(params.page));
   const limit = Math.max(1, Math.floor(params.limit));
   const offset = (page - 1) * limit;
+  const keyword = typeof params.keyword === 'string' ? params.keyword.trim().toLowerCase() : '';
 
   let baseQuery = db
     .collection('reports')
@@ -211,14 +213,27 @@ export const listValidatedItems = async (
     baseQuery = baseQuery.where('dateReported', '<=', params.dateTo);
   }
 
-  const totalAgg = await baseQuery.count().get();
-  const total = totalAgg.data().count;
+  const orderedQuery = baseQuery.orderBy('dateReported', 'desc');
 
-  const pageSnap = await baseQuery
-    .orderBy('dateReported', 'desc')
-    .offset(offset)
-    .limit(limit)
-    .get();
+  let pageSnap;
+  let total = 0;
+
+  if (keyword.length > 0) {
+    const MAX_KEYWORD_SCAN = 1000;
+    const scanLimit = Math.min(MAX_KEYWORD_SCAN, offset + limit);
+
+    pageSnap = await orderedQuery
+      .limit(scanLimit)
+      .get();
+  } else {
+    const totalAgg = await baseQuery.count().get();
+    total = totalAgg.data().count;
+
+    pageSnap = await orderedQuery
+      .offset(offset)
+      .limit(limit)
+      .get();
+  }
 
   const itemCandidates = await Promise.all(pageSnap.docs.map(async (doc) => {
     const data = doc.data() as Omit<Report, 'id'> & { dateReported?: unknown; imageUrls?: string[] };
@@ -226,15 +241,6 @@ export const listValidatedItems = async (
     const thumbnailSource =
       (Array.isArray(data.imageUrls) && data.imageUrls.length > 0 ? data.imageUrls[0] : undefined)
       ?? data.photoUrl;
-
-    let thumbnailUrl: string | undefined;
-    if (typeof thumbnailSource === 'string' && thumbnailSource.trim().length > 0) {
-      try {
-        thumbnailUrl = await toPublicImageUrl(bucket, thumbnailSource);
-      } catch {
-        thumbnailUrl = thumbnailSource;
-      }
-    }
 
     if (
       typeof data.title !== 'string'
@@ -248,6 +254,13 @@ export const listValidatedItems = async (
       return null;
     }
 
+    const descriptionText = typeof data.description === 'string' ? data.description : '';
+    const searchableText = `${data.title} ${descriptionText}`.toLowerCase();
+
+    if (keyword.length > 0 && !searchableText.includes(keyword)) {
+      return null;
+    }
+
     return {
       id: doc.id,
       title: data.title,
@@ -256,11 +269,38 @@ export const listValidatedItems = async (
       referenceCode: data.referenceCode,
       location: data.location,
       dateReported,
-      thumbnailUrl,
+      thumbnailUrl: thumbnailSource,
     } as ItemPublicResponse;
   }));
 
   const items = itemCandidates.filter((item): item is ItemPublicResponse => item !== null);
 
-  return { items, total };
+  const pagedItems = keyword.length > 0
+    ? items.slice(offset, offset + limit)
+    : items;
+
+  if (keyword.length > 0) {
+    total = items.length;
+  }
+
+  const itemsWithSignedThumbnails = await Promise.all(pagedItems.map(async (item) => {
+    const source = item.thumbnailUrl;
+    if (typeof source !== 'string' || source.trim().length === 0) {
+      return item;
+    }
+
+    let signedUrl = source;
+    try {
+      signedUrl = await toPublicImageUrl(bucket, source);
+    } catch {
+      signedUrl = source;
+    }
+
+    return {
+      ...item,
+      thumbnailUrl: signedUrl,
+    };
+  }));
+
+  return { items: itemsWithSignedThumbnails, total };
 };

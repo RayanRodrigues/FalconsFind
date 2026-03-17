@@ -32,6 +32,16 @@ export const itemsOpenApi: OpenApiModule = {
             description: 'Items per page',
           },
           {
+            name: 'keyword',
+            in: 'query',
+            required: false,
+            schema: {
+              type: 'string',
+              minLength: 1,
+            },
+            description: 'Case-insensitive keyword search over item title and description',
+          },
+          {
             name: 'category',
             in: 'query',
             required: false,
@@ -210,6 +220,7 @@ export const itemsOpenApi: OpenApiModule = {
         filters: {
           type: 'object',
           properties: {
+            keyword: { type: 'string', example: 'backpack' },
             category: { type: 'string', example: 'Accessories' },
             location: { type: 'string', example: 'Library' },
             dateFrom: { type: 'string', format: 'date-time' },
