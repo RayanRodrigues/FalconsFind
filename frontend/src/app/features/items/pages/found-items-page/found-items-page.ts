@@ -1,5 +1,11 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import {
+  Component,
+  OnInit,
+  ChangeDetectorRef,
+  Inject,
+  PLATFORM_ID,
+} from '@angular/core';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { finalize, timeout } from 'rxjs/operators';
@@ -36,17 +42,22 @@ export class FoundItemsPageComponent implements OnInit {
 
   constructor(
     private itemsApi: ItemsApiService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    @Inject(PLATFORM_ID) private platformId: Object
   ) {}
 
   ngOnInit(): void {
-    this.loadItems();
+    if (isPlatformBrowser(this.platformId)) {
+      this.loadItems();
+    } else {
+      this.loading = false;
+    }
   }
 
   loadItems() {
     this.loading = true;
     this.error = false;
-    this.cdr.detectChanges();
+    this.safeDetectChanges();
 
     this.itemsApi
       .getFoundItems(this.page, this.limit)
@@ -54,7 +65,7 @@ export class FoundItemsPageComponent implements OnInit {
         timeout(3000),
         finalize(() => {
           this.loading = false;
-          this.cdr.detectChanges();
+          this.safeDetectChanges();
         })
       )
       .subscribe({
@@ -65,14 +76,20 @@ export class FoundItemsPageComponent implements OnInit {
           this.totalPages = response.totalPages;
           this.hasNextPage = response.hasNextPage;
           this.hasPrevPage = response.hasPrevPage;
-          this.cdr.detectChanges();
+          this.safeDetectChanges();
         },
         error: (err) => {
           console.log('[FoundItems] request failed:', err);
           this.error = true;
-          this.cdr.detectChanges();
+          this.safeDetectChanges();
         },
       });
+  }
+
+  safeDetectChanges(): void {
+    if (isPlatformBrowser(this.platformId)) {
+      this.cdr.detectChanges();
+    }
   }
 
   retry() {

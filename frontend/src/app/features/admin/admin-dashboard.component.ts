@@ -1,5 +1,5 @@
-import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
+import { Component, Inject, OnInit, PLATFORM_ID } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 
 type PendingItemsResponse = {
@@ -24,10 +24,17 @@ export class AdminDashboardComponent implements OnInit {
   loading = false;
   error = '';
 
-  constructor(private http: HttpClient) {}
+  constructor(
+    private http: HttpClient,
+    @Inject(PLATFORM_ID) private platformId: Object
+  ) {}
 
   ngOnInit(): void {
-    this.loadPendingItems();
+    if (isPlatformBrowser(this.platformId)) {
+      this.loadPendingItems();
+    } else {
+      this.loading = false;
+    }
   }
 
   loadPendingItems(): void {
