@@ -25,6 +25,9 @@ export class FoundItemsPageComponent implements OnInit {
 
   // search input
   searchTerm = '';
+  categoryFilter = '';
+  locationFilter = '';
+  dateFilter = '';
 
   page = 1;
   limit = 10;
@@ -93,27 +96,35 @@ export class FoundItemsPageComponent implements OnInit {
     this.searchTerm = '';
   }
 
-  get filteredItems(): ItemPublicResponse[] {
-    const keyword = this.searchTerm.trim().toLowerCase();
+get filteredItems(): ItemPublicResponse[] {
+  const keyword = this.searchTerm.trim().toLowerCase();
 
-    if (!keyword) {
-      return this.items;
-    }
+  return this.items.filter((item) => {
 
-    return this.items.filter((item) => {
-      const title = item.title.toLowerCase();
-      const referenceCode = item.referenceCode.toLowerCase();
-      const location = (item.location ?? '').toLowerCase();
-      const status = item.status.toLowerCase();
+    const title = item.title.toLowerCase();
+    const referenceCode = item.referenceCode.toLowerCase();
+    const location = (item.location ?? '').toLowerCase();
+    const status = item.status.toLowerCase();
+    const date = item.dateReported;
 
-      return (
-        title.includes(keyword) ||
-        referenceCode.includes(keyword) ||
-        location.includes(keyword) ||
-        status.includes(keyword)
-      );
-    });
-  }
+    const keywordMatch =
+      !keyword ||
+      title.includes(keyword) ||
+      referenceCode.includes(keyword) ||
+      location.includes(keyword) ||
+      status.includes(keyword);
+
+    const locationMatch =
+      !this.locationFilter ||
+      location.includes(this.locationFilter.toLowerCase());
+
+    const dateMatch =
+      !this.dateFilter ||
+      date.startsWith(this.dateFilter);
+
+    return keywordMatch && locationMatch && dateMatch;
+  });
+}
 
   getStatusLabel(status: string): string {
     return status.replace(/_/g, ' ');
