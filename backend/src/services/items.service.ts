@@ -216,7 +216,7 @@ export const listValidatedItems = async (
   const orderedQuery = baseQuery.orderBy('dateReported', 'desc');
 
   let pageSnap;
-  let total: number;
+  let total = 0;
 
   if (keyword.length > 0) {
     const MAX_KEYWORD_SCAN = 1000;

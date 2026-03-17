@@ -14,6 +14,7 @@ describe('listValidatedItems', () => {
   let countGetFn: ReturnType<typeof vi.fn>;
 
   let orderByFn: ReturnType<typeof vi.fn>;
+  let orderedLimitFn: ReturnType<typeof vi.fn>;
   let offsetFn: ReturnType<typeof vi.fn>;
   let limitFn: ReturnType<typeof vi.fn>;
   let getPageFn: ReturnType<typeof vi.fn>;
@@ -43,10 +44,13 @@ describe('listValidatedItems', () => {
     const queryAfterLimit = { get: getPageFn };
     limitFn = vi.fn().mockReturnValue(queryAfterLimit);
 
+    const queryAfterOrderedLimit = { get: getOrderedFn };
+    orderedLimitFn = vi.fn().mockReturnValue(queryAfterOrderedLimit);
+
     const queryAfterOffset = { limit: limitFn };
     offsetFn = vi.fn().mockReturnValue(queryAfterOffset);
 
-    const queryAfterOrderBy = { offset: offsetFn, get: getOrderedFn };
+    const queryAfterOrderBy = { offset: offsetFn, limit: orderedLimitFn, get: getOrderedFn };
     orderByFn = vi.fn().mockReturnValue(queryAfterOrderBy);
 
     countGetFn = vi.fn().mockResolvedValue({
@@ -194,6 +198,7 @@ describe('listValidatedItems', () => {
     expect(result.items).toHaveLength(2);
     expect(result.items.map((item) => item.id)).toEqual(['match-title', 'match-description']);
     expect(getOrderedFn).toHaveBeenCalledTimes(1);
+    expect(orderedLimitFn).toHaveBeenCalledWith(10);
     expect(offsetFn).not.toHaveBeenCalled();
     expect(countFn).not.toHaveBeenCalled();
   });
