@@ -5,22 +5,47 @@ import request from 'supertest';
 import { createReportsRouter } from '../../dist/src/routes/reports.routes.js';
 import { errorHandler, notFoundHandler } from '../../dist/src/middleware/error-handler.js';
 
-const createFakeDb = () => {
+const createFakeDb = (initialReports = {}) => {
   const savedReports = [];
   let counter = 0;
+  const reports = { ...initialReports };
 
   return {
     db: {
       collection: (collectionName) => {
         assert.equal(collectionName, 'reports');
         return {
-          doc: () => {
-            counter += 1;
-            const id = `doc-${counter}`;
-            return {
+          get: async () => ({
+            docs: Object.entries(reports).map(([id, data]) => ({
               id,
+              data: () => data,
+            })),
+          }),
+          doc: (id) => {
+            if (id) {
+              return {
+                id,
+                get: async () => ({
+                  id,
+                  exists: reports[id] !== undefined,
+                  data: () => reports[id],
+                }),
+                update: async (patch) => {
+                  reports[id] = {
+                    ...reports[id],
+                    ...patch,
+                  };
+                },
+              };
+            }
+
+            counter += 1;
+            const generatedId = `doc-${counter}`;
+            return {
+              id: generatedId,
               set: async (data) => {
-                savedReports.push({ id, data });
+                reports[generatedId] = data;
+                savedReports.push({ id: generatedId, data });
               },
             };
           },
@@ -28,6 +53,7 @@ const createFakeDb = () => {
       },
     },
     savedReports,
+    reports,
   };
 };
 
@@ -47,8 +73,8 @@ const createFakeBucket = () => {
   };
 };
 
-const buildTestApp = () => {
-  const { db, savedReports } = createFakeDb();
+const buildTestApp = (initialReports = {}) => {
+  const { db, savedReports, reports } = createFakeDb(initialReports);
   const { bucket, uploads } = createFakeBucket();
 
   const app = express();
@@ -57,7 +83,7 @@ const buildTestApp = () => {
   app.use(notFoundHandler);
   app.use(errorHandler);
 
-  return { app, savedReports, uploads };
+  return { app, savedReports, uploads, reports };
 };
 
 test('POST /api/v1/reports/lost creates a report', async () => {
@@ -113,4 +139,103 @@ test('POST /api/v1/reports/found creates a report with photo upload', async () =
   assert.equal(savedReports[0].data.kind, 'FOUND');
   assert.equal(savedReports[0].data.title, 'Found wallet');
   assert.equal(uploads.length, 1);
+});
+
+test('GET /api/v1/admin/reports lists all reports with aggregated summary', async () => {
+  const { app } = buildTestApp({
+    'report-1': {
+      kind: 'FOUND',
+      title: 'Found wallet',
+      status: 'REPORTED',
+      referenceCode: 'FND-20260317-FOUND001',
+      location: 'Gym',
+      dateReported: '2026-03-17T10:00:00.000Z',
+      contactEmail: 'finder@example.com',
+    },
+    'report-2': {
+      kind: 'LOST',
+      title: 'Lost backpack',
+      status: 'VALIDATED',
+      referenceCode: 'LST-20260316-LOST0002',
+      location: 'Library',
+      dateReported: '2026-03-16T11:00:00.000Z',
+    },
+    'report-3': {
+      kind: 'FOUND',
+      title: 'Silver keys',
+      status: 'PENDING_VALIDATION',
+      referenceCode: 'FND-20260315-FOUND003',
+      location: 'Hallway',
+      dateReported: '2026-03-15T09:00:00.000Z',
+    },
+  });
+
+  const response = await request(app).get('/api/v1/admin/reports?page=1&limit=2');
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.total, 3);
+  assert.equal(response.body.totalPages, 2);
+  assert.equal(response.body.hasNextPage, true);
+  assert.equal(response.body.hasPrevPage, false);
+  assert.equal(response.body.summary.totalReports, 3);
+  assert.equal(response.body.summary.lostReports, 1);
+  assert.equal(response.body.summary.foundReports, 2);
+  assert.equal(response.body.summary.byStatus.REPORTED, 1);
+  assert.equal(response.body.summary.byStatus.VALIDATED, 1);
+  assert.equal(response.body.summary.byStatus.PENDING_VALIDATION, 1);
+  assert.equal(response.body.reports.length, 2);
+  assert.equal(response.body.reports[0].id, 'report-1');
+  assert.equal(response.body.reports[1].id, 'report-2');
+});
+
+test('GET /api/v1/admin/reports filters by kind, status, and search', async () => {
+  const { app } = buildTestApp({
+    'report-1': {
+      kind: 'FOUND',
+      title: 'Found wallet',
+      status: 'REPORTED',
+      referenceCode: 'FND-20260317-FOUND001',
+      location: 'Gym',
+      dateReported: '2026-03-17T10:00:00.000Z',
+    },
+    'report-2': {
+      kind: 'FOUND',
+      title: 'Found backpack',
+      status: 'VALIDATED',
+      referenceCode: 'FND-20260316-FOUND002',
+      location: 'Library',
+      dateReported: '2026-03-16T11:00:00.000Z',
+    },
+    'report-3': {
+      kind: 'LOST',
+      title: 'Lost keys',
+      status: 'VALIDATED',
+      referenceCode: 'LST-20260315-LOST003',
+      location: 'Hallway',
+      dateReported: '2026-03-15T09:00:00.000Z',
+    },
+  });
+
+  const response = await request(app)
+    .get('/api/v1/admin/reports?kind=FOUND&status=VALIDATED&search=backpack');
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.total, 1);
+  assert.equal(response.body.summary.totalReports, 1);
+  assert.equal(response.body.summary.foundReports, 1);
+  assert.equal(response.body.summary.lostReports, 0);
+  assert.equal(response.body.filters.kind, 'FOUND');
+  assert.equal(response.body.filters.status, 'VALIDATED');
+  assert.equal(response.body.filters.search, 'backpack');
+  assert.equal(response.body.reports.length, 1);
+  assert.equal(response.body.reports[0].id, 'report-2');
+});
+
+test('GET /api/v1/admin/reports returns 400 for invalid kind filter', async () => {
+  const { app } = buildTestApp();
+
+  const response = await request(app).get('/api/v1/admin/reports?kind=INVALID');
+
+  assert.equal(response.status, 400);
+  assert.equal(response.body.error.code, 'BAD_REQUEST');
 });

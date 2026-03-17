@@ -47,7 +47,39 @@ const reportsServiceModule = (await import(pathToFileURL(servicePath).href)) as 
     bucket: Bucket,
     payload: CreateFoundReportRequest,
   ) => Promise<{ id: string; report: { referenceCode: string } }>;
+  listAdminReports: (
+    db: Firestore,
+    params: {
+      page: number;
+      limit: number;
+      kind?: 'LOST' | 'FOUND';
+      status?: string;
+      search?: string;
+    },
+  ) => Promise<{
+    reports: unknown[];
+    total: number;
+    summary: {
+      totalReports: number;
+      lostReports: number;
+      foundReports: number;
+      byStatus: Record<string, number>;
+    };
+  }>;
 };
+
+function parsePositiveInt(value: unknown, fallback: number): number {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  const i = Math.floor(n);
+  return i > 0 ? i : fallback;
+}
+
+function parseOptionalString(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
 
 export const createReportsRouter = (db: Firestore, bucket: Bucket): Router => {
   const router = Router();
@@ -142,6 +174,46 @@ export const createReportsRouter = (db: Firestore, bucket: Bucket): Router => {
     res.status(201).json({
       id: result.id,
       referenceCode: result.report.referenceCode,
+    });
+  });
+
+  router.get(`${API_PREFIX}/admin/reports`, async (req, res) => {
+    const page = parsePositiveInt(req.query.page, 1);
+    const limitRaw = parsePositiveInt(req.query.limit, 20);
+    const limit = Math.min(limitRaw, 100);
+    const kindRaw = parseOptionalString(req.query.kind);
+    const status = parseOptionalString(req.query.status);
+    const search = parseOptionalString(req.query.search);
+
+    const kind = kindRaw === 'LOST' || kindRaw === 'FOUND' ? kindRaw : undefined;
+    if (kindRaw && !kind) {
+      throw new HttpError(400, 'BAD_REQUEST', 'kind must be LOST or FOUND');
+    }
+
+    const result = await reportsServiceModule.listAdminReports(db, {
+      page,
+      limit,
+      kind,
+      status,
+      search,
+    });
+
+    const totalPages = Math.max(1, Math.ceil(result.total / limit));
+
+    res.status(200).json({
+      page,
+      limit,
+      total: result.total,
+      totalPages,
+      hasNextPage: page < totalPages,
+      hasPrevPage: page > 1,
+      filters: {
+        kind: kind ?? null,
+        status: status ?? null,
+        search: search ?? null,
+      },
+      summary: result.summary,
+      reports: result.reports,
     });
   });
 
