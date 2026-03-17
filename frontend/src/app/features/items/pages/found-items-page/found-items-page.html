@@ -7,6 +7,35 @@
       <p class="text-text-secondary text-sm mb-0">Browse items that have been found and reported on campus.</p>
     </div>
 
+    <!-- Search bar -->
+    <!-- Search bar -->
+<div *ngIf="!loading" class="mb-6 rounded-xl border border-border/60 bg-white p-4 shadow-sm">
+  <label class="block text-sm font-medium text-text-primary mb-2">
+    Search Found Items
+  </label>
+
+  <div class="flex gap-2">
+    <input
+      type="text"
+      [(ngModel)]="searchTerm"
+      placeholder="Search by title, reference code, location, or status"
+      class="flex-1 rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+    />
+
+    <button
+      type="button"
+      (click)="clearSearch()"
+      class="rounded-lg border border-border px-4 py-2 text-sm font-medium bg-white hover:bg-bg-secondary transition"
+    >
+      Clear
+    </button>
+  </div>
+
+  <p class="text-xs text-text-secondary mt-2 mb-0">
+    Showing {{ filteredItems.length }} result{{ filteredItems.length === 1 ? '' : 's' }}
+  </p>
+</div>
+
     <!-- Loading state -->
     <div *ngIf="loading" class="rounded-xl border border-border/60 bg-white p-10 shadow-sm">
       <div class="flex flex-col items-center text-center gap-4 py-2">
@@ -69,12 +98,21 @@
       </div>
     </div>
 
+    <!-- No search results -->
+    <div
+      *ngIf="!loading && !error && items.length > 0 && filteredItems.length === 0"
+      class="no-results"
+    >
+      <h3>No matching items found</h3>
+      <p>Try a different keyword or clear the search to view all found items.</p>
+    </div>
+
     <!-- Items grid + pagination -->
-    <div *ngIf="!loading && !error && items.length > 0">
+    <div *ngIf="!loading && !error && filteredItems.length > 0">
 
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
         <a
-          *ngFor="let item of items"
+          *ngFor="let item of filteredItems"
           [routerLink]="['/items', item.id]"
           class="group rounded-xl border border-border/60 bg-white shadow-sm overflow-hidden hover:border-primary/40 hover:shadow-md transition-all focus-visible:outline-none"
         >

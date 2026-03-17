@@ -1,14 +1,19 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { finalize, timeout } from 'rxjs/operators';
+
 import type { ItemPublicResponse } from '../../../../models';
-import { ItemsApiService, type ItemsListResponse } from '../../../../core/services/items-api.service';
+import {
+  ItemsApiService,
+  type ItemsListResponse,
+} from '../../../../core/services/items-api.service';
 
 @Component({
   selector: 'app-found-items-page',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, FormsModule],
   templateUrl: './found-items-page.html',
   styleUrl: './found-items-page.css',
 })
@@ -18,13 +23,19 @@ export class FoundItemsPageComponent implements OnInit {
 
   items: ItemPublicResponse[] = [];
 
+  // search input
+  searchTerm = '';
+
   page = 1;
   limit = 10;
   totalPages = 1;
   hasNextPage = false;
   hasPrevPage = false;
 
-  constructor(private itemsApi: ItemsApiService, private cdr: ChangeDetectorRef) {}
+  constructor(
+    private itemsApi: ItemsApiService,
+    private cdr: ChangeDetectorRef
+  ) {}
 
   ngOnInit(): void {
     this.loadItems();
@@ -78,6 +89,32 @@ export class FoundItemsPageComponent implements OnInit {
     this.loadItems();
   }
 
+  clearSearch() {
+    this.searchTerm = '';
+  }
+
+  get filteredItems(): ItemPublicResponse[] {
+    const keyword = this.searchTerm.trim().toLowerCase();
+
+    if (!keyword) {
+      return this.items;
+    }
+
+    return this.items.filter((item) => {
+      const title = item.title.toLowerCase();
+      const referenceCode = item.referenceCode.toLowerCase();
+      const location = (item.location ?? '').toLowerCase();
+      const status = item.status.toLowerCase();
+
+      return (
+        title.includes(keyword) ||
+        referenceCode.includes(keyword) ||
+        location.includes(keyword) ||
+        status.includes(keyword)
+      );
+    });
+  }
+
   getStatusLabel(status: string): string {
     return status.replace(/_/g, ' ');
   }
@@ -91,6 +128,10 @@ export class FoundItemsPageComponent implements OnInit {
       RETURNED: 'bg-secondary/10 text-secondary border-secondary/30',
       ARCHIVED: 'bg-border/30 text-text-secondary border-border',
     };
-    return statusClasses[status] ?? 'bg-border/30 text-text-secondary border-border';
+
+    return (
+      statusClasses[status] ??
+      'bg-border/30 text-text-secondary border-border'
+    );
   }
 }
