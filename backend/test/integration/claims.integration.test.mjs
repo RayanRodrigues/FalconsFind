@@ -619,3 +619,31 @@ test('PATCH /api/v1/claims/:id/cancel returns 409 when the claim is already fina
   assert.equal(response.status, 409);
   assert.equal(response.body.error.code, 'CLAIM_STATUS_CONFLICT');
 });
+
+test('PATCH /api/v1/claims/:id/cancel preserves the current item status when it is already terminal', async () => {
+  const { db, claims, items } = createFakeDb({
+    items: {
+      'item-cancel-terminal': {
+        status: 'ARCHIVED',
+        claimStatus: 'NEEDS_PROOF',
+      },
+    },
+    claims: {
+      'claim-cancel-terminal': {
+        itemId: 'item-cancel-terminal',
+        status: 'NEEDS_PROOF',
+      },
+    },
+  });
+
+  const response = await request(buildTestApp(db))
+    .patch('/api/v1/claims/claim-cancel-terminal/cancel')
+    .send();
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.status, 'CANCELLED');
+  assert.equal(response.body.itemStatus, 'ARCHIVED');
+  assert.equal(claims['claim-cancel-terminal'].status, 'CANCELLED');
+  assert.equal(items['item-cancel-terminal'].status, 'ARCHIVED');
+  assert.equal(items['item-cancel-terminal'].claimStatus, 'CANCELLED');
+});
