@@ -3,6 +3,7 @@ import { ClaimStatus, ItemStatus } from '../contracts/index.js';
 import type { Claim, CreateClaimRequest } from '../contracts/index.js';
 
 type StoredItemLike = {
+  id: string;
   reportId?: string;
   status?: ItemStatus;
   // `kind` differentiates between LOST and FOUND (and possibly other kinds).
@@ -27,7 +28,11 @@ export class ClaimItemNotEligibleError extends Error {
 const findClaimableItem = async (db: Firestore, itemId: string): Promise<StoredItemLike> => {
   const directItemSnapshot = await db.collection('items').doc(itemId).get();
   if (directItemSnapshot.exists) {
-    return directItemSnapshot.data() as DocumentData;
+    const data = directItemSnapshot.data() as DocumentData;
+    return {
+      id: directItemSnapshot.id,
+      ...data,
+    } as StoredItemLike;
   }
 
   const itemByReportSnapshot = await db
@@ -36,12 +41,21 @@ const findClaimableItem = async (db: Firestore, itemId: string): Promise<StoredI
     .limit(1)
     .get();
   if (!itemByReportSnapshot.empty) {
-    return itemByReportSnapshot.docs[0].data() as DocumentData;
+    const doc = itemByReportSnapshot.docs[0];
+    const data = doc.data() as DocumentData;
+    return {
+      id: doc.id,
+      ...data,
+    } as StoredItemLike;
   }
 
   const reportSnapshot = await db.collection('reports').doc(itemId).get();
   if (reportSnapshot.exists) {
-    return reportSnapshot.data() as DocumentData;
+    const data = reportSnapshot.data() as DocumentData;
+    return {
+      id: reportSnapshot.id,
+      ...data,
+    } as StoredItemLike;
   }
 
   throw new ClaimItemNotFoundError();
@@ -58,7 +72,7 @@ export const createClaim = async (
 
   const createdAt = new Date().toISOString();
   const claimToSave: Omit<Claim, 'id'> = {
-    itemId: payload.itemId,
+    itemId: targetItem.id,
     status: ClaimStatus.PENDING,
     claimantName: payload.claimantName,
     claimantEmail: payload.claimantEmail,
