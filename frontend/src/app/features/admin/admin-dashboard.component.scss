@@ -1,0 +1,40 @@
+.admin-dashboard {
+  padding: 24px;
+}
+
+.status-message {
+  margin: 16px 0;
+  color: #444;
+}
+
+.error-message {
+  margin: 16px 0;
+  color: #c62828;
+  font-weight: 600;
+}
+
+.item-card {
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 16px;
+  background: #fff;
+}
+
+.item-card h2 {
+  margin-top: 0;
+  margin-bottom: 12px;
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.actions button {
+  padding: 8px 14px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}

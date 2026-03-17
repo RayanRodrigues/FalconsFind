@@ -1,0 +1,49 @@
+<section class="p-6">
+  <h1 class="text-3xl font-semibold text-text-primary mb-3">Admin Dashboard</h1>
+  <p class="text-text-secondary mb-6">
+    Review reported found items before they are published.
+  </p>
+
+  @if (loading) {
+    <p>Loading pending items...</p>
+  }
+
+  @if (error) {
+    <p class="text-red-600 font-medium">{{ error }}</p>
+  }
+
+  @if (!loading && !error && pendingItems.length === 0) {
+    <p>No pending found items to review.</p>
+  }
+
+  @for (item of pendingItems; track item._id) {
+    <div class="border rounded-lg p-4 mb-4 bg-white shadow-sm">
+      <h2 class="text-xl font-semibold mb-2">
+        {{ item.itemName || item.title || 'Untitled Item' }}
+      </h2>
+
+      <p class="mb-1"><strong>Description:</strong> {{ item.description || 'No description provided.' }}</p>
+      <p class="mb-1"><strong>Category:</strong> {{ item.category || 'N/A' }}</p>
+      <p class="mb-1"><strong>Location:</strong> {{ item.locationFound || item.location || 'N/A' }}</p>
+      <p class="mb-3"><strong>Date:</strong> {{ item.dateFound || 'N/A' }}</p>
+
+      <div class="flex gap-3">
+        <button
+          type="button"
+          (click)="approveItem(item._id)"
+          class="rounded-lg px-4 py-2 bg-green-600 text-white hover:bg-green-700 transition-colors"
+        >
+          Approve
+        </button>
+
+        <button
+          type="button"
+          (click)="rejectItem(item._id)"
+          class="rounded-lg px-4 py-2 bg-red-600 text-white hover:bg-red-700 transition-colors"
+        >
+          Reject
+        </button>
+      </div>
+    </div>
+  }
+</section>
