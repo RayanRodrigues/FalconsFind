@@ -23,7 +23,6 @@ export class FoundItemsPageComponent implements OnInit {
 
   items: ItemPublicResponse[] = [];
 
-  // search input
   searchTerm = '';
   categoryFilter = '';
   locationFilter = '';
@@ -96,35 +95,44 @@ export class FoundItemsPageComponent implements OnInit {
     this.searchTerm = '';
   }
 
-get filteredItems(): ItemPublicResponse[] {
-  const keyword = this.searchTerm.trim().toLowerCase();
+  clearFilters() {
+    this.categoryFilter = '';
+    this.locationFilter = '';
+    this.dateFilter = '';
+  }
 
-  return this.items.filter((item) => {
+  get filteredItems(): ItemPublicResponse[] {
+    const keyword = this.searchTerm.trim().toLowerCase();
 
-    const title = item.title.toLowerCase();
-    const referenceCode = item.referenceCode.toLowerCase();
-    const location = (item.location ?? '').toLowerCase();
-    const status = item.status.toLowerCase();
-    const date = item.dateReported;
+    return this.items.filter((item) => {
+      const title = item.title.toLowerCase();
+      const referenceCode = item.referenceCode.toLowerCase();
+      const location = (item.location ?? '').toLowerCase();
+      const status = item.status.toLowerCase();
+      const date = item.dateReported;
 
-    const keywordMatch =
-      !keyword ||
-      title.includes(keyword) ||
-      referenceCode.includes(keyword) ||
-      location.includes(keyword) ||
-      status.includes(keyword);
+      const keywordMatch =
+        !keyword ||
+        title.includes(keyword) ||
+        referenceCode.includes(keyword) ||
+        location.includes(keyword) ||
+        status.includes(keyword);
 
-    const locationMatch =
-      !this.locationFilter ||
-      location.includes(this.locationFilter.toLowerCase());
+      const categoryMatch =
+        !this.categoryFilter ||
+        status.includes(this.categoryFilter.toLowerCase());
 
-    const dateMatch =
-      !this.dateFilter ||
-      date.startsWith(this.dateFilter);
+      const locationMatch =
+        !this.locationFilter ||
+        location.includes(this.locationFilter.toLowerCase());
 
-    return keywordMatch && locationMatch && dateMatch;
-  });
-}
+      const dateMatch =
+        !this.dateFilter ||
+        date.startsWith(this.dateFilter);
+
+      return keywordMatch && categoryMatch && locationMatch && dateMatch;
+    });
+  }
 
   getStatusLabel(status: string): string {
     return status.replace(/_/g, ' ');
