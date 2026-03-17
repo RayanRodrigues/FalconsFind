@@ -23,8 +23,10 @@ export class FoundItemsPageComponent implements OnInit {
 
   items: ItemPublicResponse[] = [];
 
-  // search input
   searchTerm = '';
+  categoryFilter = '';
+  locationFilter = '';
+  dateFilter = '';
 
   page = 1;
   limit = 10;
@@ -93,25 +95,42 @@ export class FoundItemsPageComponent implements OnInit {
     this.searchTerm = '';
   }
 
+  clearFilters() {
+    this.categoryFilter = '';
+    this.locationFilter = '';
+    this.dateFilter = '';
+  }
+
   get filteredItems(): ItemPublicResponse[] {
     const keyword = this.searchTerm.trim().toLowerCase();
-
-    if (!keyword) {
-      return this.items;
-    }
 
     return this.items.filter((item) => {
       const title = item.title.toLowerCase();
       const referenceCode = item.referenceCode.toLowerCase();
       const location = (item.location ?? '').toLowerCase();
       const status = item.status.toLowerCase();
+      const date = item.dateReported;
 
-      return (
+      const keywordMatch =
+        !keyword ||
         title.includes(keyword) ||
         referenceCode.includes(keyword) ||
         location.includes(keyword) ||
-        status.includes(keyword)
-      );
+        status.includes(keyword);
+
+      const categoryMatch =
+        !this.categoryFilter ||
+        status.includes(this.categoryFilter.toLowerCase());
+
+      const locationMatch =
+        !this.locationFilter ||
+        location.includes(this.locationFilter.toLowerCase());
+
+      const dateMatch =
+        !this.dateFilter ||
+        date.startsWith(this.dateFilter);
+
+      return keywordMatch && categoryMatch && locationMatch && dateMatch;
     });
   }
 
