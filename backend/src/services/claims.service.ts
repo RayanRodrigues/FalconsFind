@@ -5,6 +5,9 @@ import type { Claim, CreateClaimRequest } from '../contracts/index.js';
 type StoredItemLike = {
   reportId?: string;
   status?: ItemStatus;
+  // `kind` differentiates between LOST and FOUND (and possibly other kinds).
+  // It is used to ensure only found items are eligible for claim creation.
+  kind?: string;
 };
 
 export class ClaimItemNotFoundError extends Error {
@@ -49,7 +52,7 @@ export const createClaim = async (
   payload: CreateClaimRequest,
 ): Promise<{ id: string; claim: Claim }> => {
   const targetItem = await findClaimableItem(db, payload.itemId);
-  if (targetItem.status !== ItemStatus.VALIDATED) {
+  if (targetItem.status !== ItemStatus.VALIDATED || targetItem.kind !== 'FOUND') {
     throw new ClaimItemNotEligibleError();
   }
 
