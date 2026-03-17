@@ -143,4 +143,90 @@ const findClaimableItem = async (db: Firestore, itemId: string): Promise<StoredI
 const resolveTargetItemStatus = (
   targetClaimStatus: Extract<ClaimStatus, 'APPROVED' | 'REJECTED'>,
 ): ItemStatus => (
-  targetClaim
+  targetClaimStatus === ClaimStatus.APPROVED ? ItemStatus.CLAIMED : ItemStatus.VALIDATED
+);
+
+export const createClaim = async (
+  db: Firestore,
+  payload: CreateClaimRequest,
+): Promise<{ id: string; claim: Claim }> => {
+  const targetItem = await findClaimableItem(db, payload.itemId);
+  if (targetItem.status !== ItemStatus.VALIDATED || targetItem.kind !== 'FOUND') {
+    throw new ClaimItemNotEligibleError();
+  }
+
+  const createdAt = new Date().toISOString();
+  const claimToSave: Omit<Claim, 'id'> = {
+    itemId: targetItem.id,
+    status: ClaimStatus.PENDING,
+    claimantName: payload.claimantName,
+    claimantEmail: payload.claimantEmail,
+    createdAt,
+  };
+
+  if (payload.message) {
+    claimToSave.message = payload.message;
+  }
+
+  const docRef = db.collection('claims').doc();
+  await docRef.set(claimToSave);
+
+  return {
+    id: docRef.id,
+    claim: {
+      id: docRef.id,
+      ...claimToSave,
+    },
+  };
+};
+
+export const updateClaimStatus = async (
+  db: Firestore,
+  claimId: string,
+  targetStatus: Extract<ClaimStatus, 'APPROVED' | 'REJECTED'>,
+): Promise<ClaimUpdateResult> => {
+  return db.runTransaction(async (transaction: Transaction) => {
+    const claimRef = db.collection('claims').doc(claimId);
+    const claimSnap = await transaction.get(claimRef);
+
+    if (!claimSnap.exists) {
+      throw new ClaimNotFoundError();
+    }
+
+    const claim = claimSnap.data() as StoredClaim | undefined;
+    if (!claim) {
+      throw new ClaimNotFoundError();
+    }
+
+    const itemId = claim.itemId?.trim();
+    if (!itemId) {
+      throw new ClaimItemNotFoundError();
+    }
+
+    if (claim.status !== ClaimStatus.PENDING) {
+      throw new ClaimConflictError('Only pending claims can be reviewed.');
+    }
+
+    const itemRef = await getFirstExistingItemRef(transaction, db, itemId);
+    const nextItemStatus = resolveTargetItemStatus(targetStatus);
+    const reviewedAt = new Date().toISOString();
+
+    transaction.update(claimRef, {
+      status: targetStatus,
+      reviewedAt,
+    } satisfies StoredClaimReviewPatch);
+
+    transaction.update(itemRef, {
+      status: nextItemStatus,
+      claimStatus: targetStatus,
+      updatedAt: reviewedAt,
+    } satisfies StoredItemReviewPatch);
+
+    return {
+      id: claimId,
+      status: targetStatus,
+      itemId,
+      itemStatus: nextItemStatus,
+    };
+  });
+};
