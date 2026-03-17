@@ -73,6 +73,14 @@ const createFakeDb = (initialReports = {}) => {
           },
         };
       },
+      runTransaction: async (handler) => {
+        const transaction = {
+          get: async (target) => target.get(),
+          update: (target, patch) => target.update(patch),
+        };
+
+        return handler(transaction);
+      },
     },
     savedReports,
     reports,

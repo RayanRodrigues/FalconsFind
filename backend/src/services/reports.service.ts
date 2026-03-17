@@ -1,4 +1,4 @@
-import type { Firestore } from 'firebase-admin/firestore';
+import type { Firestore, Transaction } from 'firebase-admin/firestore';
 import type { Bucket } from '@google-cloud/storage';
 import type {
   CreateFoundReportRequest,
@@ -204,48 +204,50 @@ export const updateReportByReferenceCode = async (
   referenceCode: string,
   payload: UpdateReportByReferenceRequest,
 ): Promise<EditableReportResponse> => {
-  const snapshot = await db
-    .collection('reports')
-    .where('referenceCode', '==', referenceCode)
-    .limit(1)
-    .get();
+  return db.runTransaction(async (transaction: Transaction) => {
+    const snapshot = await transaction.get(
+      db.collection('reports')
+        .where('referenceCode', '==', referenceCode)
+        .limit(1),
+    );
 
-  if (snapshot.empty) {
-    throw new ReportNotFoundError();
-  }
+    if (snapshot.empty) {
+      throw new ReportNotFoundError();
+    }
 
-  const doc = snapshot.docs[0];
-  const report = doc.data() as Report;
+    const doc = snapshot.docs[0];
+    const report = doc.data() as Report;
 
-  if (!isEditableReportStatus(report.status)) {
-    throw new ReportEditConflictError('Only reports still under review can be edited.');
-  }
+    if (!isEditableReportStatus(report.status)) {
+      throw new ReportEditConflictError('Only reports still under review can be edited.');
+    }
 
-  const updatePatch: Partial<Report> = {};
+    const updatePatch: Partial<Report> = {};
 
-  if (payload.title !== undefined) {
-    updatePatch.title = payload.title;
-  }
-  if (payload.category !== undefined) {
-    updatePatch.category = payload.category;
-  }
-  if (payload.description !== undefined) {
-    updatePatch.description = payload.description;
-  }
-  if (payload.location !== undefined) {
-    updatePatch.location = payload.location;
-  }
-  if (payload.dateReported !== undefined) {
-    updatePatch.dateReported = payload.dateReported;
-  }
-  if (payload.contactEmail !== undefined) {
-    updatePatch.contactEmail = payload.contactEmail;
-  }
+    if (payload.title !== undefined) {
+      updatePatch.title = payload.title;
+    }
+    if (payload.category !== undefined) {
+      updatePatch.category = payload.category;
+    }
+    if (payload.description !== undefined) {
+      updatePatch.description = payload.description;
+    }
+    if (payload.location !== undefined) {
+      updatePatch.location = payload.location;
+    }
+    if (payload.dateReported !== undefined) {
+      updatePatch.dateReported = payload.dateReported;
+    }
+    if (payload.contactEmail !== undefined) {
+      updatePatch.contactEmail = payload.contactEmail;
+    }
 
-  await doc.ref.update(updatePatch);
+    transaction.update(doc.ref, updatePatch);
 
-  return mapEditableReport(doc.id, {
-    ...report,
-    ...updatePatch,
+    return mapEditableReport(doc.id, {
+      ...report,
+      ...updatePatch,
+    });
   });
 };

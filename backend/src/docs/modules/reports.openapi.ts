@@ -6,7 +6,7 @@ export const reportsOpenApi: OpenApiModule = {
     '/api/v1/reports/reference/{referenceCode}': {
       get: {
         tags: ['Reports'],
-        summary: 'Get an editable report by reference code',
+        summary: 'Get a report by reference code',
         parameters: [
           {
             name: 'referenceCode',
@@ -20,7 +20,7 @@ export const reportsOpenApi: OpenApiModule = {
         ],
         responses: {
           200: {
-            description: 'Editable report retrieved successfully',
+            description: 'Report retrieved successfully',
             content: {
               'application/json': {
                 schema: {
