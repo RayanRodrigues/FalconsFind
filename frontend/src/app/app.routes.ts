@@ -9,6 +9,9 @@ import { ClaimReview } from './claim-review/claim-review';
 import { ClaimCancel } from './claim-cancel/claim-cancel';
 import { EditReportPageComponent } from './features/public-reporting/edit-report-page/edit-report-page.component';
 
+// ✅ ADD THIS IMPORT
+import { AdminDashboardComponent } from './features/admin/admin-dashboard.component';
+
 export const routes: Routes = [
   {
     path: '',
@@ -31,28 +34,41 @@ export const routes: Routes = [
     title: 'Found Items - FalconFind'
   },
   {
-  path: 'claim-request',
-  component: ClaimRequest
-},
+    path: 'claim-request',
+    component: ClaimRequest
+  },
   {
     path: 'admin/claims',
     component: ClaimReview,
     title: 'Claim Review - FalconFind'
   },
-    {
+
+  // ✅ ADD THIS NEW ROUTE (YOUR US4.1 FEATURE)
+  {
+    path: 'admin/validate-items',
+    component: AdminDashboardComponent,
+    title: 'Validate Found Items - FalconFind'
+  },
+
+  {
     path: 'claim-cancel',
     component: ClaimCancel,
     title: 'Cancel Claim Request - FalconFind'
   },
- {
-  path: 'edit-report',
-  component: EditReportPageComponent,
-  title: 'Edit Report - FalconFind',
-},
+  {
+    path: 'edit-report',
+    component: EditReportPageComponent,
+    title: 'Edit Report - FalconFind'
+  },
   {
     path: 'items/:id',
     component: ItemDetailsComponent,
     title: 'Item Details - FalconFind'
   },
-  // ... other routes
+
+  // optional fallback
+  {
+    path: '**',
+    redirectTo: ''
+  }
 ];
