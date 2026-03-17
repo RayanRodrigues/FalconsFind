@@ -74,7 +74,7 @@ export const claimsOpenApi: OpenApiModule = {
     '/api/v1/claims/{id}/status': {
       patch: {
         tags: ['Claims'],
-        summary: 'Approve or reject a pending claim and sync the related item status',
+        summary: 'Approve or reject a pending or proof-requested claim and sync the related item status',
         parameters: [
           {
             name: 'id',
@@ -197,7 +197,7 @@ export const claimsOpenApi: OpenApiModule = {
             },
           },
           404: {
-            description: 'Claim was not found',
+            description: 'Claim or related item was not found',
             content: {
               'application/json': {
                 schema: {

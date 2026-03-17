@@ -164,6 +164,10 @@ export const createClaimsRouter = (db: Firestore): Router => {
         throw new HttpError(404, 'NOT_FOUND', error.message);
       }
 
+      if (error instanceof claimsServiceModule.ClaimItemNotFoundError) {
+        throw new HttpError(404, 'CLAIM_ITEM_NOT_FOUND', error.message);
+      }
+
       if (error instanceof claimsServiceModule.ClaimConflictError) {
         throw new HttpError(409, 'CLAIM_STATUS_CONFLICT', error.message);
       }

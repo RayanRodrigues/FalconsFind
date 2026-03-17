@@ -395,7 +395,13 @@ test('PATCH /api/v1/claims/:id/status returns 400 for unsupported review status'
 });
 
 test('PATCH /api/v1/claims/:id/proof-request stores the additional proof request and marks the claim as NEEDS_PROOF', async () => {
-  const { db, claims } = createFakeDb({
+  const { db, claims, items } = createFakeDb({
+    items: {
+      'item-1': {
+        status: 'VALIDATED',
+        claimStatus: 'PENDING',
+      },
+    },
     claims: {
       'claim-proof-request': {
         itemId: 'item-1',
@@ -424,6 +430,8 @@ test('PATCH /api/v1/claims/:id/proof-request stores the additional proof request
     'Please provide a photo of the serial number or describe a unique item inside the bag.',
   );
   assert.match(claims['claim-proof-request'].proofRequestedAt, /^\d{4}-\d{2}-\d{2}T/);
+  assert.equal(items['item-1'].claimStatus, 'NEEDS_PROOF');
+  assert.match(items['item-1'].updatedAt, /^\d{4}-\d{2}-\d{2}T/);
 });
 
 test('PATCH /api/v1/claims/:id/proof-request returns 404 when the claim does not exist', async () => {
@@ -437,6 +445,26 @@ test('PATCH /api/v1/claims/:id/proof-request returns 404 when the claim does not
 
   assert.equal(response.status, 404);
   assert.equal(response.body.error.code, 'NOT_FOUND');
+});
+
+test('PATCH /api/v1/claims/:id/proof-request returns 404 when the related item cannot be found', async () => {
+  const { db } = createFakeDb({
+    claims: {
+      'claim-missing-item': {
+        itemId: 'missing-item',
+        status: 'PENDING',
+      },
+    },
+  });
+
+  const response = await request(buildTestApp(db))
+    .patch('/api/v1/claims/claim-missing-item/proof-request')
+    .send({
+      message: 'Please provide another identifying detail.',
+    });
+
+  assert.equal(response.status, 404);
+  assert.equal(response.body.error.code, 'CLAIM_ITEM_NOT_FOUND');
 });
 
 test('PATCH /api/v1/claims/:id/proof-request returns 409 when the claim is already finalized', async () => {

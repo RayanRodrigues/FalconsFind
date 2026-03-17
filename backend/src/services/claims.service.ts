@@ -42,6 +42,11 @@ type StoredProofRequestPatch = Partial<StoredClaim> & {
   proofRequestedAt: string;
 };
 
+type StoredItemProofRequestPatch = Partial<StoredItem> & {
+  claimStatus: Extract<ClaimStatus, 'NEEDS_PROOF'>;
+  updatedAt: string;
+};
+
 type StoredItemReviewPatch = Partial<StoredItem> & {
   updatedAt: string;
 };
@@ -268,10 +273,16 @@ export const requestAdditionalProof = async (
       throw new ClaimNotFoundError();
     }
 
+    const itemId = claim.itemId?.trim();
+    if (!itemId) {
+      throw new ClaimItemNotFoundError();
+    }
+
     if (!isClaimAwaitingReview(claim.status)) {
       throw new ClaimConflictError('Additional proof can only be requested for pending or proof-requested claims.');
     }
 
+    const itemRef = await getFirstExistingItemRef(transaction, db, itemId);
     const proofRequestedAt = new Date().toISOString();
 
     transaction.update(claimRef, {
@@ -279,6 +290,11 @@ export const requestAdditionalProof = async (
       additionalProofRequest: payload.message,
       proofRequestedAt,
     } satisfies StoredProofRequestPatch);
+
+    transaction.update(itemRef, {
+      claimStatus: ClaimStatus.NEEDS_PROOF,
+      updatedAt: proofRequestedAt,
+    } satisfies StoredItemProofRequestPatch);
 
     return {
       id: claimId,
