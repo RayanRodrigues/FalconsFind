@@ -28,7 +28,35 @@ const createFakeDb = (initialReports = {}) => {
     db: {
       collection: (collectionName) => {
         assert.equal(collectionName, 'reports');
+
+        const buildQuery = (filters = []) => ({
+          where: (field, operator, value) => {
+            assert.equal(operator, '==');
+            return buildQuery([...filters, { field, value }]);
+          },
+          limit: (limitValue) => {
+            assert.equal(limitValue, 1);
+            const matches = Object.entries(reports)
+              .filter(([, data]) => filters.every(({ field, value }) => data[field] === value))
+              .map(([id, data]) => createReportDoc(id, data));
+
+            return {
+              get: async () => ({
+                empty: matches.length === 0,
+                docs: matches.slice(0, limitValue),
+              }),
+            };
+          },
+          get: async () => ({
+            docs: Object.entries(reports)
+              .filter(([, data]) => filters.every(({ field, value }) => data[field] === value))
+              .map(([id, data]) => createReportDoc(id, data)),
+          }),
+        });
+
         return {
+          get: buildQuery().get,
+          where: buildQuery().where,
           doc: (id) => {
             if (id) {
               return {
@@ -38,6 +66,12 @@ const createFakeDb = (initialReports = {}) => {
                   exists: reports[id] !== undefined,
                   data: () => reports[id],
                 }),
+                update: async (patch) => {
+                  reports[id] = {
+                    ...reports[id],
+                    ...patch,
+                  };
+                },
               };
             }
 
@@ -48,26 +82,6 @@ const createFakeDb = (initialReports = {}) => {
               set: async (data) => {
                 reports[generatedId] = data;
                 savedReports.push({ id: generatedId, data });
-              },
-            };
-          },
-          where: (field, operator, value) => {
-            assert.equal(field, 'referenceCode');
-            assert.equal(operator, '==');
-
-            const matches = Object.entries(reports)
-              .filter(([, data]) => data.referenceCode === value)
-              .map(([id, data]) => createReportDoc(id, data));
-
-            return {
-              limit: (limitValue) => {
-                assert.equal(limitValue, 1);
-                return {
-                  get: async () => ({
-                    empty: matches.length === 0,
-                    docs: matches.slice(0, limitValue),
-                  }),
-                };
               },
             };
           },
@@ -168,6 +182,7 @@ test('POST /api/v1/reports/found creates a report with photo upload', async () =
   assert.equal(savedReports.length, 1);
   assert.equal(savedReports[0].data.kind, 'FOUND');
   assert.equal(savedReports[0].data.title, 'Found wallet');
+  assert.equal(savedReports[0].data.status, 'PENDING_VALIDATION');
   assert.equal(uploads.length, 1);
 });
 
@@ -271,6 +286,187 @@ test('PATCH /api/v1/reports/reference/:referenceCode returns 400 for invalid pay
   const response = await request(app)
     .patch('/api/v1/reports/reference/FND-20260317-EDIT0004')
     .send({});
+
+  assert.equal(response.status, 400);
+  assert.equal(response.body.error.code, 'BAD_REQUEST');
+});
+
+test('PATCH /api/v1/reports/found/:id/validate validates a pending found-item report', async () => {
+  const { app, reports } = buildTestApp({
+    'found-1': {
+      kind: 'FOUND',
+      title: 'Found wallet',
+      status: 'PENDING_VALIDATION',
+      referenceCode: 'FND-20260317-FOUND001',
+      location: 'Gym',
+      dateReported: '2026-03-17T10:00:00.000Z',
+    },
+  });
+
+  const response = await request(app)
+    .patch('/api/v1/reports/found/found-1/validate')
+    .send();
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.id, 'found-1');
+  assert.equal(response.body.referenceCode, 'FND-20260317-FOUND001');
+  assert.equal(response.body.status, 'VALIDATED');
+  assert.equal(reports['found-1'].status, 'VALIDATED');
+});
+
+test('PATCH /api/v1/reports/found/:id/validate returns 404 when report does not exist', async () => {
+  const { app } = buildTestApp();
+
+  const response = await request(app)
+    .patch('/api/v1/reports/found/missing-report/validate')
+    .send();
+
+  assert.equal(response.status, 404);
+  assert.equal(response.body.error.code, 'NOT_FOUND');
+});
+
+test('PATCH /api/v1/reports/found/:id/validate returns 409 for non-found reports', async () => {
+  const { app } = buildTestApp({
+    'lost-1': {
+      kind: 'LOST',
+      title: 'Lost backpack',
+      status: 'REPORTED',
+      referenceCode: 'LST-20260317-LOST0001',
+      dateReported: '2026-03-17T10:00:00.000Z',
+    },
+  });
+
+  const response = await request(app)
+    .patch('/api/v1/reports/found/lost-1/validate')
+    .send();
+
+  assert.equal(response.status, 409);
+  assert.equal(response.body.error.code, 'REPORT_VALIDATION_CONFLICT');
+});
+
+test('PATCH /api/v1/reports/found/:id/validate returns 409 when report is not pending validation', async () => {
+  const { app } = buildTestApp({
+    'found-validated': {
+      kind: 'FOUND',
+      title: 'Found wallet',
+      status: 'VALIDATED',
+      referenceCode: 'FND-20260317-FOUND002',
+      location: 'Gym',
+      dateReported: '2026-03-17T10:00:00.000Z',
+    },
+  });
+
+  const response = await request(app)
+    .patch('/api/v1/reports/found/found-validated/validate')
+    .send();
+
+  assert.equal(response.status, 409);
+  assert.equal(response.body.error.code, 'REPORT_VALIDATION_CONFLICT');
+});
+
+test('GET /api/v1/admin/reports lists all reports with aggregated summary', async () => {
+  const { app } = buildTestApp({
+    'report-1': {
+      kind: 'FOUND',
+      title: 'Found wallet',
+      status: 'REPORTED',
+      referenceCode: 'FND-20260317-FOUND001',
+      location: 'Gym',
+      dateReported: '2026-03-17T10:00:00.000Z',
+      contactEmail: 'finder@example.com',
+    },
+    'report-2': {
+      kind: 'LOST',
+      title: 'Lost backpack',
+      status: 'VALIDATED',
+      referenceCode: 'LST-20260316-LOST0002',
+      location: 'Library',
+      dateReported: '2026-03-16T11:00:00.000Z',
+    },
+    'report-3': {
+      kind: 'FOUND',
+      title: 'Silver keys',
+      status: 'PENDING_VALIDATION',
+      referenceCode: 'FND-20260315-FOUND003',
+      location: 'Hallway',
+      dateReported: '2026-03-15T09:00:00.000Z',
+    },
+  });
+
+  const response = await request(app).get('/api/v1/admin/reports?page=1&limit=2');
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.total, 3);
+  assert.equal(response.body.totalPages, 2);
+  assert.equal(response.body.hasNextPage, true);
+  assert.equal(response.body.hasPrevPage, false);
+  assert.equal(response.body.summary.totalReports, 3);
+  assert.equal(response.body.summary.lostReports, 1);
+  assert.equal(response.body.summary.foundReports, 2);
+  assert.equal(response.body.summary.byStatus.REPORTED, 1);
+  assert.equal(response.body.summary.byStatus.VALIDATED, 1);
+  assert.equal(response.body.summary.byStatus.PENDING_VALIDATION, 1);
+  assert.equal(response.body.reports.length, 2);
+  assert.equal(response.body.reports[0].id, 'report-1');
+  assert.equal(response.body.reports[1].id, 'report-2');
+});
+
+test('GET /api/v1/admin/reports filters by kind, status, and search', async () => {
+  const { app } = buildTestApp({
+    'report-1': {
+      kind: 'FOUND',
+      title: 'Found wallet',
+      status: 'REPORTED',
+      referenceCode: 'FND-20260317-FOUND001',
+      location: 'Gym',
+      dateReported: '2026-03-17T10:00:00.000Z',
+    },
+    'report-2': {
+      kind: 'FOUND',
+      title: 'Found backpack',
+      status: 'VALIDATED',
+      referenceCode: 'FND-20260316-FOUND002',
+      location: 'Library',
+      dateReported: '2026-03-16T11:00:00.000Z',
+    },
+    'report-3': {
+      kind: 'LOST',
+      title: 'Lost keys',
+      status: 'VALIDATED',
+      referenceCode: 'LST-20260315-LOST003',
+      location: 'Hallway',
+      dateReported: '2026-03-15T09:00:00.000Z',
+    },
+  });
+
+  const response = await request(app)
+    .get('/api/v1/admin/reports?kind=FOUND&status=VALIDATED&search=backpack');
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.total, 1);
+  assert.equal(response.body.summary.totalReports, 1);
+  assert.equal(response.body.summary.foundReports, 1);
+  assert.equal(response.body.summary.lostReports, 0);
+  assert.equal(response.body.filters.kind, 'FOUND');
+  assert.equal(response.body.filters.status, 'VALIDATED');
+  assert.equal(response.body.filters.search, 'backpack');
+  assert.equal(response.body.reports.length, 1);
+  assert.equal(response.body.reports[0].id, 'report-2');
+});
+
+test('GET /api/v1/admin/reports returns 400 for invalid kind filter', async () => {
+  const { app } = buildTestApp();
+
+  const response = await request(app).get('/api/v1/admin/reports?kind=INVALID');
+
+  assert.equal(response.status, 400);
+  assert.equal(response.body.error.code, 'BAD_REQUEST');
+});
+
+test('GET /api/v1/admin/reports returns 400 for invalid status filter', async () => {
+  const { app } = buildTestApp();
+
+  const response = await request(app).get('/api/v1/admin/reports?status=INVALID');
 
   assert.equal(response.status, 400);
   assert.equal(response.body.error.code, 'BAD_REQUEST');

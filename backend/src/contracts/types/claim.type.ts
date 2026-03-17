@@ -7,5 +7,7 @@ export type Claim = {
   claimantName: string;
   claimantEmail: string;
   message?: string;
+  additionalProofRequest?: string;
+  proofRequestedAt?: string;
   createdAt: string;
 };
