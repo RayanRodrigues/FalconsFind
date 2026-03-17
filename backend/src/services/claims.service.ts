@@ -8,12 +8,14 @@ import type {
   Transaction,
 } from 'firebase-admin/firestore';
 import { ClaimStatus, ItemStatus } from '../contracts/index.js';
-import type { Claim, CreateClaimRequest } from '../contracts/index.js';
+import type { Claim, CreateClaimRequest, RequestAdditionalProofRequest } from '../contracts/index.js';
 
 type StoredClaim = {
   itemId?: string;
   status?: ClaimStatus;
   reviewedAt?: string;
+  additionalProofRequest?: string;
+  proofRequestedAt?: string;
 };
 
 type StoredItem = {
@@ -34,6 +36,12 @@ type StoredClaimReviewPatch = Partial<StoredClaim> & {
   reviewedAt: string;
 };
 
+type StoredProofRequestPatch = Partial<StoredClaim> & {
+  status: Extract<ClaimStatus, 'NEEDS_PROOF'>;
+  additionalProofRequest: string;
+  proofRequestedAt: string;
+};
+
 type StoredItemReviewPatch = Partial<StoredItem> & {
   updatedAt: string;
 };
@@ -43,6 +51,13 @@ type ClaimUpdateResult = {
   status: Extract<ClaimStatus, 'APPROVED' | 'REJECTED'>;
   itemId: string;
   itemStatus: ItemStatus;
+};
+
+type AdditionalProofRequestResult = {
+  id: string;
+  status: Extract<ClaimStatus, 'NEEDS_PROOF'>;
+  additionalProofRequest: string;
+  proofRequestedAt: string;
 };
 
 export class ClaimNotFoundError extends Error {
@@ -146,6 +161,10 @@ const resolveTargetItemStatus = (
   targetClaimStatus === ClaimStatus.APPROVED ? ItemStatus.CLAIMED : ItemStatus.VALIDATED
 );
 
+const isClaimAwaitingReview = (status: ClaimStatus | undefined): boolean => {
+  return status === ClaimStatus.PENDING || status === ClaimStatus.NEEDS_PROOF;
+};
+
 export const createClaim = async (
   db: Firestore,
   payload: CreateClaimRequest,
@@ -203,8 +222,8 @@ export const updateClaimStatus = async (
       throw new ClaimItemNotFoundError();
     }
 
-    if (claim.status !== ClaimStatus.PENDING) {
-      throw new ClaimConflictError('Only pending claims can be reviewed.');
+    if (!isClaimAwaitingReview(claim.status)) {
+      throw new ClaimConflictError('Only pending or proof-requested claims can be reviewed.');
     }
 
     const itemRef = await getFirstExistingItemRef(transaction, db, itemId);
@@ -227,6 +246,45 @@ export const updateClaimStatus = async (
       status: targetStatus,
       itemId,
       itemStatus: nextItemStatus,
+    };
+  });
+};
+
+export const requestAdditionalProof = async (
+  db: Firestore,
+  claimId: string,
+  payload: RequestAdditionalProofRequest,
+): Promise<AdditionalProofRequestResult> => {
+  return db.runTransaction(async (transaction: Transaction) => {
+    const claimRef = db.collection('claims').doc(claimId);
+    const claimSnap = await transaction.get(claimRef);
+
+    if (!claimSnap.exists) {
+      throw new ClaimNotFoundError();
+    }
+
+    const claim = claimSnap.data() as StoredClaim | undefined;
+    if (!claim) {
+      throw new ClaimNotFoundError();
+    }
+
+    if (!isClaimAwaitingReview(claim.status)) {
+      throw new ClaimConflictError('Additional proof can only be requested for pending or proof-requested claims.');
+    }
+
+    const proofRequestedAt = new Date().toISOString();
+
+    transaction.update(claimRef, {
+      status: ClaimStatus.NEEDS_PROOF,
+      additionalProofRequest: payload.message,
+      proofRequestedAt,
+    } satisfies StoredProofRequestPatch);
+
+    return {
+      id: claimId,
+      status: ClaimStatus.NEEDS_PROOF,
+      additionalProofRequest: payload.message,
+      proofRequestedAt,
     };
   });
 };

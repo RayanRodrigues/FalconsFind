@@ -128,7 +128,86 @@ export const claimsOpenApi: OpenApiModule = {
             },
           },
           409: {
-            description: 'Claim is not pending anymore',
+            description: 'Claim is not pending or awaiting additional proof anymore',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          500: {
+            description: 'Unexpected server error',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    '/api/v1/claims/{id}/proof-request': {
+      patch: {
+        tags: ['Claims'],
+        summary: 'Request additional proof from the claimant',
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: {
+              type: 'string',
+            },
+            description: 'Claim document id',
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                $ref: '#/components/schemas/RequestAdditionalProofRequest',
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: 'Additional proof requested successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/RequestAdditionalProofResponse',
+                },
+              },
+            },
+          },
+          400: {
+            description: 'Invalid claim id or request payload',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          404: {
+            description: 'Claim was not found',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          409: {
+            description: 'Claim can no longer receive additional proof requests',
             content: {
               'application/json': {
                 schema: {
@@ -169,6 +248,29 @@ export const claimsOpenApi: OpenApiModule = {
         id: { type: 'string', example: 'claim-123' },
         status: { type: 'string', enum: ['PENDING'], example: 'PENDING' },
         createdAt: { type: 'string', format: 'date-time' },
+      },
+    },
+    RequestAdditionalProofRequest: {
+      type: 'object',
+      required: ['message'],
+      properties: {
+        message: {
+          type: 'string',
+          example: 'Please provide a photo of the serial number or identify the contents inside the item.',
+        },
+      },
+    },
+    RequestAdditionalProofResponse: {
+      type: 'object',
+      required: ['id', 'status', 'additionalProofRequest', 'proofRequestedAt'],
+      properties: {
+        id: { type: 'string', example: 'claim-123' },
+        status: { type: 'string', enum: ['NEEDS_PROOF'], example: 'NEEDS_PROOF' },
+        additionalProofRequest: {
+          type: 'string',
+          example: 'Please provide a photo of the serial number or identify the contents inside the item.',
+        },
+        proofRequestedAt: { type: 'string', format: 'date-time' },
       },
     },
     UpdateClaimStatusRequest: {

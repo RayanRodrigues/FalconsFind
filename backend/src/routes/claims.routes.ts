@@ -3,7 +3,11 @@ import type { Firestore } from 'firebase-admin/firestore';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import type { CreateClaimRequest, UpdateClaimStatusRequest } from '../contracts/index.js';
+import type {
+  CreateClaimRequest,
+  RequestAdditionalProofRequest,
+  UpdateClaimStatusRequest,
+} from '../contracts/index.js';
 import { API_PREFIX, HttpError } from './route-utils.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -23,6 +27,13 @@ const schemaModule = (await import(pathToFileURL(schemaPath).href)) as {
       input: unknown,
     ) =>
       | { success: true; data: CreateClaimRequest }
+      | { success: false; error: { issues: Array<{ message?: string }> } };
+  };
+  requestAdditionalProofSchema: {
+    safeParse: (
+      input: unknown,
+    ) =>
+      | { success: true; data: RequestAdditionalProofRequest }
       | { success: false; error: { issues: Array<{ message?: string }> } };
   };
   updateClaimStatusSchema: {
@@ -58,6 +69,16 @@ const claimsServiceModule = (await import(pathToFileURL(servicePath).href)) as {
     status: UpdateClaimStatusRequest['status'];
     itemId: string;
     itemStatus: string;
+  }>;
+  requestAdditionalProof: (
+    db: Firestore,
+    claimId: string,
+    payload: RequestAdditionalProofRequest,
+  ) => Promise<{
+    id: string;
+    status: string;
+    additionalProofRequest: string;
+    proofRequestedAt: string;
   }>;
 };
 
@@ -113,6 +134,34 @@ export const createClaimsRouter = (db: Firestore): Router => {
 
       if (error instanceof claimsServiceModule.ClaimItemNotFoundError) {
         throw new HttpError(404, 'CLAIM_ITEM_NOT_FOUND', error.message);
+      }
+
+      if (error instanceof claimsServiceModule.ClaimConflictError) {
+        throw new HttpError(409, 'CLAIM_STATUS_CONFLICT', error.message);
+      }
+
+      throw error;
+    }
+  });
+
+  router.patch(`${API_PREFIX}/claims/:id/proof-request`, async (req, res) => {
+    const claimId = req.params.id?.trim();
+    if (!claimId) {
+      throw new HttpError(400, 'BAD_REQUEST', 'id is required');
+    }
+
+    const parsed = schemaModule.requestAdditionalProofSchema.safeParse(req.body);
+    if (!parsed.success) {
+      const message = parsed.error.issues[0]?.message ?? 'Invalid request payload';
+      throw new HttpError(400, 'BAD_REQUEST', message);
+    }
+
+    try {
+      const result = await claimsServiceModule.requestAdditionalProof(db, claimId, parsed.data);
+      res.status(200).json(result);
+    } catch (error) {
+      if (error instanceof claimsServiceModule.ClaimNotFoundError) {
+        throw new HttpError(404, 'NOT_FOUND', error.message);
       }
 
       if (error instanceof claimsServiceModule.ClaimConflictError) {
