@@ -26,20 +26,30 @@ const createReferenceCode = (prefix: 'LST' | 'FND', docId: string, createdAt: Da
   return `${prefix}-${formatDateSegment(createdAt)}-${suffix}`;
 };
 
+type SupportedPhotoMimeType = 'image/jpeg' | 'image/png';
+
 const uploadPhotoFromDataUrl = async (bucket: Bucket, photoDataUrl: string): Promise<string> => {
   const match = photoDataUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
   if (!match) {
     throw new ReportPhotoUploadError('INVALID_PHOTO_DATA_URL', 'Invalid photo data URL');
   }
 
-  const contentType = match[1];
+  const contentType = match[1] as SupportedPhotoMimeType;
   const base64 = match[2];
-  const extension = contentType.split('/')[1] ?? 'jpg';
-  const fileName = `reports/lost/${Date.now()}-${randomUUID()}.${extension}`;
   const buffer = Buffer.from(base64, 'base64');
   if (buffer.length === 0) {
     throw new ReportPhotoUploadError('INVALID_PHOTO_DATA_URL', 'Invalid photo data URL');
   }
+  return uploadPhotoBuffer(bucket, buffer, contentType);
+};
+
+const uploadPhotoBuffer = async (
+  bucket: Bucket,
+  buffer: Buffer,
+  contentType: SupportedPhotoMimeType,
+): Promise<string> => {
+  const extension = contentType === 'image/png' ? 'png' : 'jpg';
+  const fileName = `reports/${Date.now()}-${randomUUID()}.${extension}`;
   const file = bucket.file(fileName);
 
   try {
@@ -104,8 +114,9 @@ export const createFoundReport = async (
   db: Firestore,
   bucket: Bucket,
   payload: CreateFoundReportRequest,
+  photo: { buffer: Buffer; mimeType: SupportedPhotoMimeType },
 ) => {
-  const photoUrl = await uploadPhotoFromDataUrl(bucket, payload.photoDataUrl);
+  const photoUrl = await uploadPhotoBuffer(bucket, photo.buffer, photo.mimeType);
   const createdAt = new Date();
   const docRef = db.collection('reports').doc();
 

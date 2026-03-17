@@ -15,7 +15,6 @@ export const createFoundReportSchema = z.object({
   foundLocation: z.string().trim().min(1, 'foundLocation is required'),
   foundAt: z.string().datetime().optional(),
   contactEmail: z.string().email().optional(),
-  photoDataUrl: z.string().startsWith('data:image/', 'photo must be an image data URL'),
 });
 
 export type CreateLostReportInput = z.infer<typeof createLostReportSchema>;
