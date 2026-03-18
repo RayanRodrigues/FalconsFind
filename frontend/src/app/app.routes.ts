@@ -4,9 +4,9 @@ import { FoundReportFormComponent } from './features/public-reporting/found-repo
 import { LostReportFormComponent } from './features/public-reporting/lost-report-form/lost-report-form.component';
 import { FoundItemsPageComponent } from './features/items/pages/found-items-page/found-items-page';
 import { ItemDetailsComponent } from './features/items/item-details/item-details.component';
-import { ClaimRequest } from './claim-request/claim-request';
-import { ClaimReview } from './claim-review/claim-review';
-import { ClaimCancel } from './claim-cancel/claim-cancel';
+import { ClaimRequest } from './features/claims/pages/claim-request/claim-request';
+import { ClaimReview } from './features/claims/pages/claim-review/claim-review';
+import { ClaimCancel } from './features/claims/pages/claim-cancel/claim-cancel';
 import { EditReportPageComponent } from './features/public-reporting/edit-report-page/edit-report-page.component';
 
 // ✅ ADD THIS IMPORT
