@@ -22,6 +22,18 @@ type StoredItem = {
   claimStatus?: ItemDetailsResponse['claimStatus'];
   kind?: Report['kind'];
   contactEmail?: string;
+  sourceEnv?: Report['sourceEnv'];
+};
+
+const isProductionApp =
+  (process.env.APP_ENV ?? process.env.NODE_ENV ?? 'development').toLowerCase() === 'production';
+
+const isVisibleInCurrentEnvironment = (sourceEnv: Report['sourceEnv'] | undefined): boolean => {
+  if (!isProductionApp) {
+    return true;
+  }
+
+  return sourceEnv === undefined || sourceEnv === 'production';
 };
 
 type ListValidatedItemsParams = {
@@ -191,6 +203,9 @@ export const getItemById = async (
   const itemSnapshot = await db.collection('items').doc(itemId).get();
   if (itemSnapshot.exists) {
     const data = itemSnapshot.data() as DocumentData;
+    if (!isVisibleInCurrentEnvironment((data as StoredItem).sourceEnv)) {
+      return null;
+    }
     return mapItemDetails(bucket, itemSnapshot.id, data, redis);
   }
 
@@ -202,12 +217,18 @@ export const getItemById = async (
   if (!byReportId.empty) {
     const snapshot = byReportId.docs[0];
     const data = snapshot.data() as DocumentData;
+    if (!isVisibleInCurrentEnvironment((data as StoredItem).sourceEnv)) {
+      return null;
+    }
     return mapItemDetails(bucket, snapshot.id, data, redis);
   }
 
   const reportSnapshot = await db.collection('reports').doc(itemId).get();
   if (reportSnapshot.exists) {
     const data = reportSnapshot.data() as DocumentData;
+    if (!isVisibleInCurrentEnvironment((data as StoredItem).sourceEnv)) {
+      return null;
+    }
     return mapItemDetails(bucket, reportSnapshot.id, data, redis);
   }
 
@@ -274,6 +295,10 @@ export const listValidatedItems = async (
 
   const itemCandidates = await Promise.all(pageSnap.docs.map(async (doc) => {
     const data = doc.data() as Omit<Report, 'id'> & { dateReported?: unknown; imageUrls?: string[] };
+    if (!isVisibleInCurrentEnvironment(data.sourceEnv)) {
+      return null;
+    }
+
     const dateReported = normalizeDateReported(data.dateReported);
     const thumbnailSource =
       (Array.isArray(data.imageUrls) && data.imageUrls.length > 0 ? data.imageUrls[0] : undefined)

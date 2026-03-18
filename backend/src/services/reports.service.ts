@@ -50,6 +50,11 @@ type ListAdminReportsParams = {
   search?: string;
 };
 
+const currentSourceEnv: NonNullable<Report['sourceEnv']> =
+  (process.env.APP_ENV ?? process.env.NODE_ENV ?? 'development').toLowerCase() === 'production'
+    ? 'production'
+    : 'development';
+
 const formatDateSegment = (date: Date): string => {
   const year = date.getUTCFullYear().toString();
   const month = String(date.getUTCMonth() + 1).padStart(2, '0');
@@ -178,6 +183,7 @@ export const createLostReport = async (
     status: ItemStatus.REPORTED,
     referenceCode: createReferenceCode('LST', docRef.id, createdAt),
     dateReported: payload.lastSeenAt ?? createdAt.toISOString(),
+    sourceEnv: currentSourceEnv,
   };
   if (payload.description) {
     reportToSave.description = payload.description;
@@ -220,6 +226,7 @@ export const createFoundReport = async (
     location: payload.foundLocation,
     dateReported: payload.foundAt ?? createdAt.toISOString(),
     photoUrl,
+    sourceEnv: currentSourceEnv,
   };
 
   if (payload.category) {

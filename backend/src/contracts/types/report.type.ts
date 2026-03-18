@@ -1,6 +1,7 @@
 import type { ItemStatus } from '../enums/item-status.enum.js';
 
 type ReportKind = 'LOST' | 'FOUND';
+type ReportSourceEnv = 'development' | 'production';
 
 export type Report = {
   id: string;
@@ -14,4 +15,5 @@ export type Report = {
   dateReported: string;
   contactEmail?: string;
   photoUrl?: string;
+  sourceEnv?: ReportSourceEnv;
 };
