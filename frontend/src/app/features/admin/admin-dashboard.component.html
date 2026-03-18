@@ -1,146 +1,106 @@
-<section class="admin-dashboard">
-  <div class="dashboard-header">
-    <div>
-      <h1>Admin Dashboard</h1>
-      <p>View and manage all lost and found reports in one place.</p>
+<div class="admin-shell">
+
+  <!-- Mobile overlay -->
+  @if (sidebarOpen()) {
+    <div class="admin-overlay" (click)="toggleSidebar()"></div>
+  }
+
+  <!-- Sidebar -->
+  <aside class="admin-sidebar" [class.admin-sidebar--open]="sidebarOpen()">
+
+    <!-- Brand -->
+    <div class="admin-sidebar__brand">
+      <img src="/PNG/LogoBranco.png" alt="FalconFind" style="height: 26px; width: auto;" />
+      <span class="admin-sidebar__label">Admin</span>
     </div>
+
+    <!-- Nav -->
+    <nav class="admin-sidebar__nav">
+      <p class="admin-sidebar__section-label">Management</p>
+
+      <button type="button" class="admin-nav-item" [class.admin-nav-item--active]="activeTab() === 'reports'" (click)="setTab('reports')">
+        <svg class="admin-nav-item__icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        Found Reports
+      </button>
+
+      <button type="button" class="admin-nav-item" [class.admin-nav-item--active]="activeTab() === 'claims'" (click)="setTab('claims')">
+        <svg class="admin-nav-item__icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+        </svg>
+        Claims
+      </button>
+    </nav>
+
+    <!-- Watermark -->
+    <div class="admin-sidebar__watermark" aria-hidden="true">
+      <img src="/SVG/Icon.svg" alt="" />
+    </div>
+
+    <!-- Footer -->
+    <div class="admin-sidebar__footer">
+
+      <!-- Logged user -->
+      <div class="admin-user">
+        <div class="admin-user__avatar">{{ userInitials() }}</div>
+        <div class="admin-user__info">
+          <p class="admin-user__name">{{ userEmail() }}</p>
+          <p class="admin-user__role">{{ userRole() }}</p>
+        </div>
+      </div>
+
+      <!-- Logout -->
+      <button type="button" class="admin-nav-item" (click)="logout()" [disabled]="isLoggingOut()">
+        @if (isLoggingOut()) {
+          <svg class="admin-nav-item__icon admin-nav-item__icon--spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" stroke-dasharray="60" stroke-dashoffset="20" />
+          </svg>
+          Logging out…
+        } @else {
+          <svg class="admin-nav-item__icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
+          Log out
+        }
+      </button>
+
+      <a routerLink="/" class="admin-nav-item">
+        <svg class="admin-nav-item__icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        </svg>
+        Back to Site
+      </a>
+    </div>
+
+  </aside>
+
+  <!-- Main content -->
+  <div class="admin-main">
+
+    <!-- Mobile topbar -->
+    <header class="admin-topbar">
+      <button type="button" class="admin-topbar__menu-btn" (click)="toggleSidebar()" aria-label="Toggle sidebar">
+        <svg style="width:20px;height:20px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+      <span class="admin-topbar__title">{{ activeTab() === 'reports' ? 'Found Reports' : 'Claims' }}</span>
+    </header>
+
+    <!-- Page header -->
+    <div class="admin-page-header">
+      <p class="admin-page-header__eyebrow">Administration</p>
+      <h1 class="admin-page-header__title">{{ activeTab() === 'reports' ? 'Found Reports' : 'Claims' }}</h1>
+    </div>
+
+    <!-- Content -->
+    <div class="admin-content">
+      @defer {
+        <app-admin-reports [hidden]="activeTab() !== 'reports'" />
+        <app-admin-claims [hidden]="activeTab() !== 'claims'" />
+      }
+    </div>
+
   </div>
-
-  <div class="stats-grid">
-    <div class="stat-card">
-      <span class="stat-label">Total Reports</span>
-      <span class="stat-value">{{ totalReports }}</span>
-    </div>
-
-    <div class="stat-card">
-      <span class="stat-label">Pending</span>
-      <span class="stat-value">{{ pendingCount }}</span>
-    </div>
-
-    <div class="stat-card">
-      <span class="stat-label">Approved</span>
-      <span class="stat-value">{{ approvedCount }}</span>
-    </div>
-
-    <div class="stat-card">
-      <span class="stat-label">Rejected</span>
-      <span class="stat-value">{{ rejectedCount }}</span>
-    </div>
-  </div>
-
-  <div class="filters-bar">
-    <div class="filter-group">
-      <label for="search">Search reports</label>
-      <input
-        #searchInput
-        id="search"
-        type="text"
-        placeholder="Search by item, description, category, location, or status"
-        (input)="onSearchChange(searchInput.value)"
-      />
-    </div>
-
-    <div class="filter-group">
-      <label for="statusFilter">Filter by status</label>
-      <select
-        #statusSelect
-        id="statusFilter"
-        (change)="onStatusFilterChange(statusSelect.value)"
-      >
-        <option value="all">All</option>
-        <option value="pending">Pending</option>
-        <option value="approved">Approved</option>
-        <option value="rejected">Rejected</option>
-        <option value="claimed">Claimed</option>
-        <option value="returned">Returned</option>
-      </select>
-    </div>
-  </div>
-
-  @if (loading) {
-    <p class="status-message">Loading reports...</p>
-  }
-
-  @if (error) {
-    <p class="error-message">{{ error }}</p>
-  }
-
-  @if (!loading && !error && filteredItems.length === 0) {
-    <p class="status-message">No reports found for the current filters.</p>
-  }
-
-  @if (!loading && !error && filteredItems.length > 0) {
-    <div class="reports-table-wrapper">
-      <table class="reports-table">
-        <thead>
-          <tr>
-            <th>Item</th>
-            <th>Category</th>
-            <th>Location</th>
-            <th>Date Found</th>
-            <th>Status</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          @for (item of filteredItems; track trackByItemId($index, item)) {
-            <tr>
-              <td>
-                <div class="item-name">
-                  {{ item.itemName || item.title || 'Untitled Item' }}
-                </div>
-                <div class="item-description">
-                  {{ item.description || 'No description provided.' }}
-                </div>
-              </td>
-
-              <td>{{ item.category || 'N/A' }}</td>
-              <td>{{ item.locationFound || item.location || 'N/A' }}</td>
-              <td>{{ item.dateFound || 'N/A' }}</td>
-
-              <td>
-                <span
-                  class="status-badge"
-                  [ngClass]="{
-                    'pending': item.status === 'pending',
-                    'approved': item.status === 'approved',
-                    'rejected': item.status === 'rejected',
-                    'claimed': item.status === 'claimed',
-                    'returned': item.status === 'returned'
-                  }"
-                >
-                  {{ formatStatus(item.status) }}
-                </span>
-              </td>
-
-              <td>
-                @if (item.status === 'pending') {
-                  <div class="actions">
-                    <button
-                      type="button"
-                      class="approve-btn"
-                      (click)="approveItem(item._id)"
-                    >
-                      Approve
-                    </button>
-
-                    <button
-                      type="button"
-                      class="reject-btn"
-                      (click)="rejectItem(item._id)"
-                    >
-                      Reject
-                    </button>
-                  </div>
-                } @else {
-                  <span class="no-actions">No actions</span>
-                }
-              </td>
-            </tr>
-          }
-        </tbody>
-      </table>
-    </div>
-  }
-</section>
+</div>

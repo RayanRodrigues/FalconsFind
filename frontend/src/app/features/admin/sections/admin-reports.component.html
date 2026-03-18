@@ -1,0 +1,108 @@
+<div>
+  <!-- Stats -->
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+    <div class="bg-white rounded-xl border border-border/60 p-4 shadow-sm">
+      <p class="text-xs text-text-secondary font-medium mb-1">Total Reports</p>
+      <p class="text-2xl font-bold text-text-primary mb-0">{{ stats.total }}</p>
+    </div>
+    <div class="bg-white rounded-xl border border-warning/30 p-4 shadow-sm">
+      <p class="text-xs text-text-secondary font-medium mb-1">Pending</p>
+      <p class="text-2xl font-bold text-warning mb-0">{{ stats.pending }}</p>
+    </div>
+    <div class="bg-white rounded-xl border border-success/30 p-4 shadow-sm">
+      <p class="text-xs text-text-secondary font-medium mb-1">Validated</p>
+      <p class="text-2xl font-bold text-success mb-0">{{ stats.validated }}</p>
+    </div>
+    <div class="bg-white rounded-xl border border-error/30 p-4 shadow-sm">
+      <p class="text-xs text-text-secondary font-medium mb-1">Rejected</p>
+      <p class="text-2xl font-bold text-error mb-0">{{ stats.rejected }}</p>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="bg-white rounded-xl border border-border/60 shadow-sm p-4 mb-5">
+    <div class="flex flex-wrap gap-3 items-center">
+      <div class="relative flex-1 min-w-[200px]">
+        <svg class="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" style="width:15px;height:15px;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/></svg>
+        <input type="text" [(ngModel)]="searchTerm" (ngModelChange)="applyFilters()" placeholder="Search reports…" class="w-full rounded-lg border border-border pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary transition" />
+      </div>
+      <select [(ngModel)]="statusFilter" (ngModelChange)="applyFilters()" class="rounded-lg border border-border px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary transition">
+        <option value="all">All statuses</option>
+        <option value="pending">Pending</option>
+        <option value="approved">Validated</option>
+        <option value="rejected">Rejected</option>
+        <option value="claimed">Claimed</option>
+      </select>
+      <span class="text-xs text-text-secondary ml-auto">{{ filteredItems.length }} result{{ filteredItems.length === 1 ? '' : 's' }}</span>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  @if (loading()) {
+    <div class="bg-white rounded-xl border border-border/60 p-10 text-center shadow-sm">
+      <svg class="h-8 w-8 animate-spin text-primary mx-auto mb-3" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" class="opacity-25" stroke="currentColor" stroke-width="3"/><path class="opacity-90" fill="currentColor" d="M12 3a9 9 0 0 1 9 9h-3a6 6 0 0 0-6-6V3Z"/></svg>
+      <p class="text-text-secondary text-sm mb-0">Loading reports…</p>
+    </div>
+  }
+
+  <!-- Error -->
+  @if (error()) {
+    <div class="rounded-xl border border-error/30 bg-white p-4 text-sm text-error flex items-center gap-2 shadow-sm mb-4">
+      <svg style="width:16px;height:16px;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      {{ error() }}
+    </div>
+  }
+
+  <!-- Empty -->
+  @if (!loading() && !error() && filteredItems.length === 0) {
+    <div class="bg-white rounded-xl border border-border/60 p-10 text-center shadow-sm">
+      <p class="text-text-secondary text-sm mb-0">No reports match the current filters.</p>
+    </div>
+  }
+
+  <!-- Table -->
+  @if (!loading() && !error() && filteredItems.length > 0) {
+    <div class="bg-white rounded-xl border border-border/60 shadow-sm overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full border-collapse text-sm">
+          <thead>
+            <tr class="bg-neutral-base border-b border-border/60">
+              <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wide">Item</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wide">Location</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wide">Date</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wide">Status</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wide">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of filteredItems; track trackById($index, item)) {
+              <tr class="border-b border-border/40 hover:bg-neutral-base/50 transition-colors">
+                <td class="px-4 py-3">
+                  <p class="font-semibold text-text-primary mb-0.5">{{ item.title || item.itemName || 'Untitled' }}</p>
+                  <p class="text-xs text-text-secondary mb-0 line-clamp-1">{{ item.description || '—' }}</p>
+                </td>
+                <td class="px-4 py-3 text-text-secondary">{{ item.location || item.locationFound || '—' }}</td>
+                <td class="px-4 py-3 text-text-secondary whitespace-nowrap">{{ item.dateFound || '—' }}</td>
+                <td class="px-4 py-3">
+                  <span class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide" [class]="statusClass(item.status)">
+                    {{ item.status || 'unknown' }}
+                  </span>
+                </td>
+                <td class="px-4 py-3">
+                  @if (item.status === 'pending') {
+                    <div class="flex gap-2">
+                      <button (click)="approve(item._id)" class="rounded-lg bg-success/10 border border-success/30 px-3 py-1.5 text-xs font-semibold text-success hover:bg-success/20 transition-colors">Validate</button>
+                      <button (click)="reject(item._id)" class="rounded-lg bg-error/10 border border-error/30 px-3 py-1.5 text-xs font-semibold text-error hover:bg-error/20 transition-colors">Reject</button>
+                    </div>
+                  } @else {
+                    <span class="text-xs text-text-secondary">—</span>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+</div>

@@ -1,176 +1,65 @@
-import { CommonModule, isPlatformBrowser } from '@angular/common';
-import { Component, Inject, OnInit, PLATFORM_ID } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { Component, signal, inject, OnInit } from '@angular/core';
+import { Router, RouterLink } from '@angular/router';
+import { AdminReportsComponent } from './sections/admin-reports.component';
+import { AdminClaimsComponent } from './sections/admin-claims.component';
+import { AuthService } from '../../core/services/auth.service';
+import { UserRole } from '../../models/enums/user-role.enum';
 
-type ReportStatus =
-  | 'pending'
-  | 'approved'
-  | 'rejected'
-  | 'claimed'
-  | 'returned'
-  | string;
-
-type FoundItem = {
-  _id: string;
-  itemName?: string;
-  title?: string;
-  description?: string;
-  category?: string;
-  locationFound?: string;
-  location?: string;
-  dateFound?: string;
-  status?: ReportStatus;
-  createdAt?: string;
-  updatedAt?: string;
-};
-
-type ItemsResponse = {
-  page: number;
-  limit: number;
-  total: number;
-  totalPages: number;
-  hasNextPage: boolean;
-  hasPrevPage: boolean;
-  items: FoundItem[];
-};
+type Tab = 'reports' | 'claims';
 
 @Component({
   selector: 'app-admin-dashboard',
   standalone: true,
-  imports: [CommonModule],
+  imports: [RouterLink, AdminReportsComponent, AdminClaimsComponent],
   templateUrl: './admin-dashboard.component.html',
-  styleUrls: ['./admin-dashboard.component.scss']
+  styleUrls: ['./admin-dashboard.component.scss'],
 })
 export class AdminDashboardComponent implements OnInit {
-  allItems: FoundItem[] = [];
-  filteredItems: FoundItem[] = [];
+  private readonly authService = inject(AuthService);
+  private readonly router = inject(Router);
 
-  loading = false;
-  error = '';
-
-  searchTerm = '';
-  selectedStatus = 'all';
-
-  totalReports = 0;
-  pendingCount = 0;
-  approvedCount = 0;
-  rejectedCount = 0;
-
-  constructor(
-    private http: HttpClient,
-    @Inject(PLATFORM_ID) private platformId: Object
-  ) {}
+  readonly activeTab = signal<Tab>('reports');
+  readonly sidebarOpen = signal(false);
+  readonly userEmail = signal<string>('');
+  readonly userRole = signal<string>('');
+  readonly userInitials = signal<string>('');
 
   ngOnInit(): void {
-    if (isPlatformBrowser(this.platformId)) {
-      this.loadAllReports();
-    } else {
-      this.loading = false;
+    const session = this.authService.getStoredSession();
+    if (session) {
+      const email = session.user.email;
+      this.userEmail.set(email);
+      this.userRole.set(session.user.role === UserRole.ADMIN ? 'Admin' : 'Campus Security');
+      this.userInitials.set(this.deriveInitials(email));
     }
   }
 
-  loadAllReports(): void {
-    this.loading = true;
-    this.error = '';
+  setTab(tab: Tab): void {
+    this.activeTab.set(tab);
+    this.sidebarOpen.set(false);
+  }
 
-    this.http.get<ItemsResponse>('/items?page=1&limit=100').subscribe({
-      next: (response) => {
-        this.allItems = (response.items ?? []).map((item) => ({
-          ...item,
-          status: (item.status || 'pending').toLowerCase()
-        }));
+  toggleSidebar(): void {
+    this.sidebarOpen.update(v => !v);
+  }
 
-        this.totalReports = this.allItems.length;
-        this.pendingCount = this.allItems.filter(
-          (item) => item.status === 'pending'
-        ).length;
-        this.approvedCount = this.allItems.filter(
-          (item) => item.status === 'approved'
-        ).length;
-        this.rejectedCount = this.allItems.filter(
-          (item) => item.status === 'rejected'
-        ).length;
+  readonly isLoggingOut = signal(false);
 
-        this.applyFilters();
-        this.loading = false;
-      },
-      error: (err) => {
-        console.error('Failed to load reports:', err);
-        this.error = 'Failed to load reports.';
-        this.loading = false;
-      }
+  logout(): void {
+    if (this.isLoggingOut()) return;
+    this.isLoggingOut.set(true);
+    this.authService.logout().subscribe({
+      complete: () => this.router.navigate(['/login']),
+      error: () => this.router.navigate(['/login']),
     });
   }
 
-  applyFilters(): void {
-    const search = this.searchTerm.trim().toLowerCase();
-
-    this.filteredItems = this.allItems.filter((item) => {
-      const itemName = (item.itemName || item.title || '').toLowerCase();
-      const description = (item.description || '').toLowerCase();
-      const category = (item.category || '').toLowerCase();
-      const location = (item.locationFound || item.location || '').toLowerCase();
-      const status = (item.status || '').toLowerCase();
-
-      const matchesSearch =
-        !search ||
-        itemName.includes(search) ||
-        description.includes(search) ||
-        category.includes(search) ||
-        location.includes(search) ||
-        status.includes(search);
-
-      const matchesStatus =
-        this.selectedStatus === 'all' || status === this.selectedStatus;
-
-      return matchesSearch && matchesStatus;
-    });
-  }
-
-  onSearchChange(value: string): void {
-    this.searchTerm = value;
-    this.applyFilters();
-  }
-
-  onStatusFilterChange(value: string): void {
-    this.selectedStatus = value;
-    this.applyFilters();
-  }
-
-  approveItem(itemId: string): void {
-    this.http.patch(`/items/${itemId}/validate`, {
-      status: 'approved'
-    }).subscribe({
-      next: () => {
-        this.loadAllReports();
-      },
-      error: (err) => {
-        console.error('Failed to approve item:', err);
-        this.error = 'Failed to approve item.';
-      }
-    });
-  }
-
-  rejectItem(itemId: string): void {
-    this.http.patch(`/items/${itemId}/validate`, {
-      status: 'rejected'
-    }).subscribe({
-      next: () => {
-        this.loadAllReports();
-      },
-      error: (err) => {
-        console.error('Failed to reject item:', err);
-        this.error = 'Failed to reject item.';
-      }
-    });
-  }
-
-  formatStatus(status?: string): string {
-    if (!status) return 'Unknown';
-    return status.charAt(0).toUpperCase() + status.slice(1);
-  }
-
-  trackByItemId(index: number, item: FoundItem): string {
-    return item._id;
+  private deriveInitials(email: string): string {
+    const local = email.split('@')[0];
+    const parts = local.split(/[._-]/);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return local.slice(0, 2).toUpperCase();
   }
 }
