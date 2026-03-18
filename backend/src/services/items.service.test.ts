@@ -15,7 +15,7 @@ describe('listValidatedItems', () => {
 
   let orderByFn: ReturnType<typeof vi.fn>;
   let orderedLimitFn: ReturnType<typeof vi.fn>;
-  let offsetFn: ReturnType<typeof vi.fn>;
+  let startAfterFn: ReturnType<typeof vi.fn>;
   let limitFn: ReturnType<typeof vi.fn>;
   let getPageFn: ReturnType<typeof vi.fn>;
   let getOrderedFn: ReturnType<typeof vi.fn>;
@@ -47,10 +47,10 @@ describe('listValidatedItems', () => {
     const queryAfterOrderedLimit = { get: getOrderedFn };
     orderedLimitFn = vi.fn().mockReturnValue(queryAfterOrderedLimit);
 
-    const queryAfterOffset = { limit: limitFn };
-    offsetFn = vi.fn().mockReturnValue(queryAfterOffset);
+    const queryAfterStartAfter = { limit: limitFn };
+    startAfterFn = vi.fn().mockReturnValue(queryAfterStartAfter);
 
-    const queryAfterOrderBy = { offset: offsetFn, limit: orderedLimitFn, get: getOrderedFn };
+    const queryAfterOrderBy = { startAfter: startAfterFn, limit: orderedLimitFn, get: getOrderedFn };
     orderByFn = vi.fn().mockReturnValue(queryAfterOrderBy);
 
     countGetFn = vi.fn().mockResolvedValue({
@@ -110,23 +110,24 @@ describe('listValidatedItems', () => {
     expect(countGetFn).toHaveBeenCalledTimes(1);
 
     expect(orderByFn).toHaveBeenCalledWith('dateReported', 'desc');
-    expect(offsetFn).toHaveBeenCalledWith(0);
-    expect(limitFn).toHaveBeenCalledWith(10);
-    expect(getPageFn).toHaveBeenCalledTimes(1);
+    expect(startAfterFn).not.toHaveBeenCalled();
+    expect(orderedLimitFn).toHaveBeenCalledWith(10);
+    expect(getOrderedFn).toHaveBeenCalledTimes(1);
   });
 
   it('clamps page and limit to at least 1', async () => {
     await listValidatedItems(db as never, bucket as never, null, { page: 0, limit: 0 });
 
-    expect(offsetFn).toHaveBeenCalledWith(0);
-    expect(limitFn).toHaveBeenCalledWith(1);
+    expect(startAfterFn).not.toHaveBeenCalled();
+    expect(orderedLimitFn).toHaveBeenCalledWith(1);
   });
 
-  it('uses correct offset for page 3 with limit 5', async () => {
+  it('uses startAfter to walk to page 3 with limit 5', async () => {
     await listValidatedItems(db as never, bucket as never, null, { page: 3, limit: 5 });
 
-    expect(offsetFn).toHaveBeenCalledWith(10);
+    expect(startAfterFn).toHaveBeenCalledTimes(2);
     expect(limitFn).toHaveBeenCalledWith(5);
+    expect(getPageFn).toHaveBeenCalledTimes(2);
   });
 
   it('applies optional category, location and date filters before paging', async () => {
@@ -200,7 +201,7 @@ describe('listValidatedItems', () => {
     expect(result.items.map((item) => item.id)).toEqual(['match-title', 'match-description']);
     expect(getOrderedFn).toHaveBeenCalledTimes(1);
     expect(orderedLimitFn).toHaveBeenCalledWith(10);
-    expect(offsetFn).not.toHaveBeenCalled();
+    expect(startAfterFn).not.toHaveBeenCalled();
     expect(countFn).not.toHaveBeenCalled();
   });
 });

@@ -1,4 +1,4 @@
-import type { DocumentData, Firestore } from 'firebase-admin/firestore';
+import type { DocumentData, Firestore, Query, QueryDocumentSnapshot } from 'firebase-admin/firestore';
 import type { Bucket } from '@google-cloud/storage';
 import type { RedisClient } from '../bootstrap/redis.js';
 import { ItemStatus } from '../contracts/index.js';
@@ -230,7 +230,6 @@ export const listValidatedItems = async (
 ): Promise<{ items: Array<ItemPublicResponse>; total: number }> => {
   const page = Math.max(1, Math.floor(params.page));
   const limit = Math.max(1, Math.floor(params.limit));
-  const offset = (page - 1) * limit;
   const keyword = typeof params.keyword === 'string' ? params.keyword.trim().toLowerCase() : '';
 
   let baseQuery = db
@@ -256,12 +255,33 @@ export const listValidatedItems = async (
 
   const orderedQuery = baseQuery.orderBy('dateReported', 'desc');
 
+  const getCursorPage = async (
+    query: Query,
+    pageNumber: number,
+    pageSize: number,
+  ) => {
+    let lastDoc: QueryDocumentSnapshot | undefined;
+
+    for (let currentPage = 1; currentPage < pageNumber; currentPage += 1) {
+      const cursorQuery = lastDoc ? query.startAfter(lastDoc) : query;
+      const cursorSnap = await cursorQuery.limit(pageSize).get();
+      if (cursorSnap.empty) {
+        return cursorSnap;
+      }
+
+      lastDoc = cursorSnap.docs[cursorSnap.docs.length - 1];
+    }
+
+    const pageQuery = lastDoc ? query.startAfter(lastDoc) : query;
+    return pageQuery.limit(pageSize).get();
+  };
+
   let pageSnap;
   let total = 0;
 
   if (keyword.length > 0) {
     const MAX_KEYWORD_SCAN = 1000;
-    const scanLimit = Math.min(MAX_KEYWORD_SCAN, offset + limit);
+    const scanLimit = Math.min(MAX_KEYWORD_SCAN, page * limit);
 
     pageSnap = await orderedQuery
       .limit(scanLimit)
@@ -270,10 +290,7 @@ export const listValidatedItems = async (
     const totalAgg = await baseQuery.count().get();
     total = totalAgg.data().count;
 
-    pageSnap = await orderedQuery
-      .offset(offset)
-      .limit(limit)
-      .get();
+    pageSnap = await getCursorPage(orderedQuery, page, limit);
   }
 
   const itemCandidates = await Promise.all(pageSnap.docs.map(async (doc) => {
@@ -330,7 +347,7 @@ export const listValidatedItems = async (
   const items = itemCandidates.filter((item): item is ItemPublicResponse => item !== null);
 
   const pagedItems = keyword.length > 0
-    ? items.slice(offset, offset + limit)
+    ? items.slice((page - 1) * limit, page * limit)
     : items;
 
   if (keyword.length > 0) {
