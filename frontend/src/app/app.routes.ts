@@ -5,18 +5,19 @@ import { LostReportFormComponent } from './features/public-reporting/lost-report
 import { FoundItemsPageComponent } from './features/items/pages/found-items-page/found-items-page';
 import { ItemDetailsComponent } from './features/items/item-details/item-details.component';
 import { ClaimRequest } from './features/claims/pages/claim-request/claim-request';
-import { ClaimReview } from './features/claims/pages/claim-review/claim-review';
 import { ClaimCancel } from './features/claims/pages/claim-cancel/claim-cancel';
 import { EditReportPageComponent } from './features/public-reporting/edit-report-page/edit-report-page.component';
-
-// ✅ ADD THIS IMPORT
+import { LoginComponent } from './features/auth/login/login.component';
+import { RegisterComponent } from './features/auth/register/register.component';
 import { AdminDashboardComponent } from './features/admin/admin-dashboard.component';
+import { adminAuthGuard } from './core/guards/admin-auth.guard';
+import { studentAuthGuard } from './core/guards/student-auth.guard';
 
 export const routes: Routes = [
   {
     path: '',
     component: DevHomeComponent,
-    title: 'FalconFind – Lost & Found'
+    title: 'FalconFind - Lost & Found'
   },
   {
     path: 'report/lost',
@@ -34,22 +35,42 @@ export const routes: Routes = [
     title: 'Found Items - FalconFind'
   },
   {
+    path: 'login',
+    component: LoginComponent,
+    title: 'Login - FalconFind'
+  },
+  {
+    path: 'register',
+    component: RegisterComponent,
+    title: 'Create Account - FalconFind'
+  },
+  {
     path: 'claim-request',
-    component: ClaimRequest
+    component: ClaimRequest,
+    canActivate: [studentAuthGuard],
+    title: 'Claim Request - FalconFind'
+  },
+  {
+    path: 'admin/dashboard',
+    component: AdminDashboardComponent,
+    canActivate: [adminAuthGuard],
+    title: 'Admin Dashboard - FalconFind'
+  },
+  {
+    path: 'admin',
+    redirectTo: 'admin/dashboard',
+    pathMatch: 'full'
   },
   {
     path: 'admin/claims',
-    component: ClaimReview,
-    title: 'Claim Review - FalconFind'
+    redirectTo: 'admin/dashboard',
+    pathMatch: 'full'
   },
-
-  // ✅ ADD THIS NEW ROUTE (YOUR US4.1 FEATURE)
   {
     path: 'admin/validate-items',
-    component: AdminDashboardComponent,
-    title: 'Validate Found Items - FalconFind'
+    redirectTo: 'admin/dashboard',
+    pathMatch: 'full'
   },
-
   {
     path: 'claim-cancel',
     component: ClaimCancel,

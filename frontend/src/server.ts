@@ -2,9 +2,9 @@ import {
   AngularNodeAppEngine,
   createNodeRequestHandler,
   isMainModule,
-  writeResponseToNodeResponse,
 } from '@angular/ssr/node';
 import express from 'express';
+import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
 
 const browserDistFolder = join(import.meta.dirname, '../browser');
@@ -12,21 +12,67 @@ const browserDistFolder = join(import.meta.dirname, '../browser');
 const app = express();
 const angularApp = new AngularNodeAppEngine();
 
-/**
- * Example Express Rest API endpoints can be defined here.
- * Uncomment and define endpoints as necessary.
- *
- * Example:
- * ```ts
- * app.get('/api/{*splat}', (req, res) => {
- *   // Handle API request
- * });
- * ```
- */
+const createCspNonce = (): string => randomBytes(16).toString('base64');
 
-/**
- * Serve static files from /browser
- */
+const resolveAppEnv = (): 'development' | 'production' => {
+  const raw = (process.env['APP_ENV'] ?? process.env['NODE_ENV'] ?? 'development').toLowerCase();
+  return raw === 'production' ? 'production' : 'development';
+};
+
+const resolveApiBaseUrl = (appEnv: 'development' | 'production'): string => {
+  if (process.env['API_BASE_URL']) {
+    return process.env['API_BASE_URL'];
+  }
+
+  if (appEnv === 'production') {
+    return process.env['API_BASE_URL_PROD'] ?? 'https://falconsfind.onrender.com';
+  }
+
+  return process.env['API_BASE_URL_DEV'] ?? 'http://localhost:3000';
+};
+
+const resolveAllowedConnectSources = (): string[] => {
+  const allowed = new Set<string>(["'self'"]);
+  const appEnv = resolveAppEnv();
+
+  try {
+    allowed.add(new URL(resolveApiBaseUrl(appEnv)).origin);
+  } catch {
+    // Ignore malformed API base URL here; the frontend has its own guardrails.
+  }
+
+  allowed.add('https://vitals.vercel-insights.com');
+  return Array.from(allowed);
+};
+
+const buildContentSecurityPolicy = (nonce: string): string => [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "frame-ancestors 'none'",
+  "form-action 'self'",
+  "object-src 'none'",
+  `script-src 'self' 'nonce-${nonce}'`,
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: https://storage.googleapis.com https://firebasestorage.googleapis.com",
+  "font-src 'self' data:",
+  `connect-src ${resolveAllowedConnectSources().join(' ')}`,
+  "frame-src 'none'",
+  resolveAppEnv() === 'production' ? 'upgrade-insecure-requests' : '',
+].filter(Boolean).join('; ');
+
+const applyHtmlCspCompatibility = (html: string, nonce: string): string => {
+  return html
+    .replace(/ media="print" onload="this\.media='all'"/gi, '')
+    .replace(/<script /gi, `<script nonce="${nonce}" `);
+};
+
+app.use((req, res, next) => {
+  const nonce = createCspNonce();
+  res.locals['cspNonce'] = nonce;
+  res.setHeader('Content-Security-Policy', buildContentSecurityPolicy(nonce));
+  next();
+});
+
 app.use(
   express.static(browserDistFolder, {
     maxAge: '1y',
@@ -41,9 +87,33 @@ app.use(
 app.use((req, res, next) => {
   angularApp
     .handle(req)
-    .then((response) =>
-      response ? writeResponseToNodeResponse(response, res) : next(),
-    )
+    .then(async (response) => {
+      if (!response) {
+        next();
+        return;
+      }
+
+      const contentType = response.headers.get('content-type') ?? '';
+      if (!contentType.includes('text/html')) {
+        response.headers.forEach((value, key) => {
+          res.setHeader(key, value);
+        });
+        res.status(response.status);
+        const body = Buffer.from(await response.arrayBuffer());
+        res.send(body);
+        return;
+      }
+
+      const nonce = String(res.locals['cspNonce'] ?? '');
+      const html = applyHtmlCspCompatibility(await response.text(), nonce);
+      response.headers.forEach((value, key) => {
+        if (key.toLowerCase() === 'content-length') {
+          return;
+        }
+        res.setHeader(key, value);
+      });
+      res.status(response.status).send(html);
+    })
     .catch(next);
 });
 
