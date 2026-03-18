@@ -6,19 +6,17 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
   standalone: true,
   imports: [RouterLink, RouterLinkActive],
   template: `
-    <header class="sticky top-0 z-50 bg-white border-b border-border/60 shadow-sm">
+    <header class="fixed top-0 left-0 right-0 z-50 bg-white border-b border-border/60 shadow-sm">
       <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex h-14 items-center justify-between gap-4">
+        <div class="flex h-[72px] items-center justify-between gap-4">
 
           <!-- Brand -->
-          <a
-            routerLink="/"
-            class="flex items-center gap-2 font-semibold text-base text-text-primary hover:text-primary transition-colors shrink-0"
-          >
-            <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-white text-xs font-bold select-none">
-              FF
-            </span>
-            FalconFind
+          <a routerLink="/" class="shrink-0" aria-label="FalconFind – Home">
+            <img
+              src="/PNG/LogoPrincipal.png"
+              alt="FalconFind"
+              style="height: 30px; width: auto;"
+            />
           </a>
 
           <!-- Desktop nav -->

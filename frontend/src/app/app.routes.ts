@@ -16,7 +16,7 @@ export const routes: Routes = [
   {
     path: '',
     component: DevHomeComponent,
-    title: 'FalconFind - In Development'
+    title: 'FalconFind – Lost & Found'
   },
   {
     path: 'report/lost',

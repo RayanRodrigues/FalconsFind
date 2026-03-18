@@ -6,14 +6,14 @@ import { RouterLink } from '@angular/router';
   standalone: true,
   imports: [RouterLink],
   template: `
-    <footer class="bg-white border-t border-border/60 py-8 px-4 sm:px-6 lg:px-8 mt-auto">
-      <div class="max-w-6xl mx-auto">
+    <footer class="bg-white border-t border-border/60 py-8 mt-auto">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
 
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <p class="font-semibold text-text-primary text-sm">FalconFind</p>
+            <img src="/PNG/LogoPrincipal.png" alt="FalconFind" style="height: 30px; width: auto;" />
             <p class="text-text-secondary text-xs mt-0.5">
-              Helping Fanshawe Falcons find their stuff — one item at a time.
+              Campus lost &amp; found — digital, organized, and accessible.
             </p>
           </div>
 
@@ -31,7 +31,7 @@ import { RouterLink } from '@angular/router';
         </div>
 
         <p class="mt-5 pt-4 border-t border-border/40 text-xs text-text-secondary">
-          © {{ year }} FalconFind · Fanshawe College · Crafted with ☕ coffee, late nights, and a suspicious amount of Stack Overflow.
+          © {{ year }} FalconFind. All rights reserved.
         </p>
 
       </div>
