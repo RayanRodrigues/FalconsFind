@@ -66,5 +66,6 @@ export const getAppConfig = () => {
     apiPrefix: process.env.API_PREFIX ?? '/api/v1',
     apiBaseUrl: resolveApiBaseUrl(appEnv),
     corsAllowedOrigins: resolveCorsAllowedOrigins(appEnv),
+    redisUrl: process.env.REDIS_URL,
   };
 };

@@ -26,6 +26,7 @@
     "firebase": "^12.8.0",
     "firebase-admin": "^12.7.0",
     "multer": "^2.0.2",
+    "redis": "^5.11.0",
     "swagger-ui-express": "^5.0.1",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
