@@ -2,6 +2,7 @@ import type { OpenApiModule } from '../openapi.types.js';
 
 export const errorResponseRefs = {
   badRequest: { $ref: '#/components/responses/BadRequestResponse' },
+  unauthorized: { $ref: '#/components/responses/UnauthorizedResponse' },
   forbidden: { $ref: '#/components/responses/ForbiddenResponse' },
   notFound: { $ref: '#/components/responses/NotFoundResponse' },
   conflict: { $ref: '#/components/responses/ConflictResponse' },
@@ -41,6 +42,16 @@ export const commonOpenApi: OpenApiModule = {
     },
     ForbiddenResponse: {
       description: 'The request is not allowed',
+      content: {
+        'application/json': {
+          schema: {
+            $ref: '#/components/schemas/ErrorResponse',
+          },
+        },
+      },
+    },
+    UnauthorizedResponse: {
+      description: 'Authentication failed',
       content: {
         'application/json': {
           schema: {

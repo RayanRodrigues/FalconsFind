@@ -9,6 +9,7 @@ export type Report = {
   title: string;
   category?: string;
   description?: string;
+  additionalInfo?: string;
   status: ItemStatus;
   referenceCode: string;
   location?: string;
