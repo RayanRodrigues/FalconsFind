@@ -28,21 +28,6 @@ const createReferenceCode = (prefix: 'LST' | 'FND', docId: string, createdAt: Da
 
 type SupportedPhotoMimeType = 'image/jpeg' | 'image/png';
 
-const uploadPhotoFromDataUrl = async (bucket: Bucket, photoDataUrl: string): Promise<string> => {
-  const match = photoDataUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
-  if (!match) {
-    throw new ReportPhotoUploadError('INVALID_PHOTO_DATA_URL', 'Invalid photo data URL');
-  }
-
-  const contentType = match[1] as SupportedPhotoMimeType;
-  const base64 = match[2];
-  const buffer = Buffer.from(base64, 'base64');
-  if (buffer.length === 0) {
-    throw new ReportPhotoUploadError('INVALID_PHOTO_DATA_URL', 'Invalid photo data URL');
-  }
-  return uploadPhotoBuffer(bucket, buffer, contentType);
-};
-
 const uploadPhotoBuffer = async (
   bucket: Bucket,
   buffer: Buffer,
@@ -72,10 +57,11 @@ export const createLostReport = async (
   db: Firestore,
   bucket: Bucket,
   payload: CreateLostReportRequest,
+  photo?: { buffer: Buffer; mimeType: SupportedPhotoMimeType },
 ) => {
   let photoUrl: string | undefined;
-  if (payload.photoDataUrl) {
-    photoUrl = await uploadPhotoFromDataUrl(bucket, payload.photoDataUrl);
+  if (photo) {
+    photoUrl = await uploadPhotoBuffer(bucket, photo.buffer, photo.mimeType);
   }
   const createdAt = new Date();
   const docRef = db.collection('reports').doc();
