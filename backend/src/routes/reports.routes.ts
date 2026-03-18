@@ -125,6 +125,25 @@ const detectAllowedImageMime = (buffer: Buffer): 'image/jpeg' | 'image/png' | nu
   return null;
 };
 
+const parsePositiveInt = (value: unknown, fallback: number): number => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) {
+    return fallback;
+  }
+
+  const i = Math.floor(n);
+  return i > 0 ? i : fallback;
+};
+
+const parseOptionalString = (value: unknown): string | undefined => {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+};
+
 export const createReportsRouter = (db: Firestore, bucket: Bucket): Router => {
   const router = Router();
   const createReportLimiter = rateLimit({

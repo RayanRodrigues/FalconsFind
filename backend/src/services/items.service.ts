@@ -337,7 +337,7 @@ export const listValidatedItems = async (
 
     let signedUrl = source;
     try {
-      signedUrl = await toPublicImageUrl(bucket, source);
+      signedUrl = await toPublicImageUrl(bucket, source, redis);
     } catch {
       signedUrl = source;
     }

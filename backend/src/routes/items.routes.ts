@@ -23,7 +23,15 @@ const itemsServiceModule = (await import(pathToFileURL(servicePath).href)) as {
     db: Firestore,
     bucket: Bucket,
     redis: RedisClient | null,
-    params: { page: number; limit: number },
+    params: {
+      page: number;
+      limit: number;
+      keyword?: string;
+      category?: string;
+      location?: string;
+      dateFrom?: string;
+      dateTo?: string;
+    },
   ) => Promise<{
     items: unknown[];
     total: number;
@@ -37,6 +45,15 @@ function parsePositiveInt(value: unknown, fallback: number): number {
   return i > 0 ? i : fallback;
 }
 
+function parseOptionalString(value: unknown): string | undefined {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
 export const createItemsRouter = (db: Firestore, bucket: Bucket, redis: RedisClient | null): Router => {
   const router = Router();
 
@@ -44,8 +61,21 @@ export const createItemsRouter = (db: Firestore, bucket: Bucket, redis: RedisCli
     const page = parsePositiveInt(req.query.page, 1);
     const limitRaw = parsePositiveInt(req.query.limit, 10);
     const limit = Math.min(limitRaw, 50);
+    const keyword = parseOptionalString(req.query.keyword);
+    const category = parseOptionalString(req.query.category);
+    const location = parseOptionalString(req.query.location);
+    const dateFrom = parseOptionalString(req.query.dateFrom);
+    const dateTo = parseOptionalString(req.query.dateTo);
 
-    const result = await itemsServiceModule.listValidatedItems(db, bucket, redis, { page, limit });
+    const result = await itemsServiceModule.listValidatedItems(db, bucket, redis, {
+      page,
+      limit,
+      keyword,
+      category,
+      location,
+      dateFrom,
+      dateTo,
+    });
     const totalPages = Math.max(1, Math.ceil(result.total / limit));
 
     res.status(200).json({

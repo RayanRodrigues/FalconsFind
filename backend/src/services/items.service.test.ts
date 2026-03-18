@@ -130,7 +130,7 @@ describe('listValidatedItems', () => {
   });
 
   it('applies optional category, location and date filters before paging', async () => {
-    await listValidatedItems(db as never, bucket as never, {
+    await listValidatedItems(db as never, bucket as never, null, {
       page: 1,
       limit: 10,
       category: 'Accessories',
@@ -191,6 +191,7 @@ describe('listValidatedItems', () => {
     const result = await listValidatedItems(
       db as never,
       bucket as never,
+      null,
       { page: 1, limit: 10, keyword: 'MacBook' },
     );
 
