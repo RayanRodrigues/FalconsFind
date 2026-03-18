@@ -237,9 +237,14 @@ export const reportsOpenApi: OpenApiModule = {
         requestBody: {
           required: true,
           content: {
-            'application/json': {
+            'multipart/form-data': {
               schema: {
                 $ref: '#/components/schemas/CreateLostReportRequest',
+              },
+              encoding: {
+                photo: {
+                  contentType: 'image/jpeg, image/png',
+                },
               },
             },
           },
@@ -257,6 +262,26 @@ export const reportsOpenApi: OpenApiModule = {
           },
           400: {
             description: 'Request validation failed',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          429: {
+            description: 'Too many report submissions',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          503: {
+            description: 'Photo upload failed',
             content: {
               'application/json': {
                 schema: {
@@ -288,6 +313,11 @@ export const reportsOpenApi: OpenApiModule = {
             'multipart/form-data': {
               schema: {
                 $ref: '#/components/schemas/CreateFoundReportRequest',
+              },
+              encoding: {
+                photo: {
+                  contentType: 'image/jpeg, image/png',
+                },
               },
             },
           },
@@ -354,6 +384,26 @@ export const reportsOpenApi: OpenApiModule = {
           },
           400: {
             description: 'Request validation failed',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          429: {
+            description: 'Too many report submissions',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          503: {
+            description: 'Photo upload failed',
             content: {
               'application/json': {
                 schema: {
@@ -484,7 +534,11 @@ export const reportsOpenApi: OpenApiModule = {
         lastSeenLocation: { type: 'string', minLength: 1 },
         lastSeenAt: { type: 'string', format: 'date-time' },
         contactEmail: { type: 'string', format: 'email' },
-        photoDataUrl: { type: 'string', description: 'Image encoded as data URL' },
+        photo: {
+          type: 'string',
+          format: 'binary',
+          description: 'Optional JPEG or PNG image file uploaded as multipart form data',
+        },
       },
     },
     CreateLostReportResponse: {
@@ -522,7 +576,11 @@ export const reportsOpenApi: OpenApiModule = {
         foundLocation: { type: 'string', minLength: 1 },
         foundAt: { type: 'string', format: 'date-time' },
         contactEmail: { type: 'string', format: 'email' },
-        photo: { type: 'string', format: 'binary' },
+        photo: {
+          type: 'string',
+          format: 'binary',
+          description: 'JPEG or PNG image file uploaded as multipart form data',
+        },
       },
     },
   },

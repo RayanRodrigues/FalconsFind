@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type { Firestore } from 'firebase-admin/firestore';
 import type { Bucket } from '@google-cloud/storage';
+import type { RedisClient } from '../bootstrap/redis.js';
 import type { ItemDetailsResponse } from '../contracts/index.js';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -16,11 +17,12 @@ const servicePath = fs.existsSync(serviceTsPath) ? serviceTsPath : serviceJsPath
 
 const itemsServiceModule = (await import(pathToFileURL(servicePath).href)) as {
   InvalidItemDataError: new () => Error;
-  getItemById: (db: Firestore, bucket: Bucket, itemId: string) => Promise<ItemDetailsResponse | null>;
+  getItemById: (db: Firestore, bucket: Bucket, redis: RedisClient | null, itemId: string) => Promise<ItemDetailsResponse | null>;
   isItemPubliclyVisible: (item: ItemDetailsResponse) => boolean;
   listValidatedItems: (
     db: Firestore,
     bucket: Bucket,
+    redis: RedisClient | null,
     params: {
       page: number;
       limit: number;
@@ -44,71 +46,66 @@ function parsePositiveInt(value: unknown, fallback: number): number {
 }
 
 function parseOptionalString(value: unknown): string | undefined {
-  if (typeof value !== 'string') return undefined;
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
-function parseOptionalDate(
+function parseDateFilter(
   value: unknown,
-  bound: 'start' | 'end',
+  fieldName: 'dateFrom' | 'dateTo',
 ): string | undefined {
   const raw = parseOptionalString(value);
   if (!raw) {
     return undefined;
   }
 
-  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
-    const baseDate = new Date(`${raw}T00:00:00.000Z`);
-    if (Number.isNaN(baseDate.getTime()) || baseDate.toISOString().slice(0, 10) !== raw) {
-      throw new HttpError(
-        400,
-        'BAD_REQUEST',
-        `Invalid ${bound === 'start' ? 'dateFrom' : 'dateTo'} query parameter`,
-      );
-    }
+  const dateOnlyMatch = /^\d{4}-\d{2}-\d{2}$/.test(raw);
+  const normalized = dateOnlyMatch
+    ? (fieldName === 'dateFrom' ? `${raw}T00:00:00.000Z` : `${raw}T23:59:59.999Z`)
+    : raw;
 
-    return bound === 'start'
-      ? `${raw}T00:00:00.000Z`
-      : `${raw}T23:59:59.999Z`;
+  const parsed = new Date(normalized);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new HttpError(400, 'BAD_REQUEST', `${fieldName} must be a valid ISO date or date-time`);
   }
 
-  const parsed = new Date(raw);
-  if (Number.isNaN(parsed.getTime())) {
-    throw new HttpError(
-      400,
-      'BAD_REQUEST',
-      `Invalid ${bound === 'start' ? 'dateFrom' : 'dateTo'} query parameter`,
-    );
+  if (dateOnlyMatch && parsed.toISOString().slice(0, 10) !== raw) {
+    throw new HttpError(400, 'BAD_REQUEST', `${fieldName} must be a valid ISO date or date-time`);
   }
 
   return parsed.toISOString();
 }
 
-export const createItemsRouter = (db: Firestore, bucket: Bucket): Router => {
+export const createItemsRouter = (db: Firestore, bucket: Bucket, redis: RedisClient | null): Router => {
   const router = Router();
 
   router.get(`${API_PREFIX}/items`, async (req, res) => {
     const page = parsePositiveInt(req.query.page, 1);
     const limitRaw = parsePositiveInt(req.query.limit, 10);
     const limit = Math.min(limitRaw, 50);
-
     const keyword = parseOptionalString(req.query.keyword);
     const category = parseOptionalString(req.query.category);
     const location = parseOptionalString(req.query.location);
-    const dateFrom = parseOptionalDate(req.query.dateFrom, 'start');
-    const dateTo = parseOptionalDate(req.query.dateTo, 'end');
+    const dateFrom = parseDateFilter(req.query.dateFrom, 'dateFrom');
+    const dateTo = parseDateFilter(req.query.dateTo, 'dateTo');
 
     if (dateFrom && dateTo && dateFrom > dateTo) {
-      throw new HttpError(400, 'BAD_REQUEST', 'dateFrom must be before or equal to dateTo');
+      throw new HttpError(400, 'BAD_REQUEST', 'dateFrom cannot be after dateTo');
     }
 
-    const result = await itemsServiceModule.listValidatedItems(
-      db,
-      bucket,
-      { page, limit, keyword, category, location, dateFrom, dateTo },
-    );
-
+    const result = await itemsServiceModule.listValidatedItems(db, bucket, redis, {
+      page,
+      limit,
+      keyword,
+      category,
+      location,
+      dateFrom,
+      dateTo,
+    });
     const totalPages = Math.max(1, Math.ceil(result.total / limit));
 
     res.status(200).json({
@@ -137,7 +134,7 @@ export const createItemsRouter = (db: Firestore, bucket: Bucket): Router => {
 
     let item: ItemDetailsResponse | null = null;
     try {
-      item = await itemsServiceModule.getItemById(db, bucket, itemId);
+      item = await itemsServiceModule.getItemById(db, bucket, redis, itemId);
     } catch (error) {
       if (error instanceof itemsServiceModule.InvalidItemDataError) {
         throw new HttpError(422, 'INVALID_ITEM_DATA', error.message);

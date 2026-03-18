@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import type { Request } from 'express';
 import multer from 'multer';
+import rateLimit from 'express-rate-limit';
 import type { Firestore } from 'firebase-admin/firestore';
 import type { Bucket } from '@google-cloud/storage';
 import { ItemStatus } from '../contracts/index.js';
@@ -56,11 +56,13 @@ const reportsServiceModule = (await import(pathToFileURL(servicePath).href)) as 
     db: Firestore,
     bucket: Bucket,
     payload: CreateLostReportRequest,
+    photo?: { buffer: Buffer; mimeType: 'image/jpeg' | 'image/png' },
   ) => Promise<{ id: string; report: { referenceCode: string } }>;
   createFoundReport: (
     db: Firestore,
     bucket: Bucket,
     payload: CreateFoundReportRequest,
+    photo: { buffer: Buffer; mimeType: 'image/jpeg' | 'image/png' },
   ) => Promise<{ id: string; report: { referenceCode: string } }>;
   getReportByReferenceCode: (
     db: Firestore,
@@ -96,114 +98,190 @@ const reportsServiceModule = (await import(pathToFileURL(servicePath).href)) as 
   }>;
 };
 
-function parsePositiveInt(value: unknown, fallback: number): number {
+const detectAllowedImageMime = (buffer: Buffer): 'image/jpeg' | 'image/png' | null => {
+  const isPng =
+    buffer.length >= 8
+    && buffer[0] === 0x89
+    && buffer[1] === 0x50
+    && buffer[2] === 0x4e
+    && buffer[3] === 0x47
+    && buffer[4] === 0x0d
+    && buffer[5] === 0x0a
+    && buffer[6] === 0x1a
+    && buffer[7] === 0x0a;
+  if (isPng) {
+    return 'image/png';
+  }
+
+  const isJpeg =
+    buffer.length >= 3
+    && buffer[0] === 0xff
+    && buffer[1] === 0xd8
+    && buffer[2] === 0xff;
+  if (isJpeg) {
+    return 'image/jpeg';
+  }
+
+  return null;
+};
+
+const parsePositiveInt = (value: unknown, fallback: number): number => {
   const n = Number(value);
-  if (!Number.isFinite(n)) return fallback;
+  if (!Number.isFinite(n)) {
+    return fallback;
+  }
+
   const i = Math.floor(n);
   return i > 0 ? i : fallback;
-}
+};
 
-function parseOptionalString(value: unknown): string | undefined {
-  if (typeof value !== 'string') return undefined;
+const parseOptionalString = (value: unknown): string | undefined => {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : undefined;
-}
+};
 
 export const createReportsRouter = (db: Firestore, bucket: Bucket): Router => {
   const router = Router();
+  const createReportLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+      error: {
+        code: 'RATE_LIMITED',
+        message: 'Too many report submissions. Please try again later.',
+      },
+    },
+  });
   const upload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: 5 * 1024 * 1024 },
-    fileFilter: (
-      _req: Request,
-      file: Express.Multer.File,
-      cb: multer.FileFilterCallback,
-    ) => {
-      const isImage = ['image/jpeg', 'image/png', 'image/jpg'].includes(file.mimetype);
-      if (!isImage) {
-        cb(new Error('photo must be JPEG or PNG'));
-        return;
-      }
+  });
 
-      cb(null, true);
+  router.post(
+    `${API_PREFIX}/reports/lost`,
+    createReportLimiter,
+    (req, res, next) => {
+      upload.single('photo')(req, res, (error: unknown) => {
+        if (!error) {
+          next();
+          return;
+        }
+
+        const message = error instanceof Error ? error.message : 'Invalid upload payload';
+        next(new HttpError(400, 'BAD_REQUEST', message));
+      });
     },
-  });
+    async (req, res) => {
+      let detectedMimeType: 'image/jpeg' | 'image/png' | undefined;
+      if (req.file) {
+        detectedMimeType = detectAllowedImageMime(req.file.buffer) ?? undefined;
+        if (!detectedMimeType) {
+          throw new HttpError(400, 'BAD_REQUEST', 'photo must be a valid JPEG or PNG');
+        }
+      }
 
-  router.post(`${API_PREFIX}/reports/lost`, async (req, res) => {
-    const parsed = schemaModule.createLostReportSchema.safeParse(req.body);
-    if (!parsed.success) {
-      const message = parsed.error.issues[0]?.message ?? 'Invalid request payload';
-      throw new HttpError(400, 'BAD_REQUEST', message);
-    }
+      const parsed = schemaModule.createLostReportSchema.safeParse(req.body);
+      if (!parsed.success) {
+        const message = parsed.error.issues[0]?.message ?? 'Invalid request payload';
+        throw new HttpError(400, 'BAD_REQUEST', message);
+      }
 
-    let result: { id: string; report: { referenceCode: string } };
-    try {
-      result = await reportsServiceModule.createLostReport(db, bucket, parsed.data);
-    } catch (error) {
-      if (error instanceof reportsServiceModule.ReportPhotoUploadError) {
-        if (error.code === 'INVALID_PHOTO_DATA_URL') {
-          throw new HttpError(400, 'BAD_REQUEST', error.message);
+      let result: { id: string; report: { referenceCode: string } };
+      try {
+        result = await reportsServiceModule.createLostReport(
+          db,
+          bucket,
+          parsed.data,
+          req.file && detectedMimeType
+            ? {
+                buffer: req.file.buffer,
+                mimeType: detectedMimeType,
+              }
+            : undefined,
+        );
+      } catch (error) {
+        if (error instanceof reportsServiceModule.ReportPhotoUploadError) {
+          if (error.code === 'INVALID_PHOTO_DATA_URL') {
+            throw new HttpError(400, 'BAD_REQUEST', error.message);
+          }
+
+          throw new HttpError(503, 'PHOTO_UPLOAD_FAILED', error.message);
         }
 
-        throw new HttpError(503, 'PHOTO_UPLOAD_FAILED', error.message);
+        throw error;
       }
 
-      throw error;
-    }
+      res.status(201).json({
+        id: result.id,
+        referenceCode: result.report.referenceCode,
+      });
+    },
+  );
 
-    res.status(201).json({
-      id: result.id,
-      referenceCode: result.report.referenceCode,
-    });
-  });
-
-  router.post(`${API_PREFIX}/reports/found`, (req, res, next) => {
-    upload.single('photo')(req, res, (error: unknown) => {
-      if (!error) {
-        next();
-        return;
-      }
-
-      const message = error instanceof Error ? error.message : 'Invalid upload payload';
-      next(new HttpError(400, 'BAD_REQUEST', message));
-    });
-  }, async (req, res) => {
-    if (!req.file) {
-      throw new HttpError(400, 'BAD_REQUEST', 'photo is required');
-    }
-
-    const photoDataUrl = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
-    const payload = {
-      ...req.body,
-      photoDataUrl,
-    };
-
-    const parsed = schemaModule.createFoundReportSchema.safeParse(payload);
-    if (!parsed.success) {
-      const message = parsed.error.issues[0]?.message ?? 'Invalid request payload';
-      throw new HttpError(400, 'BAD_REQUEST', message);
-    }
-
-    let result: { id: string; report: { referenceCode: string } };
-    try {
-      result = await reportsServiceModule.createFoundReport(db, bucket, parsed.data);
-    } catch (error) {
-      if (error instanceof reportsServiceModule.ReportPhotoUploadError) {
-        if (error.code === 'INVALID_PHOTO_DATA_URL') {
-          throw new HttpError(400, 'BAD_REQUEST', error.message);
+  router.post(
+    `${API_PREFIX}/reports/found`,
+    createReportLimiter,
+    (req, res, next) => {
+      upload.single('photo')(req, res, (error: unknown) => {
+        if (!error) {
+          next();
+          return;
         }
 
-        throw new HttpError(503, 'PHOTO_UPLOAD_FAILED', error.message);
+        const message = error instanceof Error ? error.message : 'Invalid upload payload';
+        next(new HttpError(400, 'BAD_REQUEST', message));
+      });
+    },
+    async (req, res) => {
+      if (!req.file) {
+        throw new HttpError(400, 'BAD_REQUEST', 'photo is required');
       }
 
-      throw error;
-    }
+      const detectedMimeType = detectAllowedImageMime(req.file.buffer);
+      if (!detectedMimeType) {
+        throw new HttpError(400, 'BAD_REQUEST', 'photo must be a valid JPEG or PNG');
+      }
 
-    res.status(201).json({
-      id: result.id,
-      referenceCode: result.report.referenceCode,
-    });
-  });
+      const payload = {
+        ...req.body,
+      };
+
+      const parsed = schemaModule.createFoundReportSchema.safeParse(payload);
+      if (!parsed.success) {
+        const message = parsed.error.issues[0]?.message ?? 'Invalid request payload';
+        throw new HttpError(400, 'BAD_REQUEST', message);
+      }
+
+      let result: { id: string; report: { referenceCode: string } };
+      try {
+        result = await reportsServiceModule.createFoundReport(db, bucket, parsed.data, {
+          buffer: req.file.buffer,
+          mimeType: detectedMimeType,
+        });
+      } catch (error) {
+        if (error instanceof reportsServiceModule.ReportPhotoUploadError) {
+          if (error.code === 'INVALID_PHOTO_DATA_URL') {
+            throw new HttpError(400, 'BAD_REQUEST', error.message);
+          }
+
+          throw new HttpError(503, 'PHOTO_UPLOAD_FAILED', error.message);
+        }
+
+        throw error;
+      }
+
+      res.status(201).json({
+        id: result.id,
+        referenceCode: result.report.referenceCode,
+      });
+    },
+  );
 
   router.get(`${API_PREFIX}/reports/reference/:referenceCode`, async (req, res) => {
     const referenceCode = req.params.referenceCode?.trim().toUpperCase();

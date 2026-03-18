@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import express from 'express';
-import request from 'supertest';
+import request from './request-helper.mjs';
 import { createRootRouter } from '../../dist/src/routes/root.routes.js';
 import { errorHandler, notFoundHandler } from '../../dist/src/middleware/error-handler.js';
 

@@ -50,6 +50,11 @@ type ListAdminReportsParams = {
   search?: string;
 };
 
+const currentSourceEnv: NonNullable<Report['sourceEnv']> =
+  (process.env.APP_ENV ?? process.env.NODE_ENV ?? 'development').toLowerCase() === 'production'
+    ? 'production'
+    : 'development';
+
 const formatDateSegment = (date: Date): string => {
   const year = date.getUTCFullYear().toString();
   const month = String(date.getUTCMonth() + 1).padStart(2, '0');
@@ -63,20 +68,15 @@ const createReferenceCode = (prefix: 'LST' | 'FND', docId: string, createdAt: Da
   return `${prefix}-${formatDateSegment(createdAt)}-${suffix}`;
 };
 
-const uploadPhotoFromDataUrl = async (bucket: Bucket, photoDataUrl: string): Promise<string> => {
-  const match = photoDataUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
-  if (!match) {
-    throw new ReportPhotoUploadError('INVALID_PHOTO_DATA_URL', 'Invalid photo data URL');
-  }
+type SupportedPhotoMimeType = 'image/jpeg' | 'image/png';
 
-  const contentType = match[1];
-  const base64 = match[2];
-  const extension = contentType.split('/')[1] ?? 'jpg';
-  const fileName = `reports/lost/${Date.now()}-${randomUUID()}.${extension}`;
-  const buffer = Buffer.from(base64, 'base64');
-  if (buffer.length === 0) {
-    throw new ReportPhotoUploadError('INVALID_PHOTO_DATA_URL', 'Invalid photo data URL');
-  }
+const uploadPhotoBuffer = async (
+  bucket: Bucket,
+  buffer: Buffer,
+  contentType: SupportedPhotoMimeType,
+): Promise<string> => {
+  const extension = contentType === 'image/png' ? 'png' : 'jpg';
+  const fileName = `reports/${Date.now()}-${randomUUID()}.${extension}`;
   const file = bucket.file(fileName);
 
   try {
@@ -168,10 +168,11 @@ export const createLostReport = async (
   db: Firestore,
   bucket: Bucket,
   payload: CreateLostReportRequest,
+  photo?: { buffer: Buffer; mimeType: SupportedPhotoMimeType },
 ) => {
   let photoUrl: string | undefined;
-  if (payload.photoDataUrl) {
-    photoUrl = await uploadPhotoFromDataUrl(bucket, payload.photoDataUrl);
+  if (photo) {
+    photoUrl = await uploadPhotoBuffer(bucket, photo.buffer, photo.mimeType);
   }
   const createdAt = new Date();
   const docRef = db.collection('reports').doc();
@@ -182,6 +183,7 @@ export const createLostReport = async (
     status: ItemStatus.REPORTED,
     referenceCode: createReferenceCode('LST', docRef.id, createdAt),
     dateReported: payload.lastSeenAt ?? createdAt.toISOString(),
+    sourceEnv: currentSourceEnv,
   };
   if (payload.description) {
     reportToSave.description = payload.description;
@@ -210,8 +212,9 @@ export const createFoundReport = async (
   db: Firestore,
   bucket: Bucket,
   payload: CreateFoundReportRequest,
+  photo: { buffer: Buffer; mimeType: SupportedPhotoMimeType },
 ) => {
-  const photoUrl = await uploadPhotoFromDataUrl(bucket, payload.photoDataUrl);
+  const photoUrl = await uploadPhotoBuffer(bucket, photo.buffer, photo.mimeType);
   const createdAt = new Date();
   const docRef = db.collection('reports').doc();
 
@@ -223,6 +226,7 @@ export const createFoundReport = async (
     location: payload.foundLocation,
     dateReported: payload.foundAt ?? createdAt.toISOString(),
     photoUrl,
+    sourceEnv: currentSourceEnv,
   };
 
   if (payload.category) {

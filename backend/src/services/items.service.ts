@@ -1,7 +1,11 @@
 import type { DocumentData, Firestore } from 'firebase-admin/firestore';
 import type { Bucket } from '@google-cloud/storage';
+import type { RedisClient } from '../bootstrap/redis.js';
 import { ItemStatus } from '../contracts/index.js';
 import type { ItemDetailsResponse, ItemPublicResponse, Report } from '../contracts/index.js';
+
+// Cache signed URLs for 50 min; the URL itself is valid for 60 min (10 min buffer)
+const SIGNED_URL_CACHE_TTL_SECONDS = 3000;
 
 type StoredItem = {
   id?: string;
@@ -18,6 +22,18 @@ type StoredItem = {
   claimStatus?: ItemDetailsResponse['claimStatus'];
   kind?: Report['kind'];
   contactEmail?: string;
+  sourceEnv?: Report['sourceEnv'];
+};
+
+const isProductionApp =
+  (process.env.APP_ENV ?? process.env.NODE_ENV ?? 'development').toLowerCase() === 'production';
+
+const isVisibleInCurrentEnvironment = (sourceEnv: Report['sourceEnv'] | undefined): boolean => {
+  if (!isProductionApp) {
+    return true;
+  }
+
+  return sourceEnv === undefined || sourceEnv === 'production';
 };
 
 type ListValidatedItemsParams = {
@@ -72,10 +88,27 @@ const normalizeDateReported = (value: unknown): string | undefined => {
   return undefined;
 };
 
-const toPublicImageUrl = async (defaultBucket: Bucket, value: string): Promise<string> => {
+const toPublicImageUrl = async (
+  defaultBucket: Bucket,
+  value: string,
+  redis: RedisClient | null,
+): Promise<string> => {
   const gs = parseGsUrl(value);
   if (!gs) {
     return value;
+  }
+
+  const cacheKey = `signed_url:v1:${Buffer.from(value).toString('base64')}`;
+
+  if (redis) {
+    try {
+      const cached = await redis.get(cacheKey);
+      if (cached) {
+        return cached;
+      }
+    } catch {
+      // Redis unavailable – fall through to generate fresh URL
+    }
   }
 
   const targetBucket =
@@ -88,10 +121,23 @@ const toPublicImageUrl = async (defaultBucket: Bucket, value: string): Promise<s
     action: 'read',
     expires: Date.now() + 1000 * 60 * 60,
   });
+
+  if (redis) {
+    try {
+      await redis.set(cacheKey, url, { EX: SIGNED_URL_CACHE_TTL_SECONDS });
+    } catch {
+      // Redis unavailable – proceed without caching
+    }
+  }
+
   return url;
 };
 
-const resolveImageUrls = async (bucket: Bucket, source: StoredItem): Promise<string[] | undefined> => {
+const resolveImageUrls = async (
+  bucket: Bucket,
+  source: StoredItem,
+  redis: RedisClient | null,
+): Promise<string[] | undefined> => {
   const rawUrls = source.imageUrls ?? (source.photoUrl ? [source.photoUrl] : undefined);
   if (!rawUrls || rawUrls.length === 0) {
     return undefined;
@@ -102,7 +148,7 @@ const resolveImageUrls = async (bucket: Bucket, source: StoredItem): Promise<str
       .filter((url) => typeof url === 'string' && url.trim().length > 0)
       .map(async (url) => {
         try {
-          return await toPublicImageUrl(bucket, url);
+          return await toPublicImageUrl(bucket, url, redis);
         } catch {
           return url;
         }
@@ -116,6 +162,7 @@ const mapItemDetails = async (
   bucket: Bucket,
   id: string,
   source: StoredItem,
+  redis: RedisClient | null,
 ): Promise<ItemDetailsResponse> => {
   const dateReported = normalizeDateReported(source.dateReported);
 
@@ -131,7 +178,7 @@ const mapItemDetails = async (
     throw new InvalidItemDataError();
   }
 
-  const imageUrls = await resolveImageUrls(bucket, source);
+  const imageUrls = await resolveImageUrls(bucket, source, redis);
 
   return {
     id,
@@ -150,12 +197,16 @@ const mapItemDetails = async (
 export const getItemById = async (
   db: Firestore,
   bucket: Bucket,
+  redis: RedisClient | null,
   itemId: string,
 ): Promise<ItemDetailsResponse | null> => {
   const itemSnapshot = await db.collection('items').doc(itemId).get();
   if (itemSnapshot.exists) {
     const data = itemSnapshot.data() as DocumentData;
-    return mapItemDetails(bucket, itemSnapshot.id, data);
+    if (!isVisibleInCurrentEnvironment((data as StoredItem).sourceEnv)) {
+      return null;
+    }
+    return mapItemDetails(bucket, itemSnapshot.id, data, redis);
   }
 
   const byReportId = await db
@@ -166,13 +217,19 @@ export const getItemById = async (
   if (!byReportId.empty) {
     const snapshot = byReportId.docs[0];
     const data = snapshot.data() as DocumentData;
-    return mapItemDetails(bucket, snapshot.id, data);
+    if (!isVisibleInCurrentEnvironment((data as StoredItem).sourceEnv)) {
+      return null;
+    }
+    return mapItemDetails(bucket, snapshot.id, data, redis);
   }
 
   const reportSnapshot = await db.collection('reports').doc(itemId).get();
   if (reportSnapshot.exists) {
     const data = reportSnapshot.data() as DocumentData;
-    return mapItemDetails(bucket, reportSnapshot.id, data);
+    if (!isVisibleInCurrentEnvironment((data as StoredItem).sourceEnv)) {
+      return null;
+    }
+    return mapItemDetails(bucket, reportSnapshot.id, data, redis);
   }
 
   return null;
@@ -185,6 +242,7 @@ export const isItemPubliclyVisible = (item: ItemDetailsResponse): boolean => {
 export const listValidatedItems = async (
   db: Firestore,
   bucket: Bucket,
+  redis: RedisClient | null,
   params: ListValidatedItemsParams,
 ): Promise<{ items: Array<ItemPublicResponse>; total: number }> => {
   const page = Math.max(1, Math.floor(params.page));
@@ -237,10 +295,23 @@ export const listValidatedItems = async (
 
   const itemCandidates = await Promise.all(pageSnap.docs.map(async (doc) => {
     const data = doc.data() as Omit<Report, 'id'> & { dateReported?: unknown; imageUrls?: string[] };
+    if (!isVisibleInCurrentEnvironment(data.sourceEnv)) {
+      return null;
+    }
+
     const dateReported = normalizeDateReported(data.dateReported);
     const thumbnailSource =
       (Array.isArray(data.imageUrls) && data.imageUrls.length > 0 ? data.imageUrls[0] : undefined)
       ?? data.photoUrl;
+
+    let thumbnailUrl: string | undefined;
+    if (typeof thumbnailSource === 'string' && thumbnailSource.trim().length > 0) {
+      try {
+        thumbnailUrl = await toPublicImageUrl(bucket, thumbnailSource, redis);
+      } catch {
+        thumbnailUrl = thumbnailSource;
+      }
+    }
 
     if (
       typeof data.title !== 'string'
@@ -291,7 +362,7 @@ export const listValidatedItems = async (
 
     let signedUrl = source;
     try {
-      signedUrl = await toPublicImageUrl(bucket, source);
+      signedUrl = await toPublicImageUrl(bucket, source, redis);
     } catch {
       signedUrl = source;
     }

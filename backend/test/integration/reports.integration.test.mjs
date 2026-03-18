@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import express from 'express';
-import request from 'supertest';
+import request from './request-helper.mjs';
 import { createReportsRouter } from '../../dist/src/routes/reports.routes.js';
 import { errorHandler, notFoundHandler } from '../../dist/src/middleware/error-handler.js';
 
@@ -165,13 +165,14 @@ test('POST /api/v1/reports/found returns 400 when photo is missing', async () =>
 
 test('POST /api/v1/reports/found creates a report with photo upload', async () => {
   const { app, savedReports, uploads } = buildTestApp();
+  const jpegBuffer = Buffer.from([0xff, 0xd8, 0xff, 0xdb, 0x00, 0x43, 0x00]);
 
   const response = await request(app)
     .post('/api/v1/reports/found')
     .field('title', 'Found wallet')
     .field('foundLocation', 'Gym')
     .field('contactEmail', 'finder@example.com')
-    .attach('photo', Buffer.from('fake-image-bytes'), {
+    .attach('photo', jpegBuffer, {
       filename: 'wallet.jpg',
       contentType: 'image/jpeg',
     });
