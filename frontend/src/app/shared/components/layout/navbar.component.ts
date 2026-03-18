@@ -74,6 +74,16 @@ import { UserRole } from '../../../models';
                 </svg>
                 Log out
               </button>
+            } @else if (isAdminSession()) {
+              <a
+                routerLink="/admin/dashboard"
+                class="flex items-center gap-1.5 rounded-lg border border-border px-3.5 py-1.5 text-sm font-semibold text-text-primary hover:border-primary hover:text-primary transition-colors"
+              >
+                <svg style="width:15px;height:15px;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                </svg>
+                Dashboard
+              </a>
             } @else {
               <a
                 routerLink="/login"
@@ -138,6 +148,13 @@ import { UserRole } from '../../../models';
                   </svg>
                   Log out
                 </button>
+              } @else if (isAdminSession()) {
+                <a routerLink="/admin/dashboard" (click)="closeMenu()" class="rounded-lg px-3 py-2.5 text-sm font-semibold text-text-primary hover:bg-neutral-base transition-colors flex items-center gap-2">
+                  <svg style="width:15px;height:15px;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                  </svg>
+                  Dashboard
+                </a>
               } @else {
                 <a routerLink="/login" (click)="closeMenu()" class="rounded-lg px-3 py-2.5 text-sm font-semibold text-text-primary hover:bg-neutral-base transition-colors flex items-center gap-2">
                   <svg style="width:15px;height:15px;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -164,6 +181,11 @@ export class NavbarComponent {
   readonly studentSession = computed(() => {
     const s = this.authService.session();
     return s?.user.role === UserRole.STUDENT ? s : null;
+  });
+
+  readonly isAdminSession = computed(() => {
+    const role = this.authService.session()?.user.role;
+    return role === UserRole.ADMIN || role === UserRole.SECURITY;
   });
 
   readonly displayName = computed(() => {
