@@ -6,7 +6,6 @@ export const createLostReportSchema = z.object({
   lastSeenLocation: z.string().trim().min(1).optional(),
   lastSeenAt: z.string().datetime().optional(),
   contactEmail: z.string().email().optional(),
-  photoDataUrl: z.string().startsWith('data:image/', 'photo must be an image data URL').optional(),
 });
 
 export const createFoundReportSchema = z.object({
