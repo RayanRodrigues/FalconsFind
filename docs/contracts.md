@@ -194,7 +194,9 @@ Single export point for imports inside the frontend.
 
 * `Content-Type: multipart/form-data`
 * `title: string`
+* `category?: string`
 * `description?: string`
+* `additionalInfo?: string`
 * `lastSeenLocation?: string`
 * `lastSeenAt?: string`
 * `contactEmail?: string`
