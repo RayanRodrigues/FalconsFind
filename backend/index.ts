@@ -10,6 +10,7 @@ import { initializeFirebaseServices, runStartupFirestoreCheck } from './src/boot
 import { createRedisClient } from './src/bootstrap/redis.js';
 import { getAppConfig } from './src/config/env.js';
 import { errorHandler, notFoundHandler } from './src/middleware/error-handler.js';
+import { HttpError } from './src/routes/route-utils.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -70,7 +71,7 @@ app.use(
         return;
       }
 
-      callback(new Error('CORS origin not allowed'));
+      callback(new HttpError(403, 'CORS_NOT_ALLOWED', 'CORS origin not allowed'));
     },
   }),
 );

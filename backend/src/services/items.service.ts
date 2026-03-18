@@ -183,7 +183,15 @@ export const getItemById = async (
   redis: RedisClient | null,
   itemId: string,
 ): Promise<ItemDetailsResponse | null> => {
-  const itemSnapshot = await db.collection('items').doc(itemId).get();
+  const itemsCollection = db.collection('items');
+  const reportsCollection = db.collection('reports');
+
+  const [itemSnapshot, itemsByReportIdSnapshot, reportSnapshot] = await Promise.all([
+    itemsCollection.doc(itemId).get(),
+    itemsCollection.where('reportId', '==', itemId).limit(1).get(),
+    reportsCollection.doc(itemId).get(),
+  ]);
+
   if (itemSnapshot.exists) {
     const data = itemSnapshot.data() as DocumentData;
     if (!isVisibleInCurrentEnvironment((data as StoredItem).sourceEnv)) {
@@ -192,13 +200,8 @@ export const getItemById = async (
     return mapItemDetails(bucket, itemSnapshot.id, data, redis);
   }
 
-  const byReportId = await db
-    .collection('items')
-    .where('reportId', '==', itemId)
-    .limit(1)
-    .get();
-  if (!byReportId.empty) {
-    const snapshot = byReportId.docs[0];
+  if (!itemsByReportIdSnapshot.empty) {
+    const snapshot = itemsByReportIdSnapshot.docs[0];
     const data = snapshot.data() as DocumentData;
     if (!isVisibleInCurrentEnvironment((data as StoredItem).sourceEnv)) {
       return null;
@@ -206,7 +209,6 @@ export const getItemById = async (
     return mapItemDetails(bucket, snapshot.id, data, redis);
   }
 
-  const reportSnapshot = await db.collection('reports').doc(itemId).get();
   if (reportSnapshot.exists) {
     const data = reportSnapshot.data() as DocumentData;
     if (!isVisibleInCurrentEnvironment((data as StoredItem).sourceEnv)) {

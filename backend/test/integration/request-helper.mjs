@@ -69,10 +69,11 @@ const buildMultipartBody = (fields, attachments) => {
   };
 };
 
-const invokeApp = async (app, { method, url, jsonBody, fields, attachments }) => {
+const invokeApp = async (app, { method, url, jsonBody, fields, attachments, headers: requestHeaders = [] }) => {
   let body = null;
   const headers = {
     host: 'localhost',
+    ...Object.fromEntries(requestHeaders.map(([key, value]) => [key.toLowerCase(), value])),
   };
 
   if (attachments.length > 0 || fields.length > 0) {
@@ -171,6 +172,7 @@ class TestRequest {
     this.jsonBody = undefined;
     this.fields = [];
     this.attachments = [];
+    this.headers = [];
   }
 
   send(body = undefined) {
@@ -190,6 +192,11 @@ class TestRequest {
       filename: options.filename ?? 'upload.bin',
       contentType: options.contentType ?? 'application/octet-stream',
     });
+    return this;
+  }
+
+  set(name, value) {
+    this.headers.push([name, value]);
     return this;
   }
 
