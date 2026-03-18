@@ -1,5 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { of } from 'rxjs';
 
+import { ItemsApiService } from '../../../../core/services/items-api.service';
 import { FoundItemsPageComponent } from './found-items-page';
 
 describe('FoundItemsPageComponent', () => {
@@ -8,7 +10,23 @@ describe('FoundItemsPageComponent', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [FoundItemsPageComponent]
+      imports: [FoundItemsPageComponent],
+      providers: [
+        {
+          provide: ItemsApiService,
+          useValue: {
+            getFoundItems: () => of({
+              page: 1,
+              limit: 10,
+              total: 0,
+              totalPages: 1,
+              hasNextPage: false,
+              hasPrevPage: false,
+              items: [],
+            }),
+          },
+        },
+      ],
     })
     .compileComponents();
 

@@ -54,6 +54,32 @@ function parseOptionalString(value: unknown): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
+function parseDateFilter(
+  value: unknown,
+  fieldName: 'dateFrom' | 'dateTo',
+): string | undefined {
+  const raw = parseOptionalString(value);
+  if (!raw) {
+    return undefined;
+  }
+
+  const dateOnlyMatch = /^\d{4}-\d{2}-\d{2}$/.test(raw);
+  const normalized = dateOnlyMatch
+    ? (fieldName === 'dateFrom' ? `${raw}T00:00:00.000Z` : `${raw}T23:59:59.999Z`)
+    : raw;
+
+  const parsed = new Date(normalized);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new HttpError(400, 'BAD_REQUEST', `${fieldName} must be a valid ISO date or date-time`);
+  }
+
+  if (dateOnlyMatch && parsed.toISOString().slice(0, 10) !== raw) {
+    throw new HttpError(400, 'BAD_REQUEST', `${fieldName} must be a valid ISO date or date-time`);
+  }
+
+  return parsed.toISOString();
+}
+
 export const createItemsRouter = (db: Firestore, bucket: Bucket, redis: RedisClient | null): Router => {
   const router = Router();
 
@@ -64,8 +90,12 @@ export const createItemsRouter = (db: Firestore, bucket: Bucket, redis: RedisCli
     const keyword = parseOptionalString(req.query.keyword);
     const category = parseOptionalString(req.query.category);
     const location = parseOptionalString(req.query.location);
-    const dateFrom = parseOptionalString(req.query.dateFrom);
-    const dateTo = parseOptionalString(req.query.dateTo);
+    const dateFrom = parseDateFilter(req.query.dateFrom, 'dateFrom');
+    const dateTo = parseDateFilter(req.query.dateTo, 'dateTo');
+
+    if (dateFrom && dateTo && dateFrom > dateTo) {
+      throw new HttpError(400, 'BAD_REQUEST', 'dateFrom cannot be after dateTo');
+    }
 
     const result = await itemsServiceModule.listValidatedItems(db, bucket, redis, {
       page,
