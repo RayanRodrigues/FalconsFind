@@ -1,4 +1,5 @@
 import type { OpenApiModule } from '../openapi.types.js';
+import { errorResponseRefs } from './common.openapi.js';
 
 export const reportsOpenApi: OpenApiModule = {
   tags: [{ name: 'Reports', description: 'Lost and found report operations' }],
@@ -30,34 +31,13 @@ export const reportsOpenApi: OpenApiModule = {
             },
           },
           400: {
-            description: 'Invalid reference code parameter',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.badRequest,
           },
           404: {
-            description: 'Report not found',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.notFound,
           },
           500: {
-            description: 'Unexpected server error',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.internalServerError,
           },
         },
       },
@@ -97,44 +77,16 @@ export const reportsOpenApi: OpenApiModule = {
             },
           },
           400: {
-            description: 'Invalid reference code or request payload',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.badRequest,
           },
           404: {
-            description: 'Report not found',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.notFound,
           },
           409: {
-            description: 'Report can no longer be edited',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.conflict,
           },
           500: {
-            description: 'Unexpected server error',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.internalServerError,
           },
         },
       },
@@ -208,24 +160,10 @@ export const reportsOpenApi: OpenApiModule = {
             },
           },
           400: {
-            description: 'Invalid query parameter',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.badRequest,
           },
           500: {
-            description: 'Unexpected server error',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.internalServerError,
           },
         },
       },
@@ -261,44 +199,16 @@ export const reportsOpenApi: OpenApiModule = {
             },
           },
           400: {
-            description: 'Request validation failed',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.badRequest,
           },
           429: {
-            description: 'Too many report submissions',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.tooManyRequests,
           },
           503: {
-            description: 'Photo upload failed',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.serviceUnavailable,
           },
           500: {
-            description: 'Unexpected server error',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.internalServerError,
           },
         },
       },
@@ -334,24 +244,10 @@ export const reportsOpenApi: OpenApiModule = {
             },
           },
           400: {
-            description: 'Request validation failed',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.badRequest,
           },
           500: {
-            description: 'Unexpected server error',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.internalServerError,
           },
         },
       },
@@ -383,44 +279,16 @@ export const reportsOpenApi: OpenApiModule = {
             },
           },
           400: {
-            description: 'Request validation failed',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.badRequest,
           },
           429: {
-            description: 'Too many report submissions',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.tooManyRequests,
           },
           503: {
-            description: 'Photo upload failed',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.serviceUnavailable,
           },
           500: {
-            description: 'Unexpected server error',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.internalServerError,
           },
         },
       },
@@ -432,7 +300,12 @@ export const reportsOpenApi: OpenApiModule = {
       required: ['id', 'referenceCode', 'kind', 'status', 'title', 'dateReported'],
       properties: {
         id: { type: 'string', example: 'AbCdEF123456' },
-        referenceCode: { type: 'string', example: 'FND-20260214-ABC12345' },
+        referenceCode: {
+          type: 'string',
+          pattern: '^(LST|FND)-\\d{8}-[A-Z0-9]+$',
+          description: 'Reference code formatted as PREFIX-YYYYMMDD-SUFFIX, where PREFIX is LST or FND.',
+          example: 'FND-20260214-ABC12345',
+        },
         kind: { type: 'string', enum: ['LOST', 'FOUND'], example: 'FOUND' },
         status: { $ref: '#/components/schemas/ItemStatus' },
         title: { type: 'string', example: 'Black Backpack' },
@@ -469,7 +342,12 @@ export const reportsOpenApi: OpenApiModule = {
         category: { type: 'string', example: 'Accessories' },
         description: { type: 'string', example: 'Black backpack with laptop sleeve' },
         status: { $ref: '#/components/schemas/ItemStatus' },
-        referenceCode: { type: 'string', example: 'FND-20260214-ABC12345' },
+        referenceCode: {
+          type: 'string',
+          pattern: '^(LST|FND)-\\d{8}-[A-Z0-9]+$',
+          description: 'Reference code formatted as PREFIX-YYYYMMDD-SUFFIX, where PREFIX is LST or FND.',
+          example: 'FND-20260214-ABC12345',
+        },
         location: { type: 'string', example: 'Library' },
         dateReported: { type: 'string', format: 'date-time' },
         contactEmail: { type: 'string', format: 'email' },
@@ -546,7 +424,12 @@ export const reportsOpenApi: OpenApiModule = {
       required: ['id', 'referenceCode'],
       properties: {
         id: { type: 'string', example: 'AbCdEF123456' },
-        referenceCode: { type: 'string', example: 'LST-20260214-ABC12345' },
+        referenceCode: {
+          type: 'string',
+          pattern: '^(LST|FND)-\\d{8}-[A-Z0-9]+$',
+          description: 'Reference code formatted as PREFIX-YYYYMMDD-SUFFIX, where PREFIX is LST or FND.',
+          example: 'LST-20260214-ABC12345',
+        },
       },
     },
     CreateFoundReportResponse: {
@@ -554,7 +437,12 @@ export const reportsOpenApi: OpenApiModule = {
       required: ['id', 'referenceCode'],
       properties: {
         id: { type: 'string', example: 'AbCdEF123456' },
-        referenceCode: { type: 'string', example: 'FND-20260214-ABC12345' },
+        referenceCode: {
+          type: 'string',
+          pattern: '^(LST|FND)-\\d{8}-[A-Z0-9]+$',
+          description: 'Reference code formatted as PREFIX-YYYYMMDD-SUFFIX, where PREFIX is LST or FND.',
+          example: 'FND-20260214-ABC12345',
+        },
       },
     },
     ValidateFoundReportResponse: {
@@ -562,7 +450,12 @@ export const reportsOpenApi: OpenApiModule = {
       required: ['id', 'referenceCode', 'status'],
       properties: {
         id: { type: 'string', example: 'AbCdEF123456' },
-        referenceCode: { type: 'string', example: 'FND-20260214-ABC12345' },
+        referenceCode: {
+          type: 'string',
+          pattern: '^(LST|FND)-\\d{8}-[A-Z0-9]+$',
+          description: 'Reference code formatted as PREFIX-YYYYMMDD-SUFFIX, where PREFIX is LST or FND.',
+          example: 'FND-20260214-ABC12345',
+        },
         status: { type: 'string', enum: ['VALIDATED'], example: 'VALIDATED' },
       },
     },

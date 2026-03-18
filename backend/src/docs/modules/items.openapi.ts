@@ -1,4 +1,5 @@
 import type { OpenApiModule } from '../openapi.types.js';
+import { errorResponseRefs } from './common.openapi.js';
 
 export const itemsOpenApi: OpenApiModule = {
   tags: [{ name: 'Items', description: 'Public item details operations' }],
@@ -92,14 +93,7 @@ export const itemsOpenApi: OpenApiModule = {
             },
           },
           500: {
-            description: 'Unexpected server error',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.internalServerError,
           },
         },
       },
@@ -131,54 +125,19 @@ export const itemsOpenApi: OpenApiModule = {
             },
           },
           400: {
-            description: 'Invalid item id parameter',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.badRequest,
           },
           403: {
-            description: 'Item exists but is not publicly visible yet',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.forbidden,
           },
           404: {
-            description: 'Item was not found',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.notFound,
           },
           422: {
-            description: 'Item data exists but is malformed/incomplete',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.unprocessableEntity,
           },
           500: {
-            description: 'Unexpected server error',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.internalServerError,
           },
         },
       },
@@ -201,7 +160,12 @@ export const itemsOpenApi: OpenApiModule = {
         title: { type: 'string', example: 'Black Backpack' },
         category: { type: 'string', example: 'Accessories' },
         status: { $ref: '#/components/schemas/ItemStatus' },
-        referenceCode: { type: 'string', example: 'FND-20260225-ABC12345' },
+        referenceCode: {
+          type: 'string',
+          pattern: '^(LST|FND)-\\d{8}-[A-Z0-9]+$',
+          description: 'Reference code formatted as PREFIX-YYYYMMDD-SUFFIX, where PREFIX is LST or FND.',
+          example: 'FND-20260225-ABC12345',
+        },
         location: { type: 'string', example: 'Library' },
         dateReported: { type: 'string', format: 'date-time' },
         thumbnailUrl: { type: 'string', format: 'uri' },
@@ -244,7 +208,12 @@ export const itemsOpenApi: OpenApiModule = {
         category: { type: 'string', example: 'Accessories' },
         description: { type: 'string', example: 'Black backpack with laptop sleeve' },
         status: { $ref: '#/components/schemas/ItemStatus' },
-        referenceCode: { type: 'string', example: 'FND-20260225-ABC12345' },
+        referenceCode: {
+          type: 'string',
+          pattern: '^(LST|FND)-\\d{8}-[A-Z0-9]+$',
+          description: 'Reference code formatted as PREFIX-YYYYMMDD-SUFFIX, where PREFIX is LST or FND.',
+          example: 'FND-20260225-ABC12345',
+        },
         location: { type: 'string', example: 'Library' },
         dateReported: { type: 'string', format: 'date-time' },
         imageUrls: {

@@ -1,4 +1,5 @@
 import type { OpenApiModule } from '../openapi.types.js';
+import { errorResponseRefs } from './common.openapi.js';
 
 export const claimsOpenApi: OpenApiModule = {
   tags: [{ name: 'Claims', description: 'Claim request and lifecycle operations' }],
@@ -29,44 +30,16 @@ export const claimsOpenApi: OpenApiModule = {
             },
           },
           400: {
-            description: 'Request validation failed',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.badRequest,
           },
           404: {
-            description: 'Target item was not found',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.notFound,
           },
           409: {
-            description: 'Target item is not eligible for claim requests',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.conflict,
           },
           500: {
-            description: 'Unexpected server error',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.internalServerError,
           },
         },
       },
@@ -108,44 +81,16 @@ export const claimsOpenApi: OpenApiModule = {
             },
           },
           400: {
-            description: 'Invalid claim id or request payload',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.badRequest,
           },
           404: {
-            description: 'Claim or related item was not found',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.notFound,
           },
           409: {
-            description: 'Claim is not pending or awaiting additional proof anymore',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.conflict,
           },
           500: {
-            description: 'Unexpected server error',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.internalServerError,
           },
         },
       },
@@ -187,44 +132,16 @@ export const claimsOpenApi: OpenApiModule = {
             },
           },
           400: {
-            description: 'Invalid claim id or request payload',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.badRequest,
           },
           404: {
-            description: 'Claim or related item was not found',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.notFound,
           },
           409: {
-            description: 'Claim can no longer receive additional proof requests',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.conflict,
           },
           500: {
-            description: 'Unexpected server error',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.internalServerError,
           },
         },
       },
@@ -256,44 +173,16 @@ export const claimsOpenApi: OpenApiModule = {
             },
           },
           400: {
-            description: 'Invalid claim id',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.badRequest,
           },
           404: {
-            description: 'Claim or related item was not found',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.notFound,
           },
           409: {
-            description: 'Claim can no longer be cancelled',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.conflict,
           },
           500: {
-            description: 'Unexpected server error',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.internalServerError,
           },
         },
       },

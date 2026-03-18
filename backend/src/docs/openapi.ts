@@ -4,6 +4,7 @@ import type { OpenApiTag } from './openapi.types.js';
 const tagsMap = new Map<string, OpenApiTag>();
 const paths: Record<string, Record<string, unknown>> = {};
 const schemas: Record<string, Record<string, unknown>> = {};
+const responses: Record<string, Record<string, unknown>> = {};
 
 for (const moduleDoc of openApiModules) {
   for (const tag of moduleDoc.tags ?? []) {
@@ -12,6 +13,7 @@ for (const moduleDoc of openApiModules) {
 
   Object.assign(paths, moduleDoc.paths ?? {});
   Object.assign(schemas, moduleDoc.schemas ?? {});
+  Object.assign(responses, moduleDoc.responses ?? {});
 }
 
 export const openApiDocument = {
@@ -31,5 +33,6 @@ export const openApiDocument = {
   paths,
   components: {
     schemas,
+    responses,
   },
 } as const;
