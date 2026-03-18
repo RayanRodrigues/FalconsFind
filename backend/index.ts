@@ -7,6 +7,7 @@ import swaggerUi from 'swagger-ui-express';
 import { loadEnvironment } from './src/bootstrap/runtime-paths.js';
 import { importRuntimeModule } from './src/bootstrap/runtime-module.js';
 import { initializeFirebaseServices, runStartupFirestoreCheck } from './src/bootstrap/firebase.js';
+import { createRedisClient } from './src/bootstrap/redis.js';
 import { getAppConfig } from './src/config/env.js';
 import { errorHandler, notFoundHandler } from './src/middleware/error-handler.js';
 
@@ -32,6 +33,7 @@ const itemsRoutesModule = await importRuntimeModule<{
   createItemsRouter: (
     db: FirebaseFirestore.Firestore,
     bucket: unknown,
+    redis: unknown,
   ) => express.Router;
 }>(__dirname, './src/routes/items.routes');
 
@@ -49,6 +51,7 @@ const openApiModule = await importRuntimeModule<{
 const app = express();
 const { db, bucket } = initializeFirebaseServices(__dirname);
 await runStartupFirestoreCheck(db);
+const redis = await createRedisClient(appConfig.redisUrl);
 
 app.use(
   cors({
@@ -88,7 +91,7 @@ app.get('/health', (_req, res) => {
 
 app.use(healthRoutesModule.createHealthRouter(db));
 app.use(reportsRoutesModule.createReportsRouter(db, bucket));
-app.use(itemsRoutesModule.createItemsRouter(db, bucket));
+app.use(itemsRoutesModule.createItemsRouter(db, bucket, redis));
 app.use(notFoundHandler);
 app.use(errorHandler);
 
