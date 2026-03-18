@@ -7,7 +7,6 @@ import { Subject, takeUntil, finalize } from 'rxjs';
 import { ReportService } from '../../../core/services/report.service';
 import { ErrorService } from '../../../core/services/error.service';
 import { FormValidationService } from '../../../core/services/form-validation.service';
-import type { CreateLostReportRequest } from '../../../models/dtos/create-lost-report.request.dto';
 import type { CreateReportResponse } from '../../../models/responses/create-report.response.dto';
 import type { ErrorResponse } from '../../../models/responses/error-response.model';
 
@@ -190,28 +189,29 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
 
     const formValue = this.reportForm.value;
     const dateTime = new Date(`${formValue.date}T${formValue.time}`);
-    
-    const request: CreateLostReportRequest = {
-      title: formValue.title,
-      description: [
+
+    const formData = new FormData();
+    formData.append('title', formValue.title ?? '');
+    formData.append(
+      'description',
+      [
         formValue.description,
         formValue.category ? `Category: ${formValue.category}` : null,
         formValue.additionalInfo ? `Additional info: ${formValue.additionalInfo}` : null
       ]
         .filter(Boolean)
         .join('\n'),
-      lastSeenLocation: formValue.location,
-      lastSeenAt: dateTime.toISOString(),
-      contactEmail: formValue.contactEmail
-    };
+    );
+    formData.append('lastSeenLocation', formValue.location ?? '');
+    formData.append('lastSeenAt', dateTime.toISOString());
+    formData.append('contactEmail', formValue.contactEmail ?? '');
 
     const photos: File[] = Array.isArray(formValue.photos) ? formValue.photos : [];
     if (photos.length > 0) {
-      // For now: send the first photo only (backend expects one)
-      request.photoDataUrl = await this.fileToDataUrl(photos[0]);
-    } 
+      formData.append('photo', photos[0]);
+    }
 
-    this.reportService.createLostReport(request)
+    this.reportService.createLostReport(formData)
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => this.isSubmitting = false)
@@ -226,21 +226,6 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
           this.submitError = this.errorService.getUserFriendlyMessage(error);
         }
       });
-  }
-
-  private fileToDataUrl(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (typeof reader.result === 'string') {
-          resolve(reader.result);
-          return;
-        }
-        reject(new Error('Could not read image file'));
-      };
-      reader.onerror = () => reject(new Error('Could not read image file'));
-      reader.readAsDataURL(file);
-    });
   }
 
   resetForm(): void {

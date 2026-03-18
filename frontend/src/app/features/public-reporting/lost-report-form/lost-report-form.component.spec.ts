@@ -33,14 +33,11 @@ describe('LostReportFormComponent', () => {
     fixture.detectChanges();
   });
 
-  it('submits lost report request including optional photoDataUrl', async () => {
+  it('submits lost report request including optional multipart photo', async () => {
     const photo = new File(['image-bytes'], 'bag.jpg', {
       type: 'image/jpeg',
       lastModified: 1,
     });
-    (component as unknown as { fileToDataUrl: () => Promise<string> }).fileToDataUrl = vi
-      .fn()
-      .mockResolvedValue('data:image/jpeg;base64,ZmFrZQ==');
 
     component.reportForm.patchValue({
       title: 'Lost backpack',
@@ -61,13 +58,13 @@ describe('LostReportFormComponent', () => {
 
     const createLostReportMock = reportService.createLostReport as ReturnType<typeof vi.fn>;
     expect(createLostReportMock).toHaveBeenCalledTimes(1);
-    const request = createLostReportMock.mock.calls[0][0];
+    const request = createLostReportMock.mock.calls[0][0] as FormData;
 
-    expect(request.title).toBe('Lost backpack');
-    expect(request.lastSeenLocation).toBe('Building D');
-    expect(request.contactEmail).toBe('john@example.com');
-    expect(request.photoDataUrl).toBe('data:image/jpeg;base64,ZmFrZQ==');
-    expect(request.description).toContain('Category: Backpacks & Bags');
+    expect(request.get('title')).toBe('Lost backpack');
+    expect(request.get('lastSeenLocation')).toBe('Building D');
+    expect(request.get('contactEmail')).toBe('john@example.com');
+    expect(request.get('photo')).toBe(photo);
+    expect(String(request.get('description'))).toContain('Category: Backpacks & Bags');
     expect(component.submitSuccess).toBe(true);
     expect(component.referenceCode).toBe('LST-20260225-XYZ98765');
   });
