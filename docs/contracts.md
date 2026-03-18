@@ -206,6 +206,12 @@ Single export point for imports inside the frontend.
 * Current state: both flows are implemented as **single-photo persistence** using multipart uploads to Storage.
 * If approved for multi-photo: update backend DTOs/schemas/routes, OpenAPI docs, and frontend submit payloads in both forms.
 
+**TODO (Items Pagination Strategy)**
+
+* Evaluate moving `GET /items` from page-number pagination to a true cursor-token contract.
+* Current state: the backend avoids Firestore `offset(...)`, but the public API still exposes `page` and `limit`.
+* If approved: return a cursor such as `nextCursor`, update the backend route/OpenAPI contract, and align the frontend found-items flow to request subsequent pages by cursor instead of page number.
+
 **Report Reference Code format**
 
 * Lost reports: `LST-<base36Timestamp>-<base36Random5>`  
