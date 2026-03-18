@@ -1,5 +1,5 @@
 export type CreateClaimRequest = {
-  itemId: string;
+  referenceCode: string;
   claimantName: string;
   claimantEmail: string;
   message?: string;

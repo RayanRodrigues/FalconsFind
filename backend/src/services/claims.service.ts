@@ -177,37 +177,25 @@ const getFirstExistingItem = async (
   throw new ClaimItemNotFoundError();
 };
 
-const findClaimableItem = async (db: Firestore, itemId: string): Promise<StoredItemLike> => {
-  const directItemSnapshot = await db.collection('items').doc(itemId).get();
-  if (directItemSnapshot.exists) {
-    const data = directItemSnapshot.data() as DocumentData;
-    return {
-      id: directItemSnapshot.id,
-      ...data,
-    } as StoredItemLike;
-  }
-
-  const itemByReportSnapshot = await db
-    .collection('items')
-    .where('reportId', '==', itemId)
+const findClaimableItemByReferenceCode = async (db: Firestore, referenceCode: string): Promise<StoredItemLike> => {
+  const reportsSnap = await db
+    .collection('reports')
+    .where('referenceCode', '==', referenceCode)
     .limit(1)
     .get();
-  if (!itemByReportSnapshot.empty) {
-    const doc = itemByReportSnapshot.docs[0];
-    const data = doc.data() as DocumentData;
-    return {
-      id: doc.id,
-      ...data,
-    } as StoredItemLike;
+  if (!reportsSnap.empty) {
+    const doc = reportsSnap.docs[0];
+    return { id: doc.id, ...(doc.data() as DocumentData) } as StoredItemLike;
   }
 
-  const reportSnapshot = await db.collection('reports').doc(itemId).get();
-  if (reportSnapshot.exists) {
-    const data = reportSnapshot.data() as DocumentData;
-    return {
-      id: reportSnapshot.id,
-      ...data,
-    } as StoredItemLike;
+  const itemsSnap = await db
+    .collection('items')
+    .where('referenceCode', '==', referenceCode)
+    .limit(1)
+    .get();
+  if (!itemsSnap.empty) {
+    const doc = itemsSnap.docs[0];
+    return { id: doc.id, ...(doc.data() as DocumentData) } as StoredItemLike;
   }
 
   throw new ClaimItemNotFoundError();
@@ -227,7 +215,7 @@ export const createClaim = async (
   db: Firestore,
   payload: CreateClaimRequest,
 ): Promise<{ id: string; claim: Claim }> => {
-  const targetItem = await findClaimableItem(db, payload.itemId);
+  const targetItem = await findClaimableItemByReferenceCode(db, payload.referenceCode);
   if (targetItem.status !== ItemStatus.VALIDATED || targetItem.kind !== 'FOUND') {
     throw new ClaimItemNotEligibleError();
   }

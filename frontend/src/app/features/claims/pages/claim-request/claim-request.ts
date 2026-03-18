@@ -1,12 +1,16 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
+import { finalize } from 'rxjs';
 import { CardComponent } from '../../../../shared/components/layout/card.component';
 import { FormFieldComponent } from '../../../../shared/components/forms/form-field.component';
 import { InputComponent } from '../../../../shared/components/forms/input.component';
 import { TextareaComponent } from '../../../../shared/components/forms/textarea.component';
 import { ButtonComponent } from '../../../../shared/components/buttons/button.component';
 import { ReportStepsComponent } from '../../../../shared/components/navigation/report-steps.component';
+import { ClaimsApiService, type CreateClaimResponse } from '../../../../core/services/claims-api.service';
+import { AuthService } from '../../../../core/services/auth.service';
+import type { ErrorResponse } from '../../../../models';
 
 @Component({
   selector: 'app-claim-request',
@@ -23,7 +27,7 @@ import { ReportStepsComponent } from '../../../../shared/components/navigation/r
   templateUrl: './claim-request.html',
   styleUrl: './claim-request.css',
 })
-export class ClaimRequest {
+export class ClaimRequest implements OnInit {
   private readonly fb = new FormBuilder();
 
   readonly form = this.fb.group({
@@ -49,8 +53,23 @@ export class ClaimRequest {
   isSubmitting = false;
   submitSuccess = false;
   submitError: string | null = null;
+  claimResult: CreateClaimResponse | null = null;
 
-  constructor(private router: Router) {}
+  constructor(
+    private readonly router: Router,
+    private readonly claimsApi: ClaimsApiService,
+    private readonly authService: AuthService,
+  ) {}
+
+  ngOnInit(): void {
+    const session = this.authService.getStoredSession();
+    if (session) {
+      this.form.patchValue({
+        email: session.user.email,
+        fullName: session.user.displayName ?? '',
+      });
+    }
+  }
 
   getFieldError(field: string): string | null {
     const ctrl = this.form.get(field);
@@ -82,27 +101,51 @@ export class ClaimRequest {
     this.router.navigate(['/']);
   }
 
-  async submitClaim(): Promise<void> {
+  submitClaim(): void {
     this.form.markAllAsTouched();
     if (this.form.invalid) return;
+
+    const v = this.form.value;
+
+    const messageParts = [
+      `Claim Reason: ${v.claimReason ?? ''}`,
+      `Proof of Ownership: ${v.proofDetails ?? ''}`,
+    ];
+    if (v.phone?.trim()) {
+      messageParts.push(`Phone: ${v.phone.trim()}`);
+    }
 
     this.isSubmitting = true;
     this.submitError = null;
 
-    try {
-      const response = await fetch('http://localhost:3000/api/claims', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(this.form.value),
+    this.claimsApi.createClaim({
+      referenceCode: v.referenceCode ?? '',
+      claimantName: v.fullName ?? '',
+      claimantEmail: v.email ?? '',
+      message: messageParts.join('\n'),
+    })
+      .pipe(finalize(() => { this.isSubmitting = false; }))
+      .subscribe({
+        next: (result) => {
+          this.claimResult = result;
+          this.submitSuccess = true;
+        },
+        error: (err: ErrorResponse) => {
+          this.submitError = this.mapClaimError(err);
+        },
       });
+  }
 
-      if (!response.ok) throw new Error('Failed to submit claim request.');
-
-      this.submitSuccess = true;
-    } catch {
-      this.submitError = 'There was an error submitting your claim. Please try again.';
-    } finally {
-      this.isSubmitting = false;
+  private mapClaimError(err: ErrorResponse): string {
+    switch (err.error?.code) {
+      case 'NOT_FOUND':
+        return 'No item found with that reference code. Please check and try again.';
+      case 'ITEM_NOT_ELIGIBLE_FOR_CLAIM':
+        return 'This item is not currently available for claim requests.';
+      case 'VALIDATION_ERROR':
+        return err.error.message || 'Please check your submission and try again.';
+      default:
+        return 'There was an error submitting your claim. Please try again.';
     }
   }
 
@@ -110,6 +153,8 @@ export class ClaimRequest {
     this.form.reset();
     this.submitSuccess = false;
     this.submitError = null;
+    this.claimResult = null;
     this.currentStep = 1;
+    this.ngOnInit();
   }
 }

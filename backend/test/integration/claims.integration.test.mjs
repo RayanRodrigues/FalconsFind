@@ -51,11 +51,10 @@ const createFakeDb = ({ claims = {}, items = {}, reports = {} } = {}) => {
             get: async () => createDocSnapshot({ id, collectionName }, items[id]),
           }),
           where: (field, operator, value) => {
-            assert.equal(field, 'reportId');
             assert.equal(operator, '==');
 
             const matches = Object.entries(items)
-              .filter(([, item]) => item.reportId === value)
+              .filter(([, item]) => item[field] === value)
               .map(([id, item]) => createDocSnapshot({ id, collectionName: 'items' }, item));
 
             return {
@@ -83,6 +82,22 @@ const createFakeDb = ({ claims = {}, items = {}, reports = {} } = {}) => {
             collectionName,
             get: async () => createDocSnapshot({ id, collectionName }, reports[id]),
           }),
+          where: (field, operator, value) => {
+            assert.equal(operator, '==');
+
+            const matches = Object.entries(reports)
+              .filter(([, report]) => report[field] === value)
+              .map(([id, report]) => createDocSnapshot({ id, collectionName: 'reports' }, report));
+
+            return {
+              limit: (limitValue) => ({
+                get: async () => {
+                  const docs = matches.slice(0, limitValue);
+                  return { empty: docs.length === 0, docs };
+                },
+              }),
+            };
+          },
         };
       }
 
@@ -127,12 +142,13 @@ const buildTestApp = (db) => {
   return app;
 };
 
-test('POST /api/v1/claims creates a pending claim for a validated item', async () => {
+test('POST /api/v1/claims creates a pending claim for a validated item found by referenceCode', async () => {
   const { db, savedClaims } = createFakeDb({
     reports: {
       'report-1': {
         kind: 'FOUND',
         status: 'VALIDATED',
+        referenceCode: 'FF-2024-00001',
       },
     },
   });
@@ -140,7 +156,7 @@ test('POST /api/v1/claims creates a pending claim for a validated item', async (
   const response = await request(buildTestApp(db))
     .post('/api/v1/claims')
     .send({
-      itemId: 'report-1',
+      referenceCode: 'FF-2024-00001',
       claimantName: 'Jane Doe',
       claimantEmail: 'jane@example.com',
       message: 'I can identify the item.',
@@ -156,13 +172,37 @@ test('POST /api/v1/claims creates a pending claim for a validated item', async (
   assert.equal(savedClaims[0].data.claimantName, 'Jane Doe');
 });
 
-test('POST /api/v1/claims returns 404 when the target item does not exist', async () => {
+test('POST /api/v1/claims creates a pending claim when item is in the items collection', async () => {
+  const { db, savedClaims } = createFakeDb({
+    items: {
+      'item-ref': {
+        kind: 'FOUND',
+        status: 'VALIDATED',
+        referenceCode: 'FF-2024-00099',
+      },
+    },
+  });
+
+  const response = await request(buildTestApp(db))
+    .post('/api/v1/claims')
+    .send({
+      referenceCode: 'FF-2024-00099',
+      claimantName: 'John Smith',
+      claimantEmail: 'john@example.com',
+    });
+
+  assert.equal(response.status, 201);
+  assert.equal(savedClaims[0].data.itemId, 'item-ref');
+  assert.equal(savedClaims[0].data.status, 'PENDING');
+});
+
+test('POST /api/v1/claims returns 404 when no item has that referenceCode', async () => {
   const { db } = createFakeDb();
 
   const response = await request(buildTestApp(db))
     .post('/api/v1/claims')
     .send({
-      itemId: 'missing-item',
+      referenceCode: 'FF-MISSING',
       claimantName: 'Jane Doe',
       claimantEmail: 'jane@example.com',
     });
@@ -177,6 +217,7 @@ test('POST /api/v1/claims returns 409 when the target item is not validated', as
       'report-2': {
         kind: 'FOUND',
         status: 'CLAIMED',
+        referenceCode: 'FF-2024-00002',
       },
     },
   });
@@ -184,7 +225,7 @@ test('POST /api/v1/claims returns 409 when the target item is not validated', as
   const response = await request(buildTestApp(db))
     .post('/api/v1/claims')
     .send({
-      itemId: 'report-2',
+      referenceCode: 'FF-2024-00002',
       claimantName: 'Jane Doe',
       claimantEmail: 'jane@example.com',
     });
@@ -199,6 +240,7 @@ test('POST /api/v1/claims returns 409 when the target item is not a found item',
       'report-3': {
         kind: 'LOST',
         status: 'VALIDATED',
+        referenceCode: 'FF-2024-00003',
       },
     },
   });
@@ -206,7 +248,7 @@ test('POST /api/v1/claims returns 409 when the target item is not a found item',
   const response = await request(buildTestApp(db))
     .post('/api/v1/claims')
     .send({
-      itemId: 'report-3',
+      referenceCode: 'FF-2024-00003',
       claimantName: 'Jane Doe',
       claimantEmail: 'jane@example.com',
     });
@@ -221,7 +263,7 @@ test('POST /api/v1/claims returns 400 for invalid request payload', async () => 
   const response = await request(buildTestApp(db))
     .post('/api/v1/claims')
     .send({
-      itemId: '',
+      referenceCode: '',
       claimantName: '',
       claimantEmail: 'not-an-email',
     });
