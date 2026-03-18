@@ -70,7 +70,7 @@ app.use(
     },
   }),
 );
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '50kb' }));
 if (appConfig.appEnv !== 'production') {
   app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(openApiModule.openApiDocument));
 }
@@ -96,7 +96,6 @@ app.use(notFoundHandler);
 app.use(errorHandler);
 
 app.listen(appConfig.port, () => {
-  console.log(`Server running at http://localhost:${appConfig.port}`);
   console.log(
     `Environment: ${appConfig.appEnv} | Public API base: ${appConfig.apiBaseUrl}${appConfig.apiPrefix}`,
   );
