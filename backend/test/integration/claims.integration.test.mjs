@@ -119,7 +119,9 @@ const createFakeDb = ({ claims = {}, items = {}, reports = {} } = {}) => {
 const buildTestApp = (db) => {
   const app = express();
   app.use(express.json());
-  app.use(createClaimsRouter(db));
+  app.use(createClaimsRouter(db, {
+    requireStaffUser: (_req, _res, next) => next(),
+  }));
   app.use(notFoundHandler);
   app.use(errorHandler);
   return app;

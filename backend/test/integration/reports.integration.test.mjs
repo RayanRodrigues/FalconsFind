@@ -123,7 +123,9 @@ const buildTestApp = (initialReports = {}) => {
 
   const app = express();
   app.use(express.json());
-  app.use(createReportsRouter(db, bucket));
+  app.use(createReportsRouter(db, bucket, {
+    requireStaffUser: (_req, _res, next) => next(),
+  }));
   app.use(notFoundHandler);
   app.use(errorHandler);
 
@@ -137,7 +139,9 @@ test('POST /api/v1/reports/lost creates a report', async () => {
     .post('/api/v1/reports/lost')
     .send({
       title: 'Lost backpack',
+      category: 'Backpacks & Bags',
       description: 'Black backpack',
+      additionalInfo: 'Has course stickers',
       lastSeenLocation: 'Library',
       contactEmail: 'student@example.com',
     });
@@ -148,6 +152,9 @@ test('POST /api/v1/reports/lost creates a report', async () => {
   assert.equal(savedReports.length, 1);
   assert.equal(savedReports[0].data.kind, 'LOST');
   assert.equal(savedReports[0].data.title, 'Lost backpack');
+  assert.equal(savedReports[0].data.category, 'Backpacks & Bags');
+  assert.equal(savedReports[0].data.description, 'Black backpack');
+  assert.equal(savedReports[0].data.additionalInfo, 'Has course stickers');
 });
 
 test('POST /api/v1/reports/found returns 400 when photo is missing', async () => {
