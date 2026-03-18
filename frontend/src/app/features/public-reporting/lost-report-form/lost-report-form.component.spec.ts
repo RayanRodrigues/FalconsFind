@@ -61,10 +61,12 @@ describe('LostReportFormComponent', () => {
     const request = createLostReportMock.mock.calls[0][0] as FormData;
 
     expect(request.get('title')).toBe('Lost backpack');
+    expect(request.get('category')).toBe('Backpacks & Bags');
+    expect(request.get('description')).toBe('Black backpack with laptop');
+    expect(request.get('additionalInfo')).toBe('Has course stickers');
     expect(request.get('lastSeenLocation')).toBe('Building D');
     expect(request.get('contactEmail')).toBe('john@example.com');
     expect(request.get('photo')).toBe(photo);
-    expect(String(request.get('description'))).toContain('Category: Backpacks & Bags');
     expect(component.submitSuccess).toBe(true);
     expect(component.referenceCode).toBe('LST-20260225-XYZ98765');
   });

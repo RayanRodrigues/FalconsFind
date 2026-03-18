@@ -8,7 +8,7 @@ type FaqItem = { q: string; a: string };
   styleUrl: './home-faq.component.css',
   template: `
     <section class="bg-white border-t border-border/60">
-      <div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-14">
+      <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-14">
 
         <p class="section-eyebrow text-center">Got questions?</p>
         <h2 class="section-title text-center" style="margin-bottom: 2.5rem;">Frequently Asked Questions</h2>

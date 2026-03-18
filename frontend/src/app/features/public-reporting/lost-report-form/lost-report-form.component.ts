@@ -192,16 +192,9 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
 
     const formData = new FormData();
     formData.append('title', formValue.title ?? '');
-    formData.append(
-      'description',
-      [
-        formValue.description,
-        formValue.category ? `Category: ${formValue.category}` : null,
-        formValue.additionalInfo ? `Additional info: ${formValue.additionalInfo}` : null
-      ]
-        .filter(Boolean)
-        .join('\n'),
-    );
+    formData.append('category', formValue.category ?? '');
+    formData.append('description', formValue.description ?? '');
+    formData.append('additionalInfo', formValue.additionalInfo ?? '');
     formData.append('lastSeenLocation', formValue.location ?? '');
     formData.append('lastSeenAt', dateTime.toISOString());
     formData.append('contactEmail', formValue.contactEmail ?? '');

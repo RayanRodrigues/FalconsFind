@@ -1,6 +1,7 @@
 import {
   Component,
   OnInit,
+  OnDestroy,
   ChangeDetectorRef,
   Inject,
   PLATFORM_ID,
@@ -8,7 +9,8 @@ import {
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { finalize, timeout } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { finalize, timeout, debounceTime, distinctUntilChanged, takeUntil } from 'rxjs/operators';
 
 import type { ItemPublicResponse } from '../../../../models';
 import {
@@ -23,11 +25,12 @@ import {
   templateUrl: './found-items-page.html',
   styleUrl: './found-items-page.css',
 })
-export class FoundItemsPageComponent implements OnInit {
+export class FoundItemsPageComponent implements OnInit, OnDestroy {
   loading = true;
   error = false;
 
   items: ItemPublicResponse[] = [];
+  total = 0;
 
   searchTerm = '';
   categoryFilter = '';
@@ -40,37 +43,62 @@ export class FoundItemsPageComponent implements OnInit {
   hasNextPage = false;
   hasPrevPage = false;
 
+  private readonly searchSubject = new Subject<string>();
+  private readonly destroy$ = new Subject<void>();
+
   constructor(
     private itemsApi: ItemsApiService,
     private cdr: ChangeDetectorRef,
-    @Inject(PLATFORM_ID) private platformId: Object
+    @Inject(PLATFORM_ID) private platformId: object
   ) {}
 
   ngOnInit(): void {
-    if (isPlatformBrowser(this.platformId)) {
-      this.loadItems();
-    } else {
+    if (!isPlatformBrowser(this.platformId)) {
       this.loading = false;
+      return;
     }
+
+    // Debounce search input — short delay so fast typers don't flood the API
+    this.searchSubject.pipe(
+      debounceTime(150),
+      distinctUntilChanged(),
+      takeUntil(this.destroy$),
+    ).subscribe(() => {
+      this.page = 1;
+      this.loadItems();
+    });
+
+    this.loadItems();
   }
 
-  loadItems() {
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  loadItems(): void {
     this.loading = true;
     this.error = false;
     this.safeDetectChanges();
 
     this.itemsApi
-      .getFoundItems(this.page, this.limit)
+      .getFoundItems(this.page, this.limit, {
+        keyword:  this.searchTerm,
+        category: this.categoryFilter,
+        location: this.locationFilter,
+        dateFrom: this.dateFilter,
+      })
       .pipe(
-        timeout(3000),
+        timeout(8000),
         finalize(() => {
           this.loading = false;
           this.safeDetectChanges();
-        })
+        }),
       )
       .subscribe({
         next: (response: ItemsListResponse) => {
           this.items = response.items;
+          this.total = response.total;
           this.page = response.page;
           this.limit = response.limit;
           this.totalPages = response.totalPages;
@@ -78,77 +106,67 @@ export class FoundItemsPageComponent implements OnInit {
           this.hasPrevPage = response.hasPrevPage;
           this.safeDetectChanges();
         },
-        error: (err) => {
-          console.log('[FoundItems] request failed:', err);
+        error: () => {
           this.error = true;
           this.safeDetectChanges();
         },
       });
   }
 
-  safeDetectChanges(): void {
-    if (isPlatformBrowser(this.platformId)) {
-      this.cdr.detectChanges();
+  // Called on every keystroke — bypasses debounce when field is empty so clearing
+  // the search bar immediately restores the full list
+  onSearchChange(): void {
+    if (!this.searchTerm.trim()) {
+      this.page = 1;
+      this.loadItems();
+      return;
     }
+    this.searchSubject.next(this.searchTerm);
   }
 
-  retry() {
+  // Called immediately when a dropdown or date filter changes
+  onFilterChange(): void {
+    this.page = 1;
     this.loadItems();
   }
 
-  prev() {
+  retry(): void { this.loadItems(); }
+
+  prev(): void {
     if (!this.hasPrevPage) return;
     this.page -= 1;
     this.loadItems();
   }
 
-  next() {
+  next(): void {
     if (!this.hasNextPage) return;
     this.page += 1;
     this.loadItems();
   }
 
-  clearSearch() {
+  clearSearch(): void {
     this.searchTerm = '';
+    this.page = 1;
+    this.loadItems();
   }
 
-  clearFilters() {
+  clearAll(): void {
+    this.searchTerm = '';
     this.categoryFilter = '';
     this.locationFilter = '';
     this.dateFilter = '';
+    this.page = 1;
+    this.loadItems();
   }
 
-  get filteredItems(): ItemPublicResponse[] {
-    const keyword = this.searchTerm.trim().toLowerCase();
+  get hasActiveFilters(): boolean {
+    return !!(this.searchTerm || this.categoryFilter || this.locationFilter || this.dateFilter);
+  }
 
-    return this.items.filter((item) => {
-      const title = item.title.toLowerCase();
-      const referenceCode = item.referenceCode.toLowerCase();
-      const location = (item.location ?? '').toLowerCase();
-      const status = item.status.toLowerCase();
-      const date = item.dateReported;
-
-      const keywordMatch =
-        !keyword ||
-        title.includes(keyword) ||
-        referenceCode.includes(keyword) ||
-        location.includes(keyword) ||
-        status.includes(keyword);
-
-      const categoryMatch =
-        !this.categoryFilter ||
-        status.includes(this.categoryFilter.toLowerCase());
-
-      const locationMatch =
-        !this.locationFilter ||
-        location.includes(this.locationFilter.toLowerCase());
-
-      const dateMatch =
-        !this.dateFilter ||
-        date.startsWith(this.dateFilter);
-
-      return keywordMatch && categoryMatch && locationMatch && dateMatch;
-    });
+  safeDetectChanges(): void {
+    if (isPlatformBrowser(this.platformId)) {
+      this.cdr.detectChanges();
+    }
   }
 
   getStatusLabel(status: string): string {
@@ -164,10 +182,6 @@ export class FoundItemsPageComponent implements OnInit {
       RETURNED: 'bg-secondary/10 text-secondary border-secondary/30',
       ARCHIVED: 'bg-border/30 text-text-secondary border-border',
     };
-
-    return (
-      statusClasses[status] ??
-      'bg-border/30 text-text-secondary border-border'
-    );
+    return statusClasses[status] ?? 'bg-border/30 text-text-secondary border-border';
   }
 }
