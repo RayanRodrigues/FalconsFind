@@ -212,6 +212,12 @@ Single export point for imports inside the frontend.
 * Current state: the backend avoids Firestore `offset(...)`, but the public API still exposes `page` and `limit`.
 * If approved: return a cursor such as `nextCursor`, update the backend route/OpenAPI contract, and align the frontend found-items flow to request subsequent pages by cursor instead of page number.
 
+**TODO (Firebase Admin Credential Precedence)**
+
+* Document and enforce the precedence between `FIREBASE_ADMIN_CREDENTIALS_JSON` and `FIREBASE_ADMIN_CREDENTIALS`.
+* Current state: the backend accepts either source and currently prefers the raw JSON env var when both are set.
+* If approved: choose one explicit precedence rule or fail fast when both are present, and document that rule in environment setup docs.
+
 **Report Reference Code format**
 
 * Lost reports: `LST-<base36Timestamp>-<base36Random5>`  
