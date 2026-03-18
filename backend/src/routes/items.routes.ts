@@ -7,6 +7,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { API_PREFIX, HttpError } from './route-utils.js';
+import {
+  assertValidDateRange,
+  parseDateFilter,
+  parseOptionalString,
+  parsePositiveInt,
+} from './request-parsers.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -38,48 +44,6 @@ const itemsServiceModule = (await import(pathToFileURL(servicePath).href)) as {
   }>;
 };
 
-function parsePositiveInt(value: unknown, fallback: number): number {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return fallback;
-  const i = Math.floor(n);
-  return i > 0 ? i : fallback;
-}
-
-function parseOptionalString(value: unknown): string | undefined {
-  if (typeof value !== 'string') {
-    return undefined;
-  }
-
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : undefined;
-}
-
-function parseDateFilter(
-  value: unknown,
-  fieldName: 'dateFrom' | 'dateTo',
-): string | undefined {
-  const raw = parseOptionalString(value);
-  if (!raw) {
-    return undefined;
-  }
-
-  const dateOnlyMatch = /^\d{4}-\d{2}-\d{2}$/.test(raw);
-  const normalized = dateOnlyMatch
-    ? (fieldName === 'dateFrom' ? `${raw}T00:00:00.000Z` : `${raw}T23:59:59.999Z`)
-    : raw;
-
-  const parsed = new Date(normalized);
-  if (Number.isNaN(parsed.getTime())) {
-    throw new HttpError(400, 'BAD_REQUEST', `${fieldName} must be a valid ISO date or date-time`);
-  }
-
-  if (dateOnlyMatch && parsed.toISOString().slice(0, 10) !== raw) {
-    throw new HttpError(400, 'BAD_REQUEST', `${fieldName} must be a valid ISO date or date-time`);
-  }
-
-  return parsed.toISOString();
-}
-
 export const createItemsRouter = (db: Firestore, bucket: Bucket, redis: RedisClient | null): Router => {
   const router = Router();
 
@@ -93,9 +57,7 @@ export const createItemsRouter = (db: Firestore, bucket: Bucket, redis: RedisCli
     const dateFrom = parseDateFilter(req.query.dateFrom, 'dateFrom');
     const dateTo = parseDateFilter(req.query.dateTo, 'dateTo');
 
-    if (dateFrom && dateTo && dateFrom > dateTo) {
-      throw new HttpError(400, 'BAD_REQUEST', 'dateFrom cannot be after dateTo');
-    }
+    assertValidDateRange(dateFrom, dateTo);
 
     const result = await itemsServiceModule.listValidatedItems(db, bucket, redis, {
       page,

@@ -3,6 +3,8 @@ import type { Bucket } from '@google-cloud/storage';
 import type { RedisClient } from '../bootstrap/redis.js';
 import { ItemStatus } from '../contracts/index.js';
 import type { ItemDetailsResponse, ItemPublicResponse, Report } from '../contracts/index.js';
+import { isProductionApp } from '../utils/app-env.js';
+import { normalizeDateReported } from '../utils/date-normalization.js';
 
 // Cache signed URLs for 50 min; the URL itself is valid for 60 min (10 min buffer)
 const SIGNED_URL_CACHE_TTL_SECONDS = 3000;
@@ -25,11 +27,8 @@ type StoredItem = {
   sourceEnv?: Report['sourceEnv'];
 };
 
-const isProductionApp =
-  (process.env.APP_ENV ?? process.env.NODE_ENV ?? 'development').toLowerCase() === 'production';
-
 const isVisibleInCurrentEnvironment = (sourceEnv: Report['sourceEnv'] | undefined): boolean => {
-  if (!isProductionApp) {
+  if (!isProductionApp()) {
     return true;
   }
 
@@ -70,22 +69,6 @@ const parseGsUrl = (value: string): { bucketName: string; filePath: string } | n
     bucketName: normalized.slice(0, slashIndex),
     filePath: normalized.slice(slashIndex + 1),
   };
-};
-
-const normalizeDateReported = (value: unknown): string | undefined => {
-  if (typeof value === 'string' && value.trim().length > 0) {
-    return value;
-  }
-
-  if (
-    typeof value === 'object'
-    && value !== null
-    && typeof (value as { toDate?: unknown }).toDate === 'function'
-  ) {
-    return (value as { toDate: () => Date }).toDate().toISOString();
-  }
-
-  return undefined;
 };
 
 const toPublicImageUrl = async (

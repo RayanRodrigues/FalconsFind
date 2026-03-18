@@ -9,6 +9,7 @@ import type {
   UpdateClaimStatusRequest,
 } from '../contracts/index.js';
 import { API_PREFIX, HttpError } from './route-utils.js';
+import { parseBodyOrThrow } from './schema-validation.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -95,14 +96,10 @@ export const createClaimsRouter = (db: Firestore): Router => {
   const router = Router();
 
   router.post(`${API_PREFIX}/claims`, async (req, res) => {
-    const parsed = schemaModule.createClaimSchema.safeParse(req.body);
-    if (!parsed.success) {
-      const message = parsed.error.issues[0]?.message ?? 'Invalid request payload';
-      throw new HttpError(400, 'BAD_REQUEST', message);
-    }
+    const payload = parseBodyOrThrow(schemaModule.createClaimSchema, req.body);
 
     try {
-      const result = await claimsServiceModule.createClaim(db, parsed.data);
+      const result = await claimsServiceModule.createClaim(db, payload);
       res.status(201).json({
         id: result.id,
         status: result.claim.status,
@@ -127,14 +124,10 @@ export const createClaimsRouter = (db: Firestore): Router => {
       throw new HttpError(400, 'BAD_REQUEST', 'id is required');
     }
 
-    const parsed = schemaModule.updateClaimStatusSchema.safeParse(req.body);
-    if (!parsed.success) {
-      const message = parsed.error.issues[0]?.message ?? 'Invalid request payload';
-      throw new HttpError(400, 'BAD_REQUEST', message);
-    }
+    const payload = parseBodyOrThrow(schemaModule.updateClaimStatusSchema, req.body);
 
     try {
-      const result = await claimsServiceModule.updateClaimStatus(db, claimId, parsed.data.status);
+      const result = await claimsServiceModule.updateClaimStatus(db, claimId, payload.status);
       res.status(200).json(result);
     } catch (error) {
       if (error instanceof claimsServiceModule.ClaimNotFoundError) {
@@ -159,14 +152,10 @@ export const createClaimsRouter = (db: Firestore): Router => {
       throw new HttpError(400, 'BAD_REQUEST', 'id is required');
     }
 
-    const parsed = schemaModule.requestAdditionalProofSchema.safeParse(req.body);
-    if (!parsed.success) {
-      const message = parsed.error.issues[0]?.message ?? 'Invalid request payload';
-      throw new HttpError(400, 'BAD_REQUEST', message);
-    }
+    const payload = parseBodyOrThrow(schemaModule.requestAdditionalProofSchema, req.body);
 
     try {
-      const result = await claimsServiceModule.requestAdditionalProof(db, claimId, parsed.data);
+      const result = await claimsServiceModule.requestAdditionalProof(db, claimId, payload);
       res.status(200).json(result);
     } catch (error) {
       if (error instanceof claimsServiceModule.ClaimNotFoundError) {

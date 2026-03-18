@@ -10,6 +10,8 @@ import type {
 } from '../contracts/index.js';
 import { ItemStatus } from '../contracts/index.js';
 import { randomUUID } from 'node:crypto';
+import { resolveSourceEnv } from '../utils/app-env.js';
+import { normalizeDateReported } from '../utils/date-normalization.js';
 
 export class ReportPhotoUploadError extends Error {
   constructor(
@@ -50,10 +52,7 @@ type ListAdminReportsParams = {
   search?: string;
 };
 
-const currentSourceEnv: NonNullable<Report['sourceEnv']> =
-  (process.env.APP_ENV ?? process.env.NODE_ENV ?? 'development').toLowerCase() === 'production'
-    ? 'production'
-    : 'development';
+const currentSourceEnv: NonNullable<Report['sourceEnv']> = resolveSourceEnv();
 
 const formatDateSegment = (date: Date): string => {
   const year = date.getUTCFullYear().toString();
@@ -112,22 +111,6 @@ const mapEditableReport = (id: string, report: Report): EditableReportResponse =
     dateReported: report.dateReported,
     contactEmail: report.contactEmail,
   };
-};
-
-const normalizeDateReported = (value: unknown): string | undefined => {
-  if (typeof value === 'string' && value.trim().length > 0) {
-    return value;
-  }
-
-  if (
-    typeof value === 'object'
-    && value !== null
-    && typeof (value as { toDate?: unknown }).toDate === 'function'
-  ) {
-    return (value as { toDate: () => Date }).toDate().toISOString();
-  }
-
-  return undefined;
 };
 
 const isItemStatus = (value: unknown): value is ItemStatus => {
