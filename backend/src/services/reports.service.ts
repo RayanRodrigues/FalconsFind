@@ -171,6 +171,12 @@ export const createLostReport = async (
   if (payload.description) {
     reportToSave.description = payload.description;
   }
+  if (payload.category) {
+    reportToSave.category = payload.category;
+  }
+  if (payload.additionalInfo) {
+    reportToSave.additionalInfo = payload.additionalInfo;
+  }
   if (payload.lastSeenLocation) {
     reportToSave.location = payload.lastSeenLocation;
   }

@@ -408,7 +408,9 @@ export const reportsOpenApi: OpenApiModule = {
       required: ['title'],
       properties: {
         title: { type: 'string', minLength: 1 },
+        category: { type: 'string', minLength: 1 },
         description: { type: 'string', minLength: 1 },
+        additionalInfo: { type: 'string', minLength: 1 },
         lastSeenLocation: { type: 'string', minLength: 1 },
         lastSeenAt: { type: 'string', format: 'date-time' },
         contactEmail: { type: 'string', format: 'email' },

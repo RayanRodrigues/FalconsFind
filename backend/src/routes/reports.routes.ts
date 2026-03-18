@@ -1,8 +1,9 @@
 import { Router } from 'express';
+import type { RequestHandler } from 'express';
 import rateLimit from 'express-rate-limit';
 import type { Firestore } from 'firebase-admin/firestore';
 import type { Bucket } from '@google-cloud/storage';
-import { ItemStatus } from '../contracts/index.js';
+import { ItemStatus, UserRole } from '../contracts/index.js';
 import type {
   CreateFoundReportRequest,
   CreateLostReportRequest,
@@ -16,6 +17,7 @@ import { API_PREFIX, HttpError } from './route-utils.js';
 import { parseOptionalString, parsePositiveInt } from './request-parsers.js';
 import { uploadSinglePhoto, getValidatedUploadedPhoto } from './report-photo-upload.js';
 import { parseBodyOrThrow } from './schema-validation.js';
+import { createRequireStaffRoles } from '../middleware/require-staff-user.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -100,8 +102,21 @@ const reportsServiceModule = (await import(pathToFileURL(servicePath).href)) as 
   }>;
 };
 
-export const createReportsRouter = (db: Firestore, bucket: Bucket): Router => {
+const getSingleRouteParam = (value: string | string[] | undefined): string => (
+  typeof value === 'string' ? value.trim() : ''
+);
+
+type ReportsRouterOptions = {
+  requireStaffUser?: RequestHandler;
+};
+
+export const createReportsRouter = (
+  db: Firestore,
+  bucket: Bucket,
+  options: ReportsRouterOptions = {},
+): Router => {
   const router = Router();
+  const requireStaffUser = options.requireStaffUser ?? createRequireStaffRoles(db, [UserRole.ADMIN, UserRole.SECURITY]);
   const createReportLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     limit: 10,
@@ -199,8 +214,8 @@ export const createReportsRouter = (db: Firestore, bucket: Bucket): Router => {
     res.status(200).json(report);
   });
 
-  router.patch(`${API_PREFIX}/reports/found/:id/validate`, async (req, res) => {
-    const reportId = req.params.id?.trim();
+  router.patch(`${API_PREFIX}/reports/found/:id/validate`, requireStaffUser, async (req, res) => {
+    const reportId = getSingleRouteParam(req.params.id);
     if (!reportId) {
       throw new HttpError(400, 'BAD_REQUEST', 'id is required');
     }
@@ -253,7 +268,7 @@ export const createReportsRouter = (db: Firestore, bucket: Bucket): Router => {
     res.status(200).json(report);
   });
 
-  router.get(`${API_PREFIX}/admin/reports`, async (req, res) => {
+  router.get(`${API_PREFIX}/admin/reports`, requireStaffUser, async (req, res) => {
     const page = parsePositiveInt(req.query.page, 1);
     const limitRaw = parsePositiveInt(req.query.limit, 20);
     const limit = Math.min(limitRaw, 100);

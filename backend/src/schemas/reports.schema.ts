@@ -2,7 +2,9 @@ import { z } from 'zod';
 
 export const createLostReportSchema = z.object({
   title: z.string().trim().min(1, 'title is required'),
+  category: z.string().trim().min(1).optional(),
   description: z.string().trim().min(1).optional(),
+  additionalInfo: z.string().trim().min(1).optional(),
   lastSeenLocation: z.string().trim().min(1).optional(),
   lastSeenAt: z.string().datetime().optional(),
   contactEmail: z.string().email().optional(),

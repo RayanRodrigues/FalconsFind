@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import type { RequestHandler } from 'express';
 import type { Firestore } from 'firebase-admin/firestore';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -8,8 +9,10 @@ import type {
   RequestAdditionalProofRequest,
   UpdateClaimStatusRequest,
 } from '../contracts/index.js';
+import { UserRole } from '../contracts/index.js';
 import { API_PREFIX, HttpError } from './route-utils.js';
 import { parseBodyOrThrow } from './schema-validation.js';
+import { createRequireStaffRoles } from '../middleware/require-staff-user.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -92,8 +95,20 @@ const claimsServiceModule = (await import(pathToFileURL(servicePath).href)) as {
   }>;
 };
 
-export const createClaimsRouter = (db: Firestore): Router => {
+const getSingleRouteParam = (value: string | string[] | undefined): string => (
+  typeof value === 'string' ? value.trim() : ''
+);
+
+type ClaimsRouterOptions = {
+  requireStaffUser?: RequestHandler;
+};
+
+export const createClaimsRouter = (
+  db: Firestore,
+  options: ClaimsRouterOptions = {},
+): Router => {
   const router = Router();
+  const requireStaffUser = options.requireStaffUser ?? createRequireStaffRoles(db, [UserRole.ADMIN, UserRole.SECURITY]);
 
   router.post(`${API_PREFIX}/claims`, async (req, res) => {
     const payload = parseBodyOrThrow(schemaModule.createClaimSchema, req.body);
@@ -118,8 +133,8 @@ export const createClaimsRouter = (db: Firestore): Router => {
     }
   });
 
-  router.patch(`${API_PREFIX}/claims/:id/status`, async (req, res) => {
-    const claimId = req.params.id?.trim();
+  router.patch(`${API_PREFIX}/claims/:id/status`, requireStaffUser, async (req, res) => {
+    const claimId = getSingleRouteParam(req.params.id);
     if (!claimId) {
       throw new HttpError(400, 'BAD_REQUEST', 'id is required');
     }
@@ -146,8 +161,8 @@ export const createClaimsRouter = (db: Firestore): Router => {
     }
   });
 
-  router.patch(`${API_PREFIX}/claims/:id/proof-request`, async (req, res) => {
-    const claimId = req.params.id?.trim();
+  router.patch(`${API_PREFIX}/claims/:id/proof-request`, requireStaffUser, async (req, res) => {
+    const claimId = getSingleRouteParam(req.params.id);
     if (!claimId) {
       throw new HttpError(400, 'BAD_REQUEST', 'id is required');
     }
