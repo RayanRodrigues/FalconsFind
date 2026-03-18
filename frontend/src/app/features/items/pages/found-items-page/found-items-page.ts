@@ -1,14 +1,25 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import {
+  Component,
+  OnInit,
+  ChangeDetectorRef,
+  Inject,
+  PLATFORM_ID,
+} from '@angular/core';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { finalize, timeout } from 'rxjs/operators';
+
 import type { ItemPublicResponse } from '../../../../models';
-import { ItemsApiService, type ItemsListResponse } from '../../../../core/services/items-api.service';
+import {
+  ItemsApiService,
+  type ItemsListResponse,
+} from '../../../../core/services/items-api.service';
 
 @Component({
   selector: 'app-found-items-page',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, FormsModule],
   templateUrl: './found-items-page.html',
   styleUrl: './found-items-page.css',
 })
@@ -18,22 +29,35 @@ export class FoundItemsPageComponent implements OnInit {
 
   items: ItemPublicResponse[] = [];
 
+  searchTerm = '';
+  categoryFilter = '';
+  locationFilter = '';
+  dateFilter = '';
+
   page = 1;
   limit = 10;
   totalPages = 1;
   hasNextPage = false;
   hasPrevPage = false;
 
-  constructor(private itemsApi: ItemsApiService, private cdr: ChangeDetectorRef) {}
+  constructor(
+    private itemsApi: ItemsApiService,
+    private cdr: ChangeDetectorRef,
+    @Inject(PLATFORM_ID) private platformId: Object
+  ) {}
 
   ngOnInit(): void {
-    this.loadItems();
+    if (isPlatformBrowser(this.platformId)) {
+      this.loadItems();
+    } else {
+      this.loading = false;
+    }
   }
 
   loadItems() {
     this.loading = true;
     this.error = false;
-    this.cdr.detectChanges();
+    this.safeDetectChanges();
 
     this.itemsApi
       .getFoundItems(this.page, this.limit)
@@ -41,7 +65,7 @@ export class FoundItemsPageComponent implements OnInit {
         timeout(3000),
         finalize(() => {
           this.loading = false;
-          this.cdr.detectChanges();
+          this.safeDetectChanges();
         })
       )
       .subscribe({
@@ -52,14 +76,20 @@ export class FoundItemsPageComponent implements OnInit {
           this.totalPages = response.totalPages;
           this.hasNextPage = response.hasNextPage;
           this.hasPrevPage = response.hasPrevPage;
-          this.cdr.detectChanges();
+          this.safeDetectChanges();
         },
         error: (err) => {
           console.log('[FoundItems] request failed:', err);
           this.error = true;
-          this.cdr.detectChanges();
+          this.safeDetectChanges();
         },
       });
+  }
+
+  safeDetectChanges(): void {
+    if (isPlatformBrowser(this.platformId)) {
+      this.cdr.detectChanges();
+    }
   }
 
   retry() {
@@ -78,6 +108,49 @@ export class FoundItemsPageComponent implements OnInit {
     this.loadItems();
   }
 
+  clearSearch() {
+    this.searchTerm = '';
+  }
+
+  clearFilters() {
+    this.categoryFilter = '';
+    this.locationFilter = '';
+    this.dateFilter = '';
+  }
+
+  get filteredItems(): ItemPublicResponse[] {
+    const keyword = this.searchTerm.trim().toLowerCase();
+
+    return this.items.filter((item) => {
+      const title = item.title.toLowerCase();
+      const referenceCode = item.referenceCode.toLowerCase();
+      const location = (item.location ?? '').toLowerCase();
+      const status = item.status.toLowerCase();
+      const date = item.dateReported;
+
+      const keywordMatch =
+        !keyword ||
+        title.includes(keyword) ||
+        referenceCode.includes(keyword) ||
+        location.includes(keyword) ||
+        status.includes(keyword);
+
+      const categoryMatch =
+        !this.categoryFilter ||
+        status.includes(this.categoryFilter.toLowerCase());
+
+      const locationMatch =
+        !this.locationFilter ||
+        location.includes(this.locationFilter.toLowerCase());
+
+      const dateMatch =
+        !this.dateFilter ||
+        date.startsWith(this.dateFilter);
+
+      return keywordMatch && categoryMatch && locationMatch && dateMatch;
+    });
+  }
+
   getStatusLabel(status: string): string {
     return status.replace(/_/g, ' ');
   }
@@ -91,6 +164,10 @@ export class FoundItemsPageComponent implements OnInit {
       RETURNED: 'bg-secondary/10 text-secondary border-secondary/30',
       ARCHIVED: 'bg-border/30 text-text-secondary border-border',
     };
-    return statusClasses[status] ?? 'bg-border/30 text-text-secondary border-border';
+
+    return (
+      statusClasses[status] ??
+      'bg-border/30 text-text-secondary border-border'
+    );
   }
 }

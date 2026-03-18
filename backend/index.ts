@@ -44,6 +44,10 @@ const reportsRoutesModule = await importRuntimeModule<{
   ) => express.Router;
 }>(__dirname, './src/routes/reports.routes');
 
+const claimsRoutesModule = await importRuntimeModule<{
+  createClaimsRouter: (db: FirebaseFirestore.Firestore) => express.Router;
+}>(__dirname, './src/routes/claims.routes');
+
 const openApiModule = await importRuntimeModule<{
   openApiDocument: object;
 }>(__dirname, './src/docs/openapi');

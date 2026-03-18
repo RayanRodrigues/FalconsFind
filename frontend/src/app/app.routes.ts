@@ -4,6 +4,13 @@ import { FoundReportFormComponent } from './features/public-reporting/found-repo
 import { LostReportFormComponent } from './features/public-reporting/lost-report-form/lost-report-form.component';
 import { FoundItemsPageComponent } from './features/items/pages/found-items-page/found-items-page';
 import { ItemDetailsComponent } from './features/items/item-details/item-details.component';
+import { ClaimRequest } from './claim-request/claim-request';
+import { ClaimReview } from './claim-review/claim-review';
+import { ClaimCancel } from './claim-cancel/claim-cancel';
+import { EditReportPageComponent } from './features/public-reporting/edit-report-page/edit-report-page.component';
+
+// ✅ ADD THIS IMPORT
+import { AdminDashboardComponent } from './features/admin/admin-dashboard.component';
 
 export const routes: Routes = [
   {
@@ -27,9 +34,41 @@ export const routes: Routes = [
     title: 'Found Items - FalconFind'
   },
   {
+    path: 'claim-request',
+    component: ClaimRequest
+  },
+  {
+    path: 'admin/claims',
+    component: ClaimReview,
+    title: 'Claim Review - FalconFind'
+  },
+
+  // ✅ ADD THIS NEW ROUTE (YOUR US4.1 FEATURE)
+  {
+    path: 'admin/validate-items',
+    component: AdminDashboardComponent,
+    title: 'Validate Found Items - FalconFind'
+  },
+
+  {
+    path: 'claim-cancel',
+    component: ClaimCancel,
+    title: 'Cancel Claim Request - FalconFind'
+  },
+  {
+    path: 'edit-report',
+    component: EditReportPageComponent,
+    title: 'Edit Report - FalconFind'
+  },
+  {
     path: 'items/:id',
     component: ItemDetailsComponent,
     title: 'Item Details - FalconFind'
   },
-  // ... other routes
+
+  // optional fallback
+  {
+    path: '**',
+    redirectTo: ''
+  }
 ];

@@ -1,17 +1,15 @@
 import type { ItemStatus } from '../enums/item-status.enum.js';
+import type { Report } from '../types/report.type.js';
 
-type ReportKind = 'LOST' | 'FOUND';
-
-export type Report = {
+export type EditableReportResponse = {
   id: string;
-  kind: ReportKind;
+  referenceCode: string;
+  kind: Report['kind'];
+  status: ItemStatus;
   title: string;
   category?: string;
   description?: string;
-  status: ItemStatus;
-  referenceCode: string;
   location?: string;
   dateReported: string;
   contactEmail?: string;
-  photoUrl?: string;
 };

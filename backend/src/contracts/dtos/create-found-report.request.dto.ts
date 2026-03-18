@@ -1,5 +1,6 @@
 export type CreateFoundReportRequest = {
   title: string;
+  category?: string;
   description?: string;
   foundLocation: string;
   foundAt?: string;

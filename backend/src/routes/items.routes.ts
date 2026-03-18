@@ -55,6 +55,13 @@ export const createItemsRouter = (db: Firestore, bucket: Bucket, redis: RedisCli
       totalPages,
       hasNextPage: page < totalPages,
       hasPrevPage: page > 1,
+      filters: {
+        keyword: keyword ?? null,
+        category: category ?? null,
+        location: location ?? null,
+        dateFrom: dateFrom ?? null,
+        dateTo: dateTo ?? null,
+      },
       items: result.items,
     });
   });

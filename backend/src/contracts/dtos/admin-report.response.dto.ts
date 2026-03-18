@@ -1,10 +1,9 @@
 import type { ItemStatus } from '../enums/item-status.enum.js';
+import type { Report } from '../types/report.type.js';
 
-type ReportKind = 'LOST' | 'FOUND';
-
-export type Report = {
+export type AdminReportResponse = {
   id: string;
-  kind: ReportKind;
+  kind: Report['kind'];
   title: string;
   category?: string;
   description?: string;

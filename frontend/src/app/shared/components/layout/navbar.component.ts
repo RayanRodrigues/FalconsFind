@@ -44,6 +44,20 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
             >
               Report Found
             </a>
+            <a
+              routerLink="/admin/claims"
+              routerLinkActive="bg-primary/10 !text-primary"
+              class="rounded-lg px-3 py-1.5 text-sm font-medium text-text-secondary hover:bg-neutral-base hover:text-text-primary transition-colors"
+            >
+              Claim Review
+            </a>
+            <a
+              routerLink="/admin/validate-items"
+              routerLinkActive="bg-primary/10 !text-primary"
+              class="rounded-lg px-3 py-1.5 text-sm font-medium text-text-secondary hover:bg-neutral-base hover:text-text-primary transition-colors"
+            >
+              Validate Items
+            </a>
           </nav>
 
           <!-- Mobile menu button -->
@@ -93,6 +107,22 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
               class="rounded-lg px-3 py-2.5 text-sm font-medium text-text-secondary hover:bg-neutral-base hover:text-text-primary transition-colors"
             >
               Report Found
+            </a>
+            <a
+              routerLink="/admin/claims"
+              routerLinkActive="bg-primary/10 !text-primary"
+              (click)="closeMenu()"
+              class="rounded-lg px-3 py-2.5 text-sm font-medium text-text-secondary hover:bg-neutral-base hover:text-text-primary transition-colors"
+            >
+              Claim Review
+            </a>
+            <a
+              routerLink="/admin/validate-items"
+              routerLinkActive="bg-primary/10 !text-primary"
+              (click)="closeMenu()"
+              class="rounded-lg px-3 py-2.5 text-sm font-medium text-text-secondary hover:bg-neutral-base hover:text-text-primary transition-colors"
+            >
+              Validate Items
             </a>
           </nav>
         }

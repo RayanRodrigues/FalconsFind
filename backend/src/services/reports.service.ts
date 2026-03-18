@@ -1,6 +1,14 @@
-import type { Firestore } from 'firebase-admin/firestore';
+import type { Firestore, Query, Transaction } from 'firebase-admin/firestore';
 import type { Bucket } from '@google-cloud/storage';
-import type { CreateFoundReportRequest, CreateLostReportRequest, Report } from '../contracts/index.js';
+import type {
+  AdminReportResponse,
+  CreateFoundReportRequest,
+  CreateLostReportRequest,
+  EditableReportResponse,
+  Report,
+  UpdateReportByReferenceRequest,
+} from '../contracts/index.js';
+import { ItemStatus } from '../contracts/index.js';
 import { randomUUID } from 'node:crypto';
 
 export class ReportPhotoUploadError extends Error {
@@ -12,6 +20,35 @@ export class ReportPhotoUploadError extends Error {
     this.name = 'ReportPhotoUploadError';
   }
 }
+
+export class ReportNotFoundError extends Error {
+  constructor() {
+    super('Report not found');
+    this.name = 'ReportNotFoundError';
+  }
+}
+
+export class ReportEditConflictError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ReportEditConflictError';
+  }
+}
+
+export class ReportValidationConflictError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ReportValidationConflictError';
+  }
+}
+
+type ListAdminReportsParams = {
+  page: number;
+  limit: number;
+  kind?: Report['kind'];
+  status?: Report['status'];
+  search?: string;
+};
 
 const formatDateSegment = (date: Date): string => {
   const year = date.getUTCFullYear().toString();
@@ -53,6 +90,75 @@ const uploadPhotoBuffer = async (
   return `gs://${bucket.name}/${fileName}`;
 };
 
+const isEditableReportStatus = (status: Report['status']): boolean => {
+  return status === ItemStatus.REPORTED || status === ItemStatus.PENDING_VALIDATION;
+};
+
+const mapEditableReport = (id: string, report: Report): EditableReportResponse => {
+  return {
+    id,
+    referenceCode: report.referenceCode,
+    kind: report.kind,
+    status: report.status,
+    title: report.title,
+    category: report.category,
+    description: report.description,
+    location: report.location,
+    dateReported: report.dateReported,
+    contactEmail: report.contactEmail,
+  };
+};
+
+const normalizeDateReported = (value: unknown): string | undefined => {
+  if (typeof value === 'string' && value.trim().length > 0) {
+    return value;
+  }
+
+  if (
+    typeof value === 'object'
+    && value !== null
+    && typeof (value as { toDate?: unknown }).toDate === 'function'
+  ) {
+    return (value as { toDate: () => Date }).toDate().toISOString();
+  }
+
+  return undefined;
+};
+
+const isItemStatus = (value: unknown): value is ItemStatus => {
+  return typeof value === 'string' && Object.values(ItemStatus).includes(value as ItemStatus);
+};
+
+const mapAdminReport = (id: string, source: Partial<Report>): AdminReportResponse | null => {
+  const dateReported = normalizeDateReported(source.dateReported);
+
+  if (
+    (source.kind !== 'LOST' && source.kind !== 'FOUND')
+    || typeof source.title !== 'string'
+    || source.title.trim().length === 0
+    || typeof source.referenceCode !== 'string'
+    || source.referenceCode.trim().length === 0
+    || !isItemStatus(source.status)
+    || !dateReported
+  ) {
+    return null;
+  }
+
+  return {
+    id,
+    kind: source.kind,
+    title: source.title,
+    category: source.category,
+    description: source.description,
+    status: source.status,
+    referenceCode: source.referenceCode,
+    location: source.location,
+    dateReported,
+    contactEmail: source.contactEmail,
+    photoUrl: source.photoUrl,
+  };
+};
+
 export const createLostReport = async (
   db: Firestore,
   bucket: Bucket,
@@ -69,7 +175,7 @@ export const createLostReport = async (
   const reportToSave: Omit<Report, 'id'> = {
     kind: 'LOST' as const,
     title: payload.title,
-    status: 'REPORTED' as Report['status'],
+    status: ItemStatus.REPORTED,
     referenceCode: createReferenceCode('LST', docRef.id, createdAt),
     dateReported: payload.lastSeenAt ?? createdAt.toISOString(),
   };
@@ -109,13 +215,16 @@ export const createFoundReport = async (
   const reportToSave: Omit<Report, 'id'> = {
     kind: 'FOUND' as const,
     title: payload.title,
-    status: 'REPORTED' as Report['status'],
+    status: ItemStatus.PENDING_VALIDATION,
     referenceCode: createReferenceCode('FND', docRef.id, createdAt),
     location: payload.foundLocation,
     dateReported: payload.foundAt ?? createdAt.toISOString(),
     photoUrl,
   };
 
+  if (payload.category) {
+    reportToSave.category = payload.category;
+  }
   if (payload.description) {
     reportToSave.description = payload.description;
   }
@@ -129,6 +238,181 @@ export const createFoundReport = async (
     report: {
       id: docRef.id,
       ...reportToSave,
+    },
+  };
+};
+
+export const getReportByReferenceCode = async (
+  db: Firestore,
+  referenceCode: string,
+): Promise<EditableReportResponse> => {
+  const snapshot = await db
+    .collection('reports')
+    .where('referenceCode', '==', referenceCode)
+    .limit(1)
+    .get();
+
+  if (snapshot.empty) {
+    throw new ReportNotFoundError();
+  }
+
+  const doc = snapshot.docs[0];
+  const report = doc.data() as Report;
+
+  return mapEditableReport(doc.id, report);
+};
+
+export const updateReportByReferenceCode = async (
+  db: Firestore,
+  referenceCode: string,
+  payload: UpdateReportByReferenceRequest,
+): Promise<EditableReportResponse> => {
+  return db.runTransaction(async (transaction: Transaction) => {
+    const snapshot = await transaction.get(
+      db.collection('reports')
+        .where('referenceCode', '==', referenceCode)
+        .limit(1),
+    );
+
+    if (snapshot.empty) {
+      throw new ReportNotFoundError();
+    }
+
+    const doc = snapshot.docs[0];
+    const report = doc.data() as Report;
+
+    if (!isEditableReportStatus(report.status)) {
+      throw new ReportEditConflictError('Only reports still under review can be edited.');
+    }
+
+    const updatePatch: Partial<Report> = {};
+
+    if (payload.title !== undefined) {
+      updatePatch.title = payload.title;
+    }
+    if (payload.category !== undefined) {
+      updatePatch.category = payload.category;
+    }
+    if (payload.description !== undefined) {
+      updatePatch.description = payload.description;
+    }
+    if (payload.location !== undefined) {
+      updatePatch.location = payload.location;
+    }
+    if (payload.dateReported !== undefined) {
+      updatePatch.dateReported = payload.dateReported;
+    }
+    if (payload.contactEmail !== undefined) {
+      updatePatch.contactEmail = payload.contactEmail;
+    }
+
+    transaction.update(doc.ref, updatePatch);
+
+    return mapEditableReport(doc.id, {
+      ...report,
+      ...updatePatch,
+    });
+  });
+};
+
+export const validateFoundReport = async (
+  db: Firestore,
+  reportId: string,
+): Promise<{ id: string; report: Pick<Report, 'status' | 'referenceCode'> }> => {
+  return db.runTransaction(async (transaction: Transaction) => {
+    const reportRef = db.collection('reports').doc(reportId);
+    const reportSnap = await transaction.get(reportRef);
+
+    if (!reportSnap.exists) {
+      throw new ReportNotFoundError();
+    }
+
+    const report = reportSnap.data() as Report | undefined;
+    if (!report) {
+      throw new ReportNotFoundError();
+    }
+
+    if (report.kind !== 'FOUND') {
+      throw new ReportValidationConflictError('Only found-item reports can be validated.');
+    }
+
+    if (report.status !== ItemStatus.PENDING_VALIDATION) {
+      throw new ReportValidationConflictError('Only pending validation found-item reports can be validated.');
+    }
+
+    transaction.update(reportRef, { status: ItemStatus.VALIDATED });
+
+    return {
+      id: reportId,
+      report: {
+        status: ItemStatus.VALIDATED,
+        referenceCode: report.referenceCode,
+      },
+    };
+  });
+};
+
+export const listAdminReports = async (
+  db: Firestore,
+  params: ListAdminReportsParams,
+): Promise<{
+  reports: AdminReportResponse[];
+  total: number;
+  summary: {
+    totalReports: number;
+    lostReports: number;
+    foundReports: number;
+    byStatus: Partial<Record<ItemStatus, number>>;
+  };
+}> => {
+  const page = Math.max(1, Math.floor(params.page));
+  const limit = Math.max(1, Math.floor(params.limit));
+  const offset = (page - 1) * limit;
+  const search = typeof params.search === 'string' ? params.search.trim().toLowerCase() : '';
+
+  let reportsQuery: Query = db.collection('reports');
+  if (params.kind) {
+    reportsQuery = reportsQuery.where('kind', '==', params.kind);
+  }
+  if (params.status) {
+    reportsQuery = reportsQuery.where('status', '==', params.status);
+  }
+
+  const reportsSnap = await reportsQuery.get();
+  const allReports = reportsSnap.docs
+    .map((doc) => mapAdminReport(doc.id, doc.data() as Partial<Report>))
+    .filter((report): report is AdminReportResponse => report !== null)
+    .sort((a, b) => b.dateReported.localeCompare(a.dateReported));
+
+  const filteredReports = allReports.filter((report) => {
+    if (search.length > 0) {
+      const searchableText = [
+        report.title,
+        report.description ?? '',
+        report.referenceCode,
+        report.location ?? '',
+        report.contactEmail ?? '',
+      ].join(' ').toLowerCase();
+
+      return searchableText.includes(search);
+    }
+
+    return true;
+  });
+
+  const byStatus = filteredReports.reduce<Partial<Record<ItemStatus, number>>>((acc, report) => {
+    acc[report.status] = (acc[report.status] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  return {
+    reports: filteredReports.slice(offset, offset + limit),
+    total: filteredReports.length,
+    summary: {
+      totalReports: filteredReports.length,
+      lostReports: filteredReports.filter((report) => report.kind === 'LOST').length,
+      foundReports: filteredReports.filter((report) => report.kind === 'FOUND').length,
+      byStatus,
     },
   };
 };
