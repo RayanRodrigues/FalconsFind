@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type { Firestore } from 'firebase-admin/firestore';
 import type { Bucket } from '@google-cloud/storage';
+import type { RedisClient } from '../bootstrap/redis.js';
 import type { ItemDetailsResponse } from '../contracts/index.js';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -16,11 +17,12 @@ const servicePath = fs.existsSync(serviceTsPath) ? serviceTsPath : serviceJsPath
 
 const itemsServiceModule = (await import(pathToFileURL(servicePath).href)) as {
   InvalidItemDataError: new () => Error;
-  getItemById: (db: Firestore, bucket: Bucket, itemId: string) => Promise<ItemDetailsResponse | null>;
+  getItemById: (db: Firestore, bucket: Bucket, redis: RedisClient | null, itemId: string) => Promise<ItemDetailsResponse | null>;
   isItemPubliclyVisible: (item: ItemDetailsResponse) => boolean;
   listValidatedItems: (
     db: Firestore,
     bucket: Bucket,
+    redis: RedisClient | null,
     params: { page: number; limit: number },
   ) => Promise<{
     items: unknown[];
@@ -35,7 +37,7 @@ function parsePositiveInt(value: unknown, fallback: number): number {
   return i > 0 ? i : fallback;
 }
 
-export const createItemsRouter = (db: Firestore, bucket: Bucket): Router => {
+export const createItemsRouter = (db: Firestore, bucket: Bucket, redis: RedisClient | null): Router => {
   const router = Router();
 
   router.get(`${API_PREFIX}/items`, async (req, res) => {
@@ -43,7 +45,7 @@ export const createItemsRouter = (db: Firestore, bucket: Bucket): Router => {
     const limitRaw = parsePositiveInt(req.query.limit, 10);
     const limit = Math.min(limitRaw, 50);
 
-    const result = await itemsServiceModule.listValidatedItems(db, bucket, { page, limit });
+    const result = await itemsServiceModule.listValidatedItems(db, bucket, redis, { page, limit });
     const totalPages = Math.max(1, Math.ceil(result.total / limit));
 
     res.status(200).json({
@@ -65,7 +67,7 @@ export const createItemsRouter = (db: Firestore, bucket: Bucket): Router => {
 
     let item: ItemDetailsResponse | null = null;
     try {
-      item = await itemsServiceModule.getItemById(db, bucket, itemId);
+      item = await itemsServiceModule.getItemById(db, bucket, redis, itemId);
     } catch (error) {
       if (error instanceof itemsServiceModule.InvalidItemDataError) {
         throw new HttpError(422, 'INVALID_ITEM_DATA', error.message);
