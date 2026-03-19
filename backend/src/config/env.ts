@@ -65,6 +65,6 @@ export const getAppConfig = () => {
     apiBaseUrl: resolveApiBaseUrl(appEnv),
     corsAllowedOrigins: resolveCorsAllowedOrigins(appEnv),
     redisUrl: process.env.REDIS_URL,
-    enableSwagger: appEnv !== 'production' || parseBooleanFlag(process.env.ENABLE_SWAGGER),
+    enableSwagger: appEnv !== 'production',
   };
 };
