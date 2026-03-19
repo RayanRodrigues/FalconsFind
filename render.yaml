@@ -7,6 +7,8 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: ENABLE_SWAGGER
+        value: true
       - key: PORT
         value: 3000
       - key: CORS_ALLOWED_ORIGINS_PROD
