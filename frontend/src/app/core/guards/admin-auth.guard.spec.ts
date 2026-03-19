@@ -6,12 +6,13 @@ import { AuthService } from '../services/auth.service';
 import { adminAuthGuard } from './admin-auth.guard';
 
 describe('adminAuthGuard', () => {
-  let authService: Pick<AuthService, 'getStoredSession'>;
+  let authService: Pick<AuthService, 'getStoredSession' | 'restoreSession'>;
   let router: Router;
 
   beforeEach(async () => {
     authService = {
       getStoredSession: vi.fn(),
+      restoreSession: vi.fn().mockResolvedValue(undefined),
     };
 
     await TestBed.configureTestingModule({
@@ -24,15 +25,15 @@ describe('adminAuthGuard', () => {
     router = TestBed.inject(Router);
   });
 
-  it('redirects unauthenticated users to /login', () => {
+  it('redirects unauthenticated users to /login', async () => {
     (authService.getStoredSession as ReturnType<typeof vi.fn>).mockReturnValue(null);
 
-    const result = TestBed.runInInjectionContext(() => adminAuthGuard({} as never, {} as never));
+    const result = await TestBed.runInInjectionContext(() => adminAuthGuard({} as never, {} as never));
 
     expect(result).toEqual(router.parseUrl('/login'));
   });
 
-  it('allows authenticated staff users', () => {
+  it('allows authenticated staff users', async () => {
     (authService.getStoredSession as ReturnType<typeof vi.fn>).mockReturnValue({
       idToken: 'token',
       refreshToken: 'refresh',
@@ -44,12 +45,12 @@ describe('adminAuthGuard', () => {
       },
     });
 
-    const result = TestBed.runInInjectionContext(() => adminAuthGuard({} as never, {} as never));
+    const result = await TestBed.runInInjectionContext(() => adminAuthGuard({} as never, {} as never));
 
     expect(result).toBe(true);
   });
 
-  it('redirects non-staff users to their role home without logging them out', () => {
+  it('redirects non-staff users to their role home without logging them out', async () => {
     (authService.getStoredSession as ReturnType<typeof vi.fn>).mockReturnValue({
       idToken: 'token',
       refreshToken: 'refresh',
@@ -61,7 +62,7 @@ describe('adminAuthGuard', () => {
       } as never,
     });
 
-    const result = TestBed.runInInjectionContext(() => adminAuthGuard({} as never, {} as never));
+    const result = await TestBed.runInInjectionContext(() => adminAuthGuard({} as never, {} as never));
 
     expect(result).toEqual(router.parseUrl('/claim-request'));
   });

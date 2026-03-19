@@ -12,6 +12,7 @@ const AUTH_SESSION_STORAGE_KEY = 'falconfind.auth.session';
 })
 export class AuthService {
   readonly session = signal<LoginResponse | null>(this.readSession());
+  private restorePromise: Promise<void> | null = null;
 
   constructor(private readonly apiClient: ApiClientService) {}
 
@@ -46,6 +47,19 @@ export class AuthService {
   }
 
   async restoreSession(): Promise<void> {
+    if (this.restorePromise) {
+      return this.restorePromise;
+    }
+
+    this.restorePromise = this.restoreSessionInternal();
+    try {
+      await this.restorePromise;
+    } finally {
+      this.restorePromise = null;
+    }
+  }
+
+  private async restoreSessionInternal(): Promise<void> {
     const currentSession = this.readSession();
     if (!currentSession?.refreshToken) {
       this.session.set(currentSession);

@@ -6,12 +6,13 @@ import { AuthService } from '../services/auth.service';
 import { authenticatedUserGuard } from './student-auth.guard';
 
 describe('authenticatedUserGuard', () => {
-  let authService: Pick<AuthService, 'getStoredSession'>;
+  let authService: Pick<AuthService, 'getStoredSession' | 'restoreSession'>;
   let router: Router;
 
   beforeEach(async () => {
     authService = {
       getStoredSession: vi.fn(),
+      restoreSession: vi.fn().mockResolvedValue(undefined),
     };
 
     await TestBed.configureTestingModule({
@@ -24,17 +25,17 @@ describe('authenticatedUserGuard', () => {
     router = TestBed.inject(Router);
   });
 
-  it('redirects unauthenticated users to login with a returnUrl', () => {
+  it('redirects unauthenticated users to login with a returnUrl', async () => {
     (authService.getStoredSession as ReturnType<typeof vi.fn>).mockReturnValue(null);
 
-    const result = TestBed.runInInjectionContext(() =>
+    const result = await TestBed.runInInjectionContext(() =>
       authenticatedUserGuard({ url: [{ path: 'claim-request' }] } as never, {} as never)
     );
 
     expect(result).toEqual(router.parseUrl('/login?returnUrl=/claim-request'));
   });
 
-  it('allows authenticated students', () => {
+  it('allows authenticated students', async () => {
     (authService.getStoredSession as ReturnType<typeof vi.fn>).mockReturnValue({
       idToken: 'token',
       refreshToken: 'refresh',
@@ -46,14 +47,14 @@ describe('authenticatedUserGuard', () => {
       },
     });
 
-    const result = TestBed.runInInjectionContext(() =>
+    const result = await TestBed.runInInjectionContext(() =>
       authenticatedUserGuard({ url: [{ path: 'claim-request' }] } as never, {} as never)
     );
 
     expect(result).toBe(true);
   });
 
-  it('allows authenticated staff users', () => {
+  it('allows authenticated staff users', async () => {
     (authService.getStoredSession as ReturnType<typeof vi.fn>).mockReturnValue({
       idToken: 'token',
       refreshToken: 'refresh',
@@ -65,7 +66,7 @@ describe('authenticatedUserGuard', () => {
       },
     });
 
-    const result = TestBed.runInInjectionContext(() =>
+    const result = await TestBed.runInInjectionContext(() =>
       authenticatedUserGuard({ url: [{ path: 'claim-request' }] } as never, {} as never)
     );
 
