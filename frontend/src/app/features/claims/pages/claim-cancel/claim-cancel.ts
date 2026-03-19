@@ -10,11 +10,18 @@ import { mergeSelectedPhotos } from '../../../../shared/utils/photo-upload.util'
 
 type ClaimRow = Claim & {
   isCancelling?: boolean;
+  isEditing?: boolean;
+  isSavingEdit?: boolean;
   isSubmittingProof?: boolean;
+  editItemName?: string;
+  editClaimReason?: string;
+  editProofDetails?: string;
+  editPhone?: string;
   proofResponseDraft?: string;
   pendingProofPhotos?: File[];
   pendingProofPreviewUrls?: string[];
   proofError?: string;
+  editError?: string;
 };
 
 @Component({
@@ -65,11 +72,18 @@ export class ClaimCancel implements OnInit {
           this.claims.set((response.claims ?? []).map((claim) => ({
             ...claim,
             isCancelling: false,
+            isEditing: false,
+            isSavingEdit: false,
             isSubmittingProof: false,
+            editItemName: claim.itemName,
+            editClaimReason: claim.claimReason,
+            editProofDetails: claim.proofDetails,
+            editPhone: claim.phone ?? '',
             proofResponseDraft: '',
             pendingProofPhotos: [],
             pendingProofPreviewUrls: [],
             proofError: '',
+            editError: '',
           })));
           this.summary.set(response.summary);
         },
@@ -114,6 +128,61 @@ export class ClaimCancel implements OnInit {
 
   canSubmitProof(claim: Claim): boolean {
     return claim.status === ClaimStatus.NEEDS_PROOF;
+  }
+
+  canEdit(claim: Claim): boolean {
+    return claim.status === ClaimStatus.PENDING || claim.status === ClaimStatus.NEEDS_PROOF;
+  }
+
+  toggleEdit(claim: ClaimRow): void {
+    claim.isEditing = !claim.isEditing;
+    claim.editError = '';
+
+    if (claim.isEditing) {
+      claim.editItemName = claim.itemName;
+      claim.editClaimReason = claim.claimReason;
+      claim.editProofDetails = claim.proofDetails;
+      claim.editPhone = claim.phone ?? '';
+    }
+  }
+
+  saveEdit(claim: ClaimRow): void {
+    if (!this.canEdit(claim) || claim.isSavingEdit) {
+      return;
+    }
+
+    const itemName = claim.editItemName?.trim() ?? '';
+    const claimReason = claim.editClaimReason?.trim() ?? '';
+    const proofDetails = claim.editProofDetails?.trim() ?? '';
+    const phone = claim.editPhone?.trim() ?? '';
+
+    if (itemName.length < 2 || claimReason.length < 20 || proofDetails.length < 20) {
+      claim.editError = 'Please complete all claim details before saving.';
+      return;
+    }
+
+    claim.isSavingEdit = true;
+    claim.editError = '';
+    this.claimsApi.updateClaim(claim.id, {
+      itemName,
+      claimReason,
+      proofDetails,
+      phone: phone || undefined,
+    })
+      .pipe(finalize(() => { claim.isSavingEdit = false; }))
+      .subscribe({
+        next: (response) => {
+          claim.itemName = response.itemName;
+          claim.claimReason = response.claimReason;
+          claim.proofDetails = response.proofDetails;
+          claim.phone = response.phone;
+          claim.isEditing = false;
+          this.successMessage.set(`Claim ${claim.referenceCode} was updated successfully.`);
+        },
+        error: (error: ErrorResponse) => {
+          claim.editError = this.mapEditError(error);
+        },
+      });
   }
 
   onProofPhotosSelected(claim: ClaimRow, files: File[]): void {
@@ -239,6 +308,21 @@ export class ClaimCancel implements OnInit {
         return error.error.message || 'Please review your proof details and photos.';
       default:
         return 'There was an error submitting your additional proof.';
+    }
+  }
+
+  private mapEditError(error: ErrorResponse): string {
+    switch (error.error?.code) {
+      case 'CLAIM_STATUS_CONFLICT':
+        return 'This claim can no longer be edited.';
+      case 'FORBIDDEN':
+        return 'You can only edit your own claim requests.';
+      case 'NOT_FOUND':
+        return 'This claim could not be found anymore.';
+      case 'BAD_REQUEST':
+        return error.error.message || 'Please review the updated claim details.';
+      default:
+        return 'There was an error saving your claim changes.';
     }
   }
 

@@ -17,8 +17,10 @@ export class AdminClaimsComponent implements OnInit {
   readonly toast = signal<{ type: 'success' | 'error'; message: string } | null>(null);
   readonly loading = signal(true);
   readonly error = signal('');
+  readonly showArchived = signal(false);
   expandedId: string | null = null;
   claims: ClaimRow[] = [];
+  archivedIds = new Set<string>();
 
   constructor(
     private readonly adminClaimsApi: AdminClaimsApiService,
@@ -27,6 +29,7 @@ export class AdminClaimsComponent implements OnInit {
 
   ngOnInit(): void {
     if (isPlatformBrowser(this.platformId)) {
+      this.loadArchivedIds();
       this.load();
       return;
     }
@@ -35,13 +38,18 @@ export class AdminClaimsComponent implements OnInit {
   }
 
   get stats() {
+    const activeClaims = this.visibleClaims;
     return {
-      total: this.claims.length,
-      pending: this.claims.filter(c => c.status === ClaimStatus.PENDING).length,
-      needsProof: this.claims.filter(c => c.status === ClaimStatus.NEEDS_PROOF).length,
-      approved: this.claims.filter(c => c.status === ClaimStatus.APPROVED).length,
-      rejected: this.claims.filter(c => c.status === ClaimStatus.REJECTED).length,
+      total: activeClaims.length,
+      pending: activeClaims.filter(c => c.status === ClaimStatus.PENDING).length,
+      needsProof: activeClaims.filter(c => c.status === ClaimStatus.NEEDS_PROOF).length,
+      approved: activeClaims.filter(c => c.status === ClaimStatus.APPROVED).length,
+      rejected: activeClaims.filter(c => c.status === ClaimStatus.REJECTED).length,
     };
+  }
+
+  get visibleClaims(): ClaimRow[] {
+    return this.claims.filter((claim) => this.showArchived() || !this.archivedIds.has(claim.id));
   }
 
   load(): void {
@@ -65,6 +73,45 @@ export class AdminClaimsComponent implements OnInit {
 
   toggle(id: string): void {
     this.expandedId = this.expandedId === id ? null : id;
+  }
+
+  canArchive(claim: Claim): boolean {
+    return claim.status === ClaimStatus.APPROVED
+      || claim.status === ClaimStatus.REJECTED
+      || claim.status === ClaimStatus.CANCELLED;
+  }
+
+  isArchived(claimId: string): boolean {
+    return this.archivedIds.has(claimId);
+  }
+
+  toggleArchivedVisibility(): void {
+    this.showArchived.set(!this.showArchived());
+  }
+
+  archiveClaim(claim: ClaimRow): void {
+    if (!this.canArchive(claim)) {
+      return;
+    }
+
+    this.archivedIds = new Set(this.archivedIds).add(claim.id);
+    this.persistArchivedIds();
+    if (this.expandedId === claim.id) {
+      this.expandedId = null;
+    }
+    this.showToast('success', `Claim ${claim.id} archived from the dashboard list.`);
+  }
+
+  restoreClaim(claim: ClaimRow): void {
+    if (!this.archivedIds.has(claim.id)) {
+      return;
+    }
+
+    const next = new Set(this.archivedIds);
+    next.delete(claim.id);
+    this.archivedIds = next;
+    this.persistArchivedIds();
+    this.showToast('success', `Claim ${claim.id} restored to the dashboard list.`);
   }
 
   approve(claim: ClaimRow): void {
@@ -163,5 +210,30 @@ export class AdminClaimsComponent implements OnInit {
   private showToast(type: 'success' | 'error', message: string): void {
     this.toast.set({ type, message });
     setTimeout(() => this.toast.set(null), 4000);
+  }
+
+  private loadArchivedIds(): void {
+    if (!isPlatformBrowser(this.platformId)) {
+      return;
+    }
+
+    try {
+      const rawValue = window.localStorage.getItem('falconfind.admin.claims.archived');
+      const parsed = rawValue ? JSON.parse(rawValue) : [];
+      this.archivedIds = new Set(Array.isArray(parsed) ? parsed.filter((value) => typeof value === 'string') : []);
+    } catch {
+      this.archivedIds = new Set<string>();
+    }
+  }
+
+  private persistArchivedIds(): void {
+    if (!isPlatformBrowser(this.platformId)) {
+      return;
+    }
+
+    window.localStorage.setItem(
+      'falconfind.admin.claims.archived',
+      JSON.stringify(Array.from(this.archivedIds)),
+    );
   }
 }

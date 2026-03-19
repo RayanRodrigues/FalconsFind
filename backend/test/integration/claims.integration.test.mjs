@@ -468,6 +468,39 @@ test('GET /api/v1/claims/me lists only the authenticated user claims', async () 
   assert.equal(response.body.claims[1].additionalProofRequest, 'Please provide a photo of the sticker on the inside.');
 });
 
+test('PATCH /api/v1/claims/:id lets the owner edit a pending claim', async () => {
+  const { db, claims } = createFakeDb({
+    claims: {
+      'claim-edit-1': {
+        itemId: 'report-1',
+        referenceCode: 'FND-2024-00001',
+        claimantUid: 'student-1',
+        itemName: 'Old backpack label',
+        status: 'PENDING',
+        claimantName: 'Jane Doe',
+        claimantEmail: 'jane@example.com',
+        claimReason: 'Old reason text that is long enough for validation.',
+        proofDetails: 'Old proof details that are also long enough for validation.',
+        createdAt: '2026-03-18T10:00:00.000Z',
+      },
+    },
+  });
+
+  const response = await request(buildTestApp(db))
+    .patch('/api/v1/claims/claim-edit-1')
+    .send({
+      itemName: 'Updated backpack label',
+      claimReason: 'Updated reason that clearly explains how the item belongs to me.',
+      proofDetails: 'Updated proof details describing stickers, notebooks, and initials inside.',
+      phone: '519-555-0101',
+    });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.status, 'PENDING');
+  assert.equal(claims['claim-edit-1'].itemName, 'Updated backpack label');
+  assert.equal(claims['claim-edit-1'].phone, '519-555-0101');
+});
+
 test('PATCH /api/v1/claims/:id/proof-response submits additional proof, uploads photos, and returns the claim to pending review', async () => {
   const { db, claims, items } = createFakeDb({
     claims: {

@@ -18,6 +18,7 @@ import type {
   RequestAdditionalProofRequest,
   Report,
   SubmitClaimProofRequest,
+  UpdateClaimRequest,
   UserClaimsListResponse,
 } from '../contracts/index.js';
 
@@ -82,6 +83,12 @@ type StoredClaimCancellationPatch = Partial<StoredClaim> & {
   status: Extract<ClaimStatus, 'CANCELLED'>;
 };
 
+type StoredClaimEditPatch = Partial<StoredClaim> & {
+  itemName: string;
+  claimReason: string;
+  proofDetails: string;
+};
+
 type StoredItemCancellationPatch = Partial<StoredItem> & {
   status: ItemStatus;
   claimStatus: Extract<ClaimStatus, 'CANCELLED'>;
@@ -112,6 +119,8 @@ type ClaimCancellationResult = {
   itemId: string;
   itemStatus: ItemStatus;
 };
+
+type ClaimEditResult = Pick<Claim, 'id' | 'itemName' | 'claimReason' | 'proofDetails' | 'phone' | 'status'>;
 
 type SubmitClaimProofResult = {
   id: string;
@@ -616,6 +625,60 @@ export const cancelClaim = async (
       status: ClaimStatus.CANCELLED,
       itemId,
       itemStatus: nextItemStatus,
+    };
+  });
+};
+
+export const updateClaim = async (
+  db: Firestore,
+  claimId: string,
+  payload: UpdateClaimRequest,
+  actor: { uid: string },
+): Promise<ClaimEditResult> => {
+  return db.runTransaction(async (transaction: Transaction) => {
+    const claimRef = db.collection('claims').doc(claimId);
+    const claimSnap = await transaction.get(claimRef);
+
+    if (!claimSnap.exists) {
+      throw new ClaimNotFoundError();
+    }
+
+    const claim = claimSnap.data() as StoredClaim | undefined;
+    if (!claim) {
+      throw new ClaimNotFoundError();
+    }
+
+    const claimantUid = claim.claimantUid?.trim();
+    if (!claimantUid || claimantUid !== actor.uid) {
+      throw new ClaimForbiddenError('You can only edit your own claim requests.');
+    }
+
+    if (!isClaimAwaitingReview(claim.status)) {
+      throw new ClaimConflictError('Only pending or proof-requested claims can be edited.');
+    }
+
+    const nextPhone = payload.phone?.trim() ? payload.phone.trim() : undefined;
+    const patch: StoredClaimEditPatch & { phone?: string } = {
+      itemName: payload.itemName.trim(),
+      claimReason: payload.claimReason.trim(),
+      proofDetails: payload.proofDetails.trim(),
+    };
+
+    if (nextPhone) {
+      patch.phone = nextPhone;
+    } else if (typeof claim.phone === 'string') {
+      patch.phone = '';
+    }
+
+    transaction.update(claimRef, patch);
+
+    return {
+      id: claimId,
+      status: claim.status as ClaimStatus,
+      itemName: patch.itemName,
+      claimReason: patch.claimReason,
+      proofDetails: patch.proofDetails,
+      phone: nextPhone,
     };
   });
 };

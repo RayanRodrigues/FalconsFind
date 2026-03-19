@@ -76,16 +76,23 @@ $sidebar-bg: #1e2433;
 
 .admin-sidebar__watermark {
   position: absolute;
-  bottom: -20px;
-  left: 50%;
-  transform: translateX(-50%);
+  right: -18px;
+  bottom: -108px;
+  top: auto;
   pointer-events: none;
   overflow: hidden;
+  width: 120px;
+  height: 220px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
 
   img {
-    width: 280px;
-    height: auto;
-    opacity: 0.06;
+    width: 100%;
+    height: 138%;
+    object-fit: contain;
+    object-position: center;
+    opacity: 0.08;
     user-select: none;
   }
 }

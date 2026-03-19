@@ -271,6 +271,27 @@
   object-fit: cover;
 }
 
+.claim-edit-form__input {
+  width: 100%;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 1rem;
+  padding: 0.9rem 1rem;
+  background: white;
+  color: var(--color-text-primary);
+}
+
+.claim-edit-form__input:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--color-info) 42%, white);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-info) 14%, transparent);
+}
+
+.claim-inline-error {
+  margin: 0;
+  color: var(--color-error);
+  font-weight: 600;
+}
+
 .claim-proof-form__textarea {
   width: 100%;
   border: 1px solid rgba(15, 23, 42, 0.12);
@@ -330,14 +351,26 @@
   box-shadow: 0 12px 26px rgba(59, 130, 246, 0.22);
 }
 
+.secondary-button {
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 999px;
+  padding: 0.85rem 1.25rem;
+  background: white;
+  color: var(--color-text-primary);
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .cancel-button:hover:not(:disabled) {
   transform: translateY(-1px);
 }
 
+.secondary-button:hover:not(:disabled),
 .submit-proof-button:hover:not(:disabled) {
   transform: translateY(-1px);
 }
 
+.secondary-button:disabled,
 .cancel-button:disabled,
 .submit-proof-button:disabled {
   opacity: 0.65;

@@ -38,6 +38,15 @@ export type SubmitClaimProofResponse = {
   proofRespondedAt: string;
 };
 
+export type UpdateClaimResponse = {
+  id: string;
+  status: string;
+  itemName: string;
+  claimReason: string;
+  proofDetails: string;
+  phone?: string;
+};
+
 @Injectable({ providedIn: 'root' })
 export class ClaimsApiService {
   constructor(private readonly apiClient: ApiClientService) {}
@@ -52,6 +61,13 @@ export class ClaimsApiService {
 
   cancelClaim(id: string): Observable<CancelClaimResponse> {
     return this.apiClient.patch<CancelClaimResponse, Record<string, never>>(`/claims/${id}/cancel`, {});
+  }
+
+  updateClaim(
+    id: string,
+    payload: { itemName: string; claimReason: string; proofDetails: string; phone?: string },
+  ): Observable<UpdateClaimResponse> {
+    return this.apiClient.patch<UpdateClaimResponse, typeof payload>(`/claims/${id}`, payload);
   }
 
   submitProof(id: string, formData: FormData): Observable<SubmitClaimProofResponse> {

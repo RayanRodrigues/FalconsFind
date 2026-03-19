@@ -10,6 +10,7 @@ import type {
   CreateClaimRequest,
   RequestAdditionalProofRequest,
   SubmitClaimProofRequest,
+  UpdateClaimRequest,
   UpdateClaimStatusRequest,
   UserClaimsListResponse,
 } from '../contracts/index.js';
@@ -59,6 +60,13 @@ const schemaModule = (await import(pathToFileURL(schemaPath).href)) as {
       | { success: true; data: UpdateClaimStatusRequest }
       | { success: false; error: { issues: Array<{ message?: string }> } };
   };
+  updateClaimSchema: {
+    safeParse: (
+      input: unknown,
+    ) =>
+      | { success: true; data: UpdateClaimRequest }
+      | { success: false; error: { issues: Array<{ message?: string }> } };
+  };
 };
 
 const claimsServiceModule = (await import(pathToFileURL(servicePath).href)) as {
@@ -79,6 +87,19 @@ const claimsServiceModule = (await import(pathToFileURL(servicePath).href)) as {
       status: string;
       createdAt: string;
     };
+  }>;
+  updateClaim: (
+    db: Firestore,
+    claimId: string,
+    payload: UpdateClaimRequest,
+    actor: { uid: string },
+  ) => Promise<{
+    id: string;
+    status: string;
+    itemName: string;
+    claimReason: string;
+    proofDetails: string;
+    phone?: string;
   }>;
   updateClaimStatus: (
     db: Firestore,
@@ -193,6 +214,40 @@ export const createClaimsRouter = (
   router.get(`${API_PREFIX}/admin/claims`, requireStaffUser, async (_req, res) => {
     const result = await claimsServiceModule.listAdminClaims(db, bucket);
     res.status(200).json(result);
+  });
+
+  router.patch(`${API_PREFIX}/claims/:id`, requireClaimAccessUser, async (req, res) => {
+    const claimId = getSingleRouteParam(req.params.id);
+    if (!claimId) {
+      throw new HttpError(400, 'BAD_REQUEST', 'id is required');
+    }
+
+    const authUser = res.locals.authUser as { uid?: string } | undefined;
+    const uid = authUser?.uid?.trim();
+    if (!uid) {
+      throw new HttpError(401, 'AUTHENTICATION_REQUIRED', 'Authentication is required.');
+    }
+
+    const payload = parseBodyOrThrow(schemaModule.updateClaimSchema, req.body);
+
+    try {
+      const result = await claimsServiceModule.updateClaim(db, claimId, payload, { uid });
+      res.status(200).json(result);
+    } catch (error) {
+      if (error instanceof claimsServiceModule.ClaimNotFoundError) {
+        throw new HttpError(404, 'NOT_FOUND', error.message);
+      }
+
+      if (error instanceof claimsServiceModule.ClaimConflictError) {
+        throw new HttpError(409, 'CLAIM_STATUS_CONFLICT', error.message);
+      }
+
+      if (error instanceof claimsServiceModule.ClaimForbiddenError) {
+        throw new HttpError(403, 'FORBIDDEN', error.message);
+      }
+
+      throw error;
+    }
   });
 
   router.patch(`${API_PREFIX}/claims/:id/status`, requireStaffUser, async (req, res) => {
