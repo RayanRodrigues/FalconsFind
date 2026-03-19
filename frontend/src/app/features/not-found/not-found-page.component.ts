@@ -14,8 +14,8 @@ import { RouterLink } from '@angular/router';
       </div>
 
       <div class="relative mx-auto flex min-h-[calc(100vh-72px)] max-w-5xl items-center justify-center px-4 py-16 sm:px-6 lg:px-8">
-        <div class="w-full text-center">
-          <div class="mx-auto flex w-fit items-end gap-1 sm:gap-3">
+        <div class="flex w-full flex-col items-center text-center">
+          <div class="mx-auto flex w-fit items-end justify-center gap-1 sm:gap-3">
             <span class="text-[88px] font-bold leading-none tracking-[-0.08em] text-primary sm:text-[160px]">4</span>
             <span class="flex h-20 w-20 items-center justify-center sm:h-32 sm:w-32">
               <img
@@ -30,15 +30,7 @@ import { RouterLink } from '@angular/router';
             </span>
           </div>
 
-          <div class="mt-8">
-            <img
-              src="/PNG/LogoPrincipal.png"
-              alt="FalconFind"
-              class="mx-auto h-9 w-auto sm:h-11"
-            />
-          </div>
-
-          <div class="mx-auto mt-10 flex max-w-2xl flex-col items-center text-center">
+          <div class="mx-auto mt-10 flex w-full max-w-2xl flex-col items-center text-center">
             <h1 class="text-5xl font-bold uppercase leading-none tracking-[-0.05em] text-text-primary sm:text-8xl">
               OH NO!
             </h1>
@@ -52,7 +44,7 @@ import { RouterLink } from '@angular/router';
 
             <a
               routerLink="/"
-              class="mt-12 inline-flex items-center justify-center rounded-none bg-primary px-10 py-4 text-lg font-semibold !text-white shadow-sm transition-colors hover:bg-secondary sm:px-16"
+              class="mt-12 inline-flex items-center justify-center rounded-xl bg-primary px-10 py-4 text-lg font-semibold !text-white shadow-sm transition-colors hover:bg-secondary sm:px-16"
             >
               Back to home
             </a>
