@@ -1,0 +1,14 @@
+name: Keep Render Awake
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping-health:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Ping Render health endpoint
+        run: curl --fail --silent --show-error "${{ secrets.RENDER_HEALTH_URL }}"
