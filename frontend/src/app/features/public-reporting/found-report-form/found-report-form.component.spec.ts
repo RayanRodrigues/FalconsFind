@@ -41,6 +41,7 @@ describe('FoundReportFormComponent', () => {
 
     component.foundForm.patchValue({
       title: 'Found wallet',
+      category: 'Wallets & Purses',
       description: 'Brown leather wallet with documents',
       foundLocation: 'Library',
       foundDate: '2026-02-20',
@@ -56,6 +57,7 @@ describe('FoundReportFormComponent', () => {
     const payload = createFoundReportMock.mock.calls[0][0] as FormData;
 
     expect(payload.get('title')).toBe('Found wallet');
+    expect(payload.get('category')).toBe('Wallets & Purses');
     expect(payload.get('foundLocation')).toBe('Library');
     expect(payload.get('description')).toBe('Brown leather wallet with documents');
     expect(payload.get('contactEmail')).toBe('finder@example.com');

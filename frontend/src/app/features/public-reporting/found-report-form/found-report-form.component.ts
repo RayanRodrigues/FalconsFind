@@ -14,6 +14,7 @@ import { AlertComponent } from '../../../shared/components/feedback/alert.compon
 import { FormFieldComponent } from '../../../shared/components/forms/form-field.component';
 import { InputComponent } from '../../../shared/components/forms/input.component';
 import { PhotoUploadFieldComponent } from '../../../shared/components/forms/photo-upload-field.component';
+import { SelectComponent } from '../../../shared/components/forms/select.component';
 import { TextareaComponent } from '../../../shared/components/forms/textarea.component';
 import { CardComponent } from '../../../shared/components/layout/card.component';
 import { ReportStepsComponent } from '../../../shared/components/navigation/report-steps.component';
@@ -29,6 +30,7 @@ import { mergeSelectedPhotos } from '../../../shared/utils/photo-upload.util';
     FormFieldComponent,
     InputComponent,
     PhotoUploadFieldComponent,
+    SelectComponent,
     TextareaComponent,
     ReportStepsComponent,
     ButtonComponent,
@@ -46,11 +48,15 @@ export class FoundReportFormComponent implements OnInit, OnDestroy {
   currentStep = 1;
   readonly totalSteps = 3;
   readonly todayDate = this.formatLocalDate(new Date());
+  readonly categories = [
+    'Electronics', 'Wallets & Purses', 'Keys', 'ID Cards', 'Clothing',
+    'Backpacks & Bags', 'Books', 'Jewelry', 'Eyewear', 'Personal Items', 'Other'
+  ];
 
   private readonly platformId = inject(PLATFORM_ID);
   private destroy$ = new Subject<void>();
   private readonly stepFields: Record<number, string[]> = {
-    1: ['title', 'description'],
+    1: ['title', 'category', 'description'],
     2: ['foundLocation', 'foundDate', 'foundTime', 'photos'],
     3: ['contactEmail']
   };
@@ -67,6 +73,7 @@ export class FoundReportFormComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.foundForm = this.fb.group({
       title: ['', [Validators.required, Validators.minLength(3), Validators.maxLength(100)]],
+      category: ['', Validators.required],
       description: ['', [Validators.required, Validators.minLength(10), Validators.maxLength(500)]],
       foundLocation: ['', [Validators.required, Validators.maxLength(120)]],
       foundDate: [this.todayDate, [Validators.required, this.validationService.pastDateValidator()]],
@@ -157,6 +164,7 @@ export class FoundReportFormComponent implements OnInit, OnDestroy {
 
     const formData = new FormData();
     formData.append('title', value.title ?? '');
+    formData.append('category', value.category ?? '');
     formData.append('foundLocation', value.foundLocation ?? '');
     // Backend currently accepts a single file field named "photo".
     formData.append('photo', photos[0]);

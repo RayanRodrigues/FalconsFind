@@ -177,6 +177,7 @@ test('POST /api/v1/reports/found creates a report with photo upload', async () =
   const response = await request(app)
     .post('/api/v1/reports/found')
     .field('title', 'Found wallet')
+    .field('category', 'Wallets & Purses')
     .field('foundLocation', 'Gym')
     .field('contactEmail', 'finder@example.com')
     .attach('photo', jpegBuffer, {
@@ -190,6 +191,7 @@ test('POST /api/v1/reports/found creates a report with photo upload', async () =
   assert.equal(savedReports.length, 1);
   assert.equal(savedReports[0].data.kind, 'FOUND');
   assert.equal(savedReports[0].data.title, 'Found wallet');
+  assert.equal(savedReports[0].data.category, 'Wallets & Purses');
   assert.equal(savedReports[0].data.status, 'PENDING_VALIDATION');
   assert.equal(uploads.length, 1);
 });
