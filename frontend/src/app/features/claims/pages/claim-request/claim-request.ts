@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { finalize } from 'rxjs';
@@ -59,6 +59,7 @@ export class ClaimRequest implements OnInit {
     private readonly router: Router,
     private readonly claimsApi: ClaimsApiService,
     private readonly authService: AuthService,
+    private readonly cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
@@ -68,6 +69,7 @@ export class ClaimRequest implements OnInit {
         email: session.user.email,
         fullName: session.user.displayName ?? '',
       });
+      this.cdr.detectChanges();
     }
   }
 
@@ -123,14 +125,19 @@ export class ClaimRequest implements OnInit {
       claimantEmail: v.email ?? '',
       phone: v.phone?.trim() || undefined,
     })
-      .pipe(finalize(() => { this.isSubmitting = false; }))
+      .pipe(finalize(() => {
+        this.isSubmitting = false;
+        this.cdr.detectChanges();
+      }))
       .subscribe({
         next: (result) => {
           this.claimResult = result;
           this.submitSuccess = true;
+          this.cdr.detectChanges();
         },
         error: (err: ErrorResponse) => {
           this.submitError = this.mapClaimError(err);
+          this.cdr.detectChanges();
         },
       });
   }
@@ -155,5 +162,6 @@ export class ClaimRequest implements OnInit {
     this.claimResult = null;
     this.currentStep = 1;
     this.ngOnInit();
+    this.cdr.detectChanges();
   }
 }
