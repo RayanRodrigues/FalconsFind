@@ -54,8 +54,6 @@ const resolveCorsAllowedOrigins = (appEnv: AppEnv): string[] => {
   return DEFAULT_DEV_CORS_ORIGINS;
 };
 
-const parseBooleanFlag = (value: string | undefined): boolean => value?.trim().toLowerCase() === 'true';
-
 export const getAppConfig = () => {
   const appEnv = resolveAppEnv();
   return {
@@ -65,6 +63,6 @@ export const getAppConfig = () => {
     apiBaseUrl: resolveApiBaseUrl(appEnv),
     corsAllowedOrigins: resolveCorsAllowedOrigins(appEnv),
     redisUrl: process.env.REDIS_URL,
-    enableSwagger: appEnv !== 'production' || parseBooleanFlag(process.env.ENABLE_SWAGGER),
+    enableSwagger: appEnv !== 'production',
   };
 };

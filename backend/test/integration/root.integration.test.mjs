@@ -7,7 +7,7 @@ import { errorHandler, notFoundHandler } from '../../dist/src/middleware/error-h
 
 test('GET / returns API landing HTML with docs and health links', async () => {
   const app = express();
-  app.use(createRootRouter('/api/v1'));
+  app.use(createRootRouter('/api/v1', true));
   app.use(notFoundHandler);
   app.use(errorHandler);
 
@@ -17,5 +17,18 @@ test('GET / returns API landing HTML with docs and health links', async () => {
   assert.match(response.headers['content-type'] ?? '', /text\/html/i);
   assert.match(response.text, /FalconFind API/i);
   assert.match(response.text, /\/api\/docs/);
+  assert.match(response.text, /\/api\/v1\/health/);
+});
+
+test('GET / omits docs link when Swagger is disabled', async () => {
+  const app = express();
+  app.use(createRootRouter('/api/v1', false));
+  app.use(notFoundHandler);
+  app.use(errorHandler);
+
+  const response = await request(app).get('/');
+
+  assert.equal(response.status, 200);
+  assert.doesNotMatch(response.text, /\/api\/docs/);
   assert.match(response.text, /\/api\/v1\/health/);
 });

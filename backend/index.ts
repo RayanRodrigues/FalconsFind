@@ -28,7 +28,7 @@ const healthRoutesModule = await importRuntimeModule<{
 }>(__dirname, './src/routes/health.routes');
 
 const rootRoutesModule = await importRuntimeModule<{
-  createRootRouter: (apiPrefix: string) => express.Router;
+  createRootRouter: (apiPrefix: string, enableSwagger: boolean) => express.Router;
 }>(__dirname, './src/routes/root.routes');
 
 const itemsRoutesModule = await importRuntimeModule<{
@@ -114,7 +114,7 @@ app.get(`${appConfig.apiPrefix}/favicon.ico`, (_req, res) => {
   res.type('image/x-icon');
   res.sendFile(faviconPath);
 });
-app.use(rootRoutesModule.createRootRouter(appConfig.apiPrefix));
+app.use(rootRoutesModule.createRootRouter(appConfig.apiPrefix, appConfig.enableSwagger));
 
 app.get('/health', (_req, res) => {
   res.json({ ok: true, service: 'backend' });

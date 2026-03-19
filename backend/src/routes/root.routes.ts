@@ -1,7 +1,19 @@
 import { Router } from 'express';
 
-const buildRootLandingPage = (apiPrefix: string): string => {
+const buildRootLandingPage = (apiPrefix: string, enableSwagger: boolean): string => {
   const docsPath = '/api/docs';
+  const docsCard = enableSwagger
+    ? `
+          <div class="item">
+            <b>Swagger Docs</b>
+            <code>${docsPath}</code>
+          </div>`
+    : '';
+  const docsAction = enableSwagger
+    ? `
+          <a class="btn btn-primary" href="${docsPath}">Open Swagger UI</a>`
+    : '';
+  const healthButtonClass = enableSwagger ? 'btn btn-secondary' : 'btn btn-primary';
 
   return `<!doctype html>
 <html lang="en">
@@ -149,15 +161,12 @@ const buildRootLandingPage = (apiPrefix: string): string => {
             <b>Health</b>
             <code>${apiPrefix}/health</code>
           </div>
-          <div class="item">
-            <b>Swagger Docs</b>
-            <code>${docsPath}</code>
-          </div>
+${docsCard}
         </div>
 
         <div class="actions">
-          <a class="btn btn-primary" href="${docsPath}">Open Swagger UI</a>
-          <a class="btn btn-secondary" href="${apiPrefix}/health">Check Health Endpoint</a>
+${docsAction}
+          <a class="btn ${healthButtonClass}" href="${apiPrefix}/health">Check Health Endpoint</a>
         </div>
 
         <p class="foot">FalconFind API · Node + Express · REST</p>
@@ -167,11 +176,11 @@ const buildRootLandingPage = (apiPrefix: string): string => {
 </html>`;
 };
 
-export const createRootRouter = (apiPrefix: string): Router => {
+export const createRootRouter = (apiPrefix: string, enableSwagger: boolean): Router => {
   const router = Router();
 
   router.get('/', (_req, res) => {
-    res.status(200).type('html').send(buildRootLandingPage(apiPrefix));
+    res.status(200).type('html').send(buildRootLandingPage(apiPrefix, enableSwagger));
   });
 
   return router;
