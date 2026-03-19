@@ -1,1 +1,40 @@
-/* All styles are handled by Tailwind utility classes */
+.image-fallback {
+  position: relative;
+  display: flex;
+  height: 100%;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background:
+    linear-gradient(135deg, rgba(239, 243, 239, 0.95), rgba(226, 233, 227, 0.95)),
+    #eff3ef;
+}
+
+.image-fallback::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url('/SVG/Icon2.svg');
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: min(52%, 11rem);
+  opacity: 0.12;
+  transform: scale(1.08);
+}
+
+.image-fallback__message {
+  position: relative;
+  z-index: 1;
+  max-width: 11rem;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid rgba(126, 141, 128, 0.28);
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.78);
+  color: #4b5b4d;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-align: center;
+  backdrop-filter: blur(3px);
+}
