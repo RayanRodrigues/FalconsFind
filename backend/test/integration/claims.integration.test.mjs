@@ -23,6 +23,17 @@ const createFakeDb = ({ claims = {}, items = {}, reports = {} } = {}) => {
           get: async () => ({
             docs: Object.entries(claims).map(([id, claim]) => createDocSnapshot({ id, collectionName }, claim)),
           }),
+          where: (field, operator, value) => {
+            assert.equal(operator, '==');
+
+            return {
+              get: async () => ({
+                docs: Object.entries(claims)
+                  .filter(([, claim]) => claim[field] === value)
+                  .map(([id, claim]) => createDocSnapshot({ id, collectionName }, claim)),
+              }),
+            };
+          },
           doc: (id) => {
             if (id) {
               return {
@@ -366,6 +377,63 @@ test('POST /api/v1/claims returns 400 for invalid request payload', async () => 
 
   assert.equal(response.status, 400);
   assert.equal(response.body.error.code, 'BAD_REQUEST');
+});
+
+test('GET /api/v1/claims/me lists only the authenticated user claims', async () => {
+  const { db } = createFakeDb({
+    claims: {
+      'claim-1': {
+        itemId: 'report-1',
+        referenceCode: 'FND-2024-00001',
+        claimantUid: 'student-1',
+        itemName: 'Black backpack',
+        status: 'PENDING',
+        claimantName: 'Jane Doe',
+        claimantEmail: 'jane@example.com',
+        claimReason: 'This item belongs to me and I can identify what is inside.',
+        proofDetails: 'It has my initials and class notes inside.',
+        createdAt: '2026-03-18T10:00:00.000Z',
+      },
+      'claim-2': {
+        itemId: 'report-2',
+        referenceCode: 'FND-2024-00002',
+        claimantUid: 'student-1',
+        itemName: 'Laptop sleeve',
+        status: 'NEEDS_PROOF',
+        claimantName: 'Jane Doe',
+        claimantEmail: 'jane@example.com',
+        claimReason: 'I lost this sleeve after class.',
+        proofDetails: 'It contains my name card.',
+        additionalProofRequest: 'Please provide a photo of the sticker on the inside.',
+        proofRequestedAt: '2026-03-18T11:00:00.000Z',
+        createdAt: '2026-03-18T09:00:00.000Z',
+      },
+      'claim-3': {
+        itemId: 'report-3',
+        referenceCode: 'FND-2024-00003',
+        claimantUid: 'student-2',
+        itemName: 'Keys',
+        status: 'PENDING',
+        claimantName: 'Other User',
+        claimantEmail: 'other@example.com',
+        claimReason: 'Other claim reason',
+        proofDetails: 'Other proof details',
+        createdAt: '2026-03-18T08:00:00.000Z',
+      },
+    },
+  });
+
+  const response = await request(buildTestApp(db)).get('/api/v1/claims/me');
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.total, 2);
+  assert.equal(response.body.summary.totalClaims, 2);
+  assert.equal(response.body.summary.pendingClaims, 1);
+  assert.equal(response.body.summary.needsProofClaims, 1);
+  assert.equal(response.body.claims.length, 2);
+  assert.equal(response.body.claims[0].id, 'claim-1');
+  assert.equal(response.body.claims[1].id, 'claim-2');
+  assert.equal(response.body.claims[1].additionalProofRequest, 'Please provide a photo of the sticker on the inside.');
 });
 
 test('PATCH /api/v1/claims/:id/status approves a pending claim and marks the item as claimed', async () => {

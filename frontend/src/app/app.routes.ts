@@ -72,9 +72,15 @@ export const routes: Routes = [
     pathMatch: 'full'
   },
   {
-    path: 'claim-cancel',
+    path: 'my-claims',
     component: ClaimCancel,
-    title: 'Cancel Claim Request - FalconFind'
+    canActivate: [authenticatedUserGuard],
+    title: 'My Claims - FalconFind'
+  },
+  {
+    path: 'claim-cancel',
+    redirectTo: 'my-claims',
+    pathMatch: 'full'
   },
   {
     path: 'edit-report',

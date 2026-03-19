@@ -86,10 +86,12 @@ export class LoginComponent {
         return error.error.message;
       case 'FORBIDDEN':
         return 'This account is not authorized to sign in here.';
+      case 'AUTH_PROVIDER_UNAVAILABLE':
+        return 'Sign-in is temporarily unavailable. Please try again later.';
       case 'NETWORK_ERROR':
         return 'Network error occurred. Please check your connection.';
       default:
-        return error.error.message || 'Unable to sign in right now.';
+        return 'Unable to sign in right now.';
     }
   }
 }

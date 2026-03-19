@@ -3,7 +3,7 @@ import { Component, Inject, OnInit, PLATFORM_ID, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { finalize } from 'rxjs';
 import { ClaimStatus } from '../../../models';
-import type { Claim } from '../../../models';
+import type { Claim, ErrorResponse } from '../../../models';
 import { AdminClaimsApiService } from '../../../core/services/admin-claims-api.service';
 type ClaimRow = Claim & { proofInput?: string; isUpdating?: boolean };
 
@@ -142,8 +142,22 @@ export class AdminClaimsComponent implements OnInit {
       }))
       .subscribe({
         next: () => onSuccess(),
-        error: () => this.showToast('error', fallbackMessage),
+        error: (error: ErrorResponse) => this.showToast('error', this.mapClaimActionError(error, fallbackMessage)),
       });
+  }
+
+  private mapClaimActionError(error: ErrorResponse, fallbackMessage: string): string {
+    switch (error.error?.code) {
+      case 'CLAIM_STATUS_CONFLICT':
+        return 'This claim is no longer awaiting review. Refresh the dashboard to see its latest status.';
+      case 'NOT_FOUND':
+      case 'CLAIM_ITEM_NOT_FOUND':
+        return 'This claim or its related item could not be found anymore.';
+      case 'FORBIDDEN':
+        return 'You do not have permission to manage this claim.';
+      default:
+        return fallbackMessage;
+    }
   }
 
   private showToast(type: 'success' | 'error', message: string): void {

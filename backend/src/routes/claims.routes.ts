@@ -9,6 +9,7 @@ import type {
   CreateClaimRequest,
   RequestAdditionalProofRequest,
   UpdateClaimStatusRequest,
+  UserClaimsListResponse,
 } from '../contracts/index.js';
 import { UserRole } from '../contracts/index.js';
 import { API_PREFIX, HttpError } from './route-utils.js';
@@ -57,6 +58,7 @@ const claimsServiceModule = (await import(pathToFileURL(servicePath).href)) as {
   ClaimItemNotFoundError: new () => Error;
   ClaimItemNotEligibleError: new () => Error;
   listAdminClaims: (db: Firestore) => Promise<AdminClaimsListResponse>;
+  listClaimsForUser: (db: Firestore, uid: string) => Promise<UserClaimsListResponse>;
   createClaim: (
     db: Firestore,
     payload: CreateClaimRequest,
@@ -150,6 +152,17 @@ export const createClaimsRouter = (
 
       throw error;
     }
+  });
+
+  router.get(`${API_PREFIX}/claims/me`, requireAuthenticatedUser, async (_req, res) => {
+    const authUser = res.locals.authUser as { uid?: string } | undefined;
+    const uid = authUser?.uid?.trim();
+    if (!uid) {
+      throw new HttpError(401, 'AUTHENTICATION_REQUIRED', 'Authentication is required.');
+    }
+
+    const result = await claimsServiceModule.listClaimsForUser(db, uid);
+    res.status(200).json(result);
   });
 
   router.get(`${API_PREFIX}/admin/claims`, requireStaffUser, async (_req, res) => {

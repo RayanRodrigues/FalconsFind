@@ -51,6 +51,15 @@ import { UserRole } from '../../../models';
             >
               Claim Request
             </a>
+            @if (authSession()) {
+              <a
+                routerLink="/my-claims"
+                routerLinkActive="bg-primary/10 !text-primary"
+                class="rounded-lg px-3 py-1.5 text-sm font-medium text-text-secondary hover:bg-neutral-base hover:text-text-primary transition-colors"
+              >
+                My Claims
+              </a>
+            }
           </nav>
 
           <!-- Auth CTA (desktop) -->
@@ -135,6 +144,11 @@ import { UserRole } from '../../../models';
             <a routerLink="/claim-request" routerLinkActive="bg-primary/10 !text-primary" (click)="closeMenu()" class="rounded-lg px-3 py-2.5 text-sm font-medium text-text-secondary hover:bg-neutral-base hover:text-text-primary transition-colors">
               Claim Request
             </a>
+            @if (authSession()) {
+              <a routerLink="/my-claims" routerLinkActive="bg-primary/10 !text-primary" (click)="closeMenu()" class="rounded-lg px-3 py-2.5 text-sm font-medium text-text-secondary hover:bg-neutral-base hover:text-text-primary transition-colors">
+                My Claims
+              </a>
+            }
 
             <div class="border-t border-border/60 mt-1 pt-2">
               @if (studentSession()) {
@@ -178,13 +192,15 @@ export class NavbarComponent {
 
   menuOpen = signal(false);
 
+  readonly authSession = computed(() => this.authService.session());
+
   readonly studentSession = computed(() => {
-    const s = this.authService.session();
+    const s = this.authSession();
     return s?.user.role === UserRole.STUDENT ? s : null;
   });
 
   readonly isAdminSession = computed(() => {
-    const role = this.authService.session()?.user.role;
+    const role = this.authSession()?.user.role;
     return role === UserRole.ADMIN || role === UserRole.SECURITY;
   });
 

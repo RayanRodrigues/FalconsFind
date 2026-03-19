@@ -15,6 +15,7 @@ import type {
   CreateClaimRequest,
   RequestAdditionalProofRequest,
   Report,
+  UserClaimsListResponse,
 } from '../contracts/index.js';
 
 type StoredClaim = {
@@ -585,6 +586,86 @@ export const listAdminClaims = async (db: Firestore): Promise<AdminClaimsListRes
     snapshot.docs.map((doc) => mapStoredClaimToAdminClaim(db, doc.id, (doc.data() as StoredClaim | undefined) ?? {})),
   ))
     .filter((claim): claim is AdminClaimResponse => claim !== null)
+    .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+
+  return {
+    claims,
+    total: claims.length,
+    summary: {
+      totalClaims: claims.length,
+      pendingClaims: claims.filter((claim) => claim.status === ClaimStatus.PENDING).length,
+      needsProofClaims: claims.filter((claim) => claim.status === ClaimStatus.NEEDS_PROOF).length,
+      approvedClaims: claims.filter((claim) => claim.status === ClaimStatus.APPROVED).length,
+      rejectedClaims: claims.filter((claim) => claim.status === ClaimStatus.REJECTED).length,
+      cancelledClaims: claims.filter((claim) => claim.status === ClaimStatus.CANCELLED).length,
+    },
+  };
+};
+
+const mapStoredClaimToUserClaim = (
+  id: string,
+  data: StoredClaim,
+): Claim | null => {
+  const itemId = typeof data.itemId === 'string' ? data.itemId.trim() : '';
+  const claimantUid = typeof data.claimantUid === 'string' ? data.claimantUid.trim() : '';
+  const claimantName = typeof data.claimantName === 'string' ? data.claimantName.trim() : '';
+  const claimantEmail = typeof data.claimantEmail === 'string' ? data.claimantEmail.trim() : '';
+  const createdAt = typeof data.createdAt === 'string' ? data.createdAt.trim() : '';
+  const status = data.status;
+
+  if (!itemId || !claimantUid || !claimantName || !claimantEmail || !createdAt || !status) {
+    return null;
+  }
+
+  const legacyFields = extractLegacyClaimFields(data.message);
+  const referenceCode = typeof data.referenceCode === 'string' && data.referenceCode.trim()
+    ? data.referenceCode.trim()
+    : itemId;
+  const itemName = typeof data.itemName === 'string' && data.itemName.trim()
+    ? data.itemName.trim()
+    : 'Unknown item';
+  const claimReason = typeof data.claimReason === 'string' && data.claimReason.trim()
+    ? data.claimReason.trim()
+    : (legacyFields.claimReason || 'No claim reason provided.');
+  const proofDetails = typeof data.proofDetails === 'string' && data.proofDetails.trim()
+    ? data.proofDetails.trim()
+    : (legacyFields.proofDetails || 'No proof details provided.');
+  const phone = typeof data.phone === 'string' && data.phone.trim()
+    ? data.phone.trim()
+    : legacyFields.phone;
+
+  return {
+    id,
+    itemId,
+    claimantUid,
+    referenceCode,
+    itemName,
+    claimantName,
+    claimantEmail,
+    claimReason,
+    proofDetails,
+    phone,
+    status,
+    additionalProofRequest:
+      typeof data.additionalProofRequest === 'string' && data.additionalProofRequest.trim()
+        ? data.additionalProofRequest.trim()
+        : undefined,
+    proofRequestedAt:
+      typeof data.proofRequestedAt === 'string' && data.proofRequestedAt.trim()
+        ? data.proofRequestedAt.trim()
+        : undefined,
+    createdAt,
+  };
+};
+
+export const listClaimsForUser = async (
+  db: Firestore,
+  uid: string,
+): Promise<UserClaimsListResponse> => {
+  const snapshot = await db.collection('claims').where('claimantUid', '==', uid).get();
+  const claims = snapshot.docs
+    .map((doc) => mapStoredClaimToUserClaim(doc.id, (doc.data() as StoredClaim | undefined) ?? {}))
+    .filter((claim): claim is Claim => claim !== null)
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
 
   return {

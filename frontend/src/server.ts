@@ -63,7 +63,10 @@ const buildContentSecurityPolicy = (nonce: string): string => [
 const applyHtmlCspCompatibility = (html: string, nonce: string): string => {
   return html
     .replace(/ media="print" onload="this\.media='all'"/gi, '')
-    .replace(/<script /gi, `<script nonce="${nonce}" `);
+    .replace(/<script(?![^>]*\bnonce=)([^>]*)>/gi, (_match, attrs: string) => {
+      const normalizedAttrs = attrs ?? '';
+      return `<script nonce="${nonce}"${normalizedAttrs}>`;
+    });
 };
 
 app.use((req, res, next) => {

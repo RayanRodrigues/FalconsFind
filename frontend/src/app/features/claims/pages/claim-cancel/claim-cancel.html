@@ -1,60 +1,117 @@
-<div class="cancel-page">
-  <div class="cancel-card">
-    <h1>Cancel Claim Request</h1>
-    <p class="intro-text">
-      If you no longer want to proceed with your claim request, you can cancel it here.
-    </p>
-
-    @if (successMessage) {
-      <div class="message success-message">
-        {{ successMessage }}
-      </div>
-    }
-
-    @if (errorMessage) {
-      <div class="message error-message">
-        {{ errorMessage }}
-      </div>
-    }
-
-    <div class="claim-summary">
-      <h2>Claim Details</h2>
-      <p><strong>Claim ID:</strong> {{ claim.claimId }}</p>
-      <p><strong>Full Name:</strong> {{ claim.fullName }}</p>
-      <p><strong>Item Name:</strong> {{ claim.itemName }}</p>
-      <p><strong>Reference Code:</strong> {{ claim.referenceCode }}</p>
-      <p>
-        <strong>Status:</strong>
-        <span
-          class="status-badge"
-          [class.pending]="claim.status === 'Pending'"
-          [class.cancelled]="claim.status === 'Cancelled'"
-        >
-          {{ claim.status }}
-        </span>
+<div class="my-claims-page">
+  <div class="my-claims-shell">
+    <div class="my-claims-hero">
+      <p class="my-claims-eyebrow">Student Claims</p>
+      <h1>My Claim Requests</h1>
+      <p class="my-claims-intro">
+        Track your submitted claims, review proof requests from Campus Security, and cancel a request if you no longer need it.
       </p>
     </div>
 
-    <div class="cancel-section">
-      <label for="confirmationText">
-        Type <strong>CANCEL</strong> to confirm cancellation
-      </label>
-      <input
-        type="text"
-        id="confirmationText"
-        name="confirmationText"
-        [(ngModel)]="confirmationText"
-        placeholder="Type CANCEL"
-        [disabled]="claim.status === 'Cancelled'"
-      />
-
-      <button
-        type="button"
-        (click)="cancelClaim()"
-        [disabled]="isCancelling || claim.status === 'Cancelled'"
-      >
-        {{ isCancelling ? 'Cancelling...' : 'Cancel Claim Request' }}
-      </button>
+    <div class="my-claims-stats">
+      <div class="stats-card">
+        <p>Total</p>
+        <strong>{{ summary().totalClaims }}</strong>
+      </div>
+      <div class="stats-card">
+        <p>Pending</p>
+        <strong>{{ summary().pendingClaims }}</strong>
+      </div>
+      <div class="stats-card">
+        <p>Needs Proof</p>
+        <strong>{{ summary().needsProofClaims }}</strong>
+      </div>
+      <div class="stats-card">
+        <p>Resolved</p>
+        <strong>{{ summary().approvedClaims + summary().rejectedClaims + summary().cancelledClaims }}</strong>
+      </div>
     </div>
+
+    @if (successMessage()) {
+      <div class="message success-message">
+        {{ successMessage() }}
+      </div>
+    }
+
+    @if (errorMessage()) {
+      <div class="message error-message">
+        {{ errorMessage() }}
+      </div>
+    }
+
+    @if (loading()) {
+      <div class="claims-loading">
+        <p>Loading your claims…</p>
+      </div>
+    } @else if (claims().length === 0) {
+      <div class="claims-empty">
+        <h2>No claim requests yet</h2>
+        <p>Your submitted claims will appear here once you request an item.</p>
+      </div>
+    } @else {
+      <div class="claims-list">
+        @for (claim of claims(); track claim.id) {
+          <article class="claim-card">
+            <div class="claim-card__header">
+              <div>
+                <p class="claim-card__reference">{{ claim.referenceCode }}</p>
+                <h2>{{ claim.itemName }}</h2>
+              </div>
+              <span [class]="statusClass(claim.status)">{{ statusLabel(claim.status) }}</span>
+            </div>
+
+            <div class="claim-card__meta">
+              <div>
+                <span>Submitted</span>
+                <strong>{{ claim.createdAt | date: 'medium' }}</strong>
+              </div>
+              <div>
+                <span>Email</span>
+                <strong>{{ claim.claimantEmail }}</strong>
+              </div>
+              @if (claim.phone) {
+                <div>
+                  <span>Phone</span>
+                  <strong>{{ claim.phone }}</strong>
+                </div>
+              }
+            </div>
+
+            <div class="claim-card__section">
+              <h3>Claim Reason</h3>
+              <p>{{ claim.claimReason }}</p>
+            </div>
+
+            <div class="claim-card__section">
+              <h3>Proof of Ownership</h3>
+              <p>{{ claim.proofDetails }}</p>
+            </div>
+
+            @if (claim.additionalProofRequest) {
+              <div class="claim-proof-request">
+                <p class="claim-proof-request__label">Additional proof requested</p>
+                <p class="claim-proof-request__message">{{ claim.additionalProofRequest }}</p>
+                @if (claim.proofRequestedAt) {
+                  <p class="claim-proof-request__time">Requested on {{ claim.proofRequestedAt | date: 'medium' }}</p>
+                }
+              </div>
+            }
+
+            @if (canCancel(claim)) {
+              <div class="claim-card__actions">
+                <button
+                  type="button"
+                  class="cancel-button"
+                  (click)="cancelClaim(claim)"
+                  [disabled]="claim.isCancelling"
+                >
+                  {{ claim.isCancelling ? 'Cancelling…' : 'Cancel Claim Request' }}
+                </button>
+              </div>
+            }
+          </article>
+        }
+      </div>
+    }
   </div>
 </div>

@@ -18,6 +18,7 @@ export * from './dtos/admin-report.response.dto.js';
 export * from './dtos/admin-reports-list.response.dto.js';
 export * from './dtos/admin-claim.response.dto.js';
 export * from './dtos/admin-claims-list.response.dto.js';
+export * from './dtos/user-claims-list.response.dto.js';
 export * from './dtos/create-claim.request.dto.js';
 export * from './dtos/request-additional-proof.request.dto.js';
 export * from './dtos/update-claim-status.request.dto.js';

@@ -109,8 +109,10 @@ export class RegisterComponent {
         return 'Too many attempts. Please try again later.';
       case 'REGISTRATION_FAILED':
         return 'Registration failed. Please try again.';
+      case 'NETWORK_ERROR':
+        return 'Network error occurred. Please check your connection.';
       default:
-        return error.error?.message || 'Unable to create account right now.';
+        return 'Unable to create account right now.';
     }
   }
 }
