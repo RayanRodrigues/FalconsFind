@@ -761,6 +761,38 @@ test('GET /api/v1/admin/claims lists structured claims for the admin dashboard',
   assert.equal(response.body.claims[1].additionalProofRequest, 'Please describe the sticker.');
 });
 
+test('GET /api/v1/admin/claims includes student proof responses after proof is submitted', async () => {
+  const { db } = createFakeDb({
+    claims: {
+      'claim-proof-admin-1': {
+        itemId: 'item-proof-admin-1',
+        referenceCode: 'FND-2024-00999',
+        claimantUid: 'student-1',
+        itemName: 'Black water bottle',
+        status: 'PENDING',
+        claimantName: 'Jane Doe',
+        claimantEmail: 'jane@example.com',
+        claimReason: 'I lost this bottle after class and can describe the stickers on it.',
+        proofDetails: 'There is a silver cap and a blue Falcons sticker near the base.',
+        additionalProofRequest: 'Please share a photo of the sticker near the base.',
+        proofRequestedAt: '2026-03-18T10:00:00.000Z',
+        proofResponseMessage: 'Here is the bottle with the blue sticker and silver cap you asked for.',
+        proofResponsePhotoUrls: ['gs://test-bucket/claims/proof-photo-1.jpg'],
+        proofRespondedAt: '2026-03-18T11:00:00.000Z',
+        createdAt: '2026-03-18T09:00:00.000Z',
+      },
+    },
+  });
+
+  const response = await request(buildTestApp(db))
+    .get('/api/v1/admin/claims');
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.claims[0].proofResponseMessage, 'Here is the bottle with the blue sticker and silver cap you asked for.');
+  assert.match(response.body.claims[0].proofResponsePhotoUrls[0], /^https:\/\/signed\.local\/claims\//);
+  assert.equal(response.body.claims[0].proofRespondedAt, '2026-03-18T11:00:00.000Z');
+});
+
 test('GET /api/v1/admin/claims lists legacy claims stored with message-only fields', async () => {
   const { db } = createFakeDb({
     reports: {

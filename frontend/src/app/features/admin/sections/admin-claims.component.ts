@@ -1,5 +1,5 @@
 import { CommonModule, isPlatformBrowser } from '@angular/common';
-import { Component, Inject, OnInit, PLATFORM_ID, signal } from '@angular/core';
+import { Component, Inject, OnDestroy, OnInit, PLATFORM_ID, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { finalize } from 'rxjs';
 import { ClaimStatus } from '../../../models';
@@ -13,7 +13,7 @@ type ClaimRow = Claim & { proofInput?: string; isUpdating?: boolean };
   imports: [CommonModule, FormsModule],
   templateUrl: './admin-claims.component.html',
 })
-export class AdminClaimsComponent implements OnInit {
+export class AdminClaimsComponent implements OnInit, OnDestroy {
   readonly toast = signal<{ type: 'success' | 'error'; message: string } | null>(null);
   readonly loading = signal(true);
   readonly error = signal('');
@@ -21,6 +21,7 @@ export class AdminClaimsComponent implements OnInit {
   expandedId: string | null = null;
   claims: ClaimRow[] = [];
   archivedIds = new Set<string>();
+  private refreshTimer: number | null = null;
 
   constructor(
     private readonly adminClaimsApi: AdminClaimsApiService,
@@ -31,10 +32,15 @@ export class AdminClaimsComponent implements OnInit {
     if (isPlatformBrowser(this.platformId)) {
       this.loadArchivedIds();
       this.load();
+      this.startAutoRefresh();
       return;
     }
 
     this.loading.set(false);
+  }
+
+  ngOnDestroy(): void {
+    this.stopAutoRefresh();
   }
 
   get stats() {
@@ -52,21 +58,36 @@ export class AdminClaimsComponent implements OnInit {
     return this.claims.filter((claim) => this.showArchived() || !this.archivedIds.has(claim.id));
   }
 
-  load(): void {
-    this.loading.set(true);
+  load(showSpinner = true): void {
+    if (showSpinner) {
+      this.loading.set(true);
+    }
+
     this.error.set('');
     this.adminClaimsApi.listClaims()
-      .pipe(finalize(() => this.loading.set(false)))
+      .pipe(finalize(() => {
+        if (showSpinner) {
+          this.loading.set(false);
+        }
+      }))
       .subscribe({
         next: (response) => {
+          const previousClaims = new Map(this.claims.map((claim) => [claim.id, claim]));
           this.claims = (response.claims ?? []).map((claim) => ({
             ...claim,
-            proofInput: '',
-            isUpdating: false,
+            proofInput: previousClaims.get(claim.id)?.proofInput ?? '',
+            isUpdating: previousClaims.get(claim.id)?.isUpdating ?? false,
           }));
+
+          if (this.expandedId && !this.claims.some((claim) => claim.id === this.expandedId)) {
+            this.expandedId = null;
+          }
         },
         error: () => {
           this.error.set('Failed to load claim requests.');
+          if (showSpinner) {
+            this.loading.set(false);
+          }
         },
       });
   }
@@ -235,5 +256,22 @@ export class AdminClaimsComponent implements OnInit {
       'falconfind.admin.claims.archived',
       JSON.stringify(Array.from(this.archivedIds)),
     );
+  }
+
+  private startAutoRefresh(): void {
+    if (!isPlatformBrowser(this.platformId) || this.refreshTimer !== null) {
+      return;
+    }
+
+    this.refreshTimer = window.setInterval(() => {
+      this.load(false);
+    }, 15000);
+  }
+
+  private stopAutoRefresh(): void {
+    if (this.refreshTimer !== null && isPlatformBrowser(this.platformId)) {
+      window.clearInterval(this.refreshTimer);
+      this.refreshTimer = null;
+    }
   }
 }
