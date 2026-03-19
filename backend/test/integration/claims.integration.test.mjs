@@ -528,6 +528,40 @@ test('GET /api/v1/admin/claims lists structured claims for the admin dashboard',
   assert.equal(response.body.claims[1].additionalProofRequest, 'Please describe the sticker.');
 });
 
+test('GET /api/v1/admin/claims lists legacy claims stored with message-only fields', async () => {
+  const { db } = createFakeDb({
+    reports: {
+      'report-legacy': {
+        kind: 'FOUND',
+        title: 'Black Backpack',
+        referenceCode: 'FF-LEGACY-001',
+        status: 'VALIDATED',
+      },
+    },
+    claims: {
+      'claim-legacy': {
+        itemId: 'report-legacy',
+        claimantName: 'Rayan Teste',
+        claimantEmail: 'rayan@email.com',
+        message: 'I can describe the item and where I lost it.',
+        status: 'PENDING',
+        createdAt: '2026-03-16T04:40:13.963Z',
+      },
+    },
+  });
+
+  const response = await request(buildTestApp(db))
+    .get('/api/v1/admin/claims');
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.total, 1);
+  assert.equal(response.body.claims[0].id, 'claim-legacy');
+  assert.equal(response.body.claims[0].referenceCode, 'FF-LEGACY-001');
+  assert.equal(response.body.claims[0].itemName, 'Black Backpack');
+  assert.equal(response.body.claims[0].claimReason, 'I can describe the item and where I lost it.');
+  assert.equal(response.body.claims[0].proofDetails, 'No proof details provided.');
+});
+
 test('PATCH /api/v1/claims/:id/proof-request stores the additional proof request and marks the claim as NEEDS_PROOF', async () => {
   const { db, claims, items } = createFakeDb({
     items: {

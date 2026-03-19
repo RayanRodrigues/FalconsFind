@@ -14,6 +14,7 @@ import type {
   Claim,
   CreateClaimRequest,
   RequestAdditionalProofRequest,
+  Report,
 } from '../contracts/index.js';
 
 type StoredClaim = {
@@ -31,6 +32,7 @@ type StoredClaim = {
   reviewedAt?: string;
   additionalProofRequest?: string;
   proofRequestedAt?: string;
+  message?: string;
 };
 
 type StoredItem = {
@@ -41,6 +43,8 @@ type StoredItem = {
 
 type StoredItemLike = {
   id: string;
+  title?: string;
+  referenceCode?: string;
   reportId?: string;
   status?: ItemStatus;
   kind?: string;
@@ -236,6 +240,89 @@ const resolveTargetItemStatus = (
 
 const isClaimAwaitingReview = (status: ClaimStatus | undefined): boolean => {
   return status === ClaimStatus.PENDING || status === ClaimStatus.NEEDS_PROOF;
+};
+
+const extractLegacyClaimFields = (
+  message?: string,
+): Pick<AdminClaimResponse, 'claimReason' | 'proofDetails' | 'phone'> => {
+  if (!message?.trim()) {
+    return {
+      claimReason: '',
+      proofDetails: '',
+    };
+  }
+
+  const lines = message
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  let claimReason = '';
+  let proofDetails = '';
+  let phone: string | undefined;
+
+  for (const line of lines) {
+    if (line.startsWith('Claim Reason:')) {
+      claimReason = line.slice('Claim Reason:'.length).trim();
+      continue;
+    }
+
+    if (line.startsWith('Proof of Ownership:')) {
+      proofDetails = line.slice('Proof of Ownership:'.length).trim();
+      continue;
+    }
+
+    if (line.startsWith('Phone:')) {
+      const value = line.slice('Phone:'.length).trim();
+      phone = value || undefined;
+    }
+  }
+
+  if (!claimReason && !proofDetails) {
+    claimReason = message.trim();
+  }
+
+  return {
+    claimReason,
+    proofDetails,
+    phone,
+  };
+};
+
+const getRelatedItemMetadata = async (
+  db: Firestore,
+  itemId: string,
+): Promise<{ referenceCode?: string; itemName?: string }> => {
+  const directItemRef = db.collection('items').doc(itemId);
+  const directItemSnap = await directItemRef.get();
+  if (directItemSnap.exists) {
+    const data = directItemSnap.data() as StoredItemLike | undefined;
+    return {
+      referenceCode: data?.referenceCode,
+      itemName: data?.title,
+    };
+  }
+
+  const byReportIdSnap = await db.collection('items').where('reportId', '==', itemId).limit(1).get();
+  if (!byReportIdSnap.empty) {
+    const data = byReportIdSnap.docs[0].data() as StoredItemLike | undefined;
+    return {
+      referenceCode: data?.referenceCode,
+      itemName: data?.title,
+    };
+  }
+
+  const legacyReportRef = db.collection('reports').doc(itemId);
+  const legacyReportSnap = await legacyReportRef.get();
+  if (legacyReportSnap.exists) {
+    const data = legacyReportSnap.data() as Report | undefined;
+    return {
+      referenceCode: data?.referenceCode,
+      itemName: data?.title,
+    };
+  }
+
+  return {};
 };
 
 export const createClaim = async (
@@ -436,33 +523,38 @@ export const cancelClaim = async (
   });
 };
 
-const mapStoredClaimToAdminClaim = (
+const mapStoredClaimToAdminClaim = async (
+  db: Firestore,
   id: string,
   data: StoredClaim,
-): AdminClaimResponse | null => {
-  const referenceCode = typeof data.referenceCode === 'string' ? data.referenceCode.trim() : '';
+): Promise<AdminClaimResponse | null> => {
   const itemId = typeof data.itemId === 'string' ? data.itemId.trim() : '';
-  const itemName = typeof data.itemName === 'string' ? data.itemName.trim() : '';
   const claimantName = typeof data.claimantName === 'string' ? data.claimantName.trim() : '';
   const claimantEmail = typeof data.claimantEmail === 'string' ? data.claimantEmail.trim() : '';
-  const claimReason = typeof data.claimReason === 'string' ? data.claimReason.trim() : '';
-  const proofDetails = typeof data.proofDetails === 'string' ? data.proofDetails.trim() : '';
   const createdAt = typeof data.createdAt === 'string' ? data.createdAt.trim() : '';
   const status = data.status;
 
-  if (
-    !referenceCode ||
-    !itemId ||
-    !itemName ||
-    !claimantName ||
-    !claimantEmail ||
-    !claimReason ||
-    !proofDetails ||
-    !createdAt ||
-    !status
-  ) {
+  if (!itemId || !claimantName || !claimantEmail || !createdAt || !status) {
     return null;
   }
+
+  const relatedItem = await getRelatedItemMetadata(db, itemId);
+  const legacyFields = extractLegacyClaimFields(data.message);
+  const referenceCode = typeof data.referenceCode === 'string' && data.referenceCode.trim()
+    ? data.referenceCode.trim()
+    : (relatedItem.referenceCode?.trim() || itemId);
+  const itemName = typeof data.itemName === 'string' && data.itemName.trim()
+    ? data.itemName.trim()
+    : (relatedItem.itemName?.trim() || 'Unknown item');
+  const claimReason = typeof data.claimReason === 'string' && data.claimReason.trim()
+    ? data.claimReason.trim()
+    : (legacyFields.claimReason || 'No claim reason provided.');
+  const proofDetails = typeof data.proofDetails === 'string' && data.proofDetails.trim()
+    ? data.proofDetails.trim()
+    : (legacyFields.proofDetails || 'No proof details provided.');
+  const phone = typeof data.phone === 'string' && data.phone.trim()
+    ? data.phone.trim()
+    : legacyFields.phone;
 
   return {
     id,
@@ -473,7 +565,7 @@ const mapStoredClaimToAdminClaim = (
     claimantEmail,
     claimReason,
     proofDetails,
-    phone: typeof data.phone === 'string' && data.phone.trim() ? data.phone.trim() : undefined,
+    phone,
     status,
     additionalProofRequest:
       typeof data.additionalProofRequest === 'string' && data.additionalProofRequest.trim()
@@ -489,8 +581,9 @@ const mapStoredClaimToAdminClaim = (
 
 export const listAdminClaims = async (db: Firestore): Promise<AdminClaimsListResponse> => {
   const snapshot = await db.collection('claims').get();
-  const claims = snapshot.docs
-    .map((doc) => mapStoredClaimToAdminClaim(doc.id, (doc.data() as StoredClaim | undefined) ?? {}))
+  const claims = (await Promise.all(
+    snapshot.docs.map((doc) => mapStoredClaimToAdminClaim(db, doc.id, (doc.data() as StoredClaim | undefined) ?? {})),
+  ))
     .filter((claim): claim is AdminClaimResponse => claim !== null)
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
 
