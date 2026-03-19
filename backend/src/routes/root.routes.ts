@@ -9,6 +9,11 @@ const buildRootLandingPage = (apiPrefix: string): string => {
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>FalconFind API</title>
+    <meta
+      name="description"
+      content="FalconFind API for campus lost-and-found reports, claims, and item operations."
+    />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <style>
       :root {
         --bg-a: #0f2f3a;

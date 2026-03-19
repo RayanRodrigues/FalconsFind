@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">FalconFind social preview</title>
+  <desc id="desc">FalconFind brand preview with the primary search icon, app name, and product description.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f2f3a" />
+      <stop offset="100%" stop-color="#133f4b" />
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="40%" r="55%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.16" />
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)" rx="32" ry="32" />
+  <rect width="1200" height="630" fill="url(#glow)" rx="32" ry="32" />
+
+  <circle cx="965" cy="125" r="165" fill="#ffffff" fill-opacity="0.05" />
+  <circle cx="170" cy="540" r="210" fill="#b9375d" fill-opacity="0.08" />
+
+  <g transform="translate(88 84)">
+    <rect x="0" y="0" width="196" height="196" rx="52" ry="52" fill="#f6f4f2" fill-opacity="0.97" />
+    <g transform="translate(36 36) scale(6.55)">
+      <path fill="#b9375d" d="M18.86,9.35a9.41,9.41,0,0,1-8.24,9.4,9.29,9.29,0,0,1-6.31-1.43c-.21-.14-.32-.11-.48.08-.36.43-.75.84-1.12,1.27-.14.16-.25.17-.41,0L.92,17.46c-.16-.14-.17-.26,0-.42.38-.41.74-.84,1.13-1.23a.35.35,0,0,0,0-.56,8.53,8.53,0,0,1-2-4.43A9.14,9.14,0,0,1,2.77,2.75,9.18,9.18,0,0,1,10,0a9.4,9.4,0,0,1,8.72,7.77A6.6,6.6,0,0,1,18.86,9.35ZM9.41,1.23a8.2,8.2,0,1,0,0,16.39,8.16,8.16,0,0,0,8.24-8.15A8.12,8.12,0,0,0,9.41,1.23Z"/>
+      <path fill="#b9375d" d="M17.18,9.4A7.75,7.75,0,1,1,9.33,1.7,7.75,7.75,0,0,1,17.18,9.4ZM9.42,16.3a6.89,6.89,0,1,0-6.9-7A6.89,6.89,0,0,0,9.42,16.3Z"/>
+      <path fill="#b9375d" d="M14,9.3A4.53,4.53,0,1,1,9.48,4.8,4.55,4.55,0,0,1,14,9.3Zm-1.16.09A3.38,3.38,0,1,0,9.3,12.7,3.4,3.4,0,0,0,12.8,9.39Z"/>
+      <path fill="#b9375d" d="M9.45,7.1a2.28,2.28,0,0,1,2.22,2.22,2.28,2.28,0,0,1-2.22,2.24,2.25,2.25,0,0,1-2.12-3c.11-.3.16-.31.38-.08a.64.64,0,0,0,1,.11.74.74,0,0,0,.05-1c-.2-.25-.19-.31.13-.38A5.21,5.21,0,0,1,9.45,7.1Z"/>
+    </g>
+  </g>
+
+  <text x="88" y="360" fill="#f7f3ef" font-family="Avenir Next, Inter, Segoe UI, Arial, sans-serif" font-size="88" font-weight="700" letter-spacing="1.2">
+    FalconFind
+  </text>
+  <text x="88" y="428" fill="#d9e2e5" font-family="Avenir Next, Inter, Segoe UI, Arial, sans-serif" font-size="30" font-weight="500">
+    Campus lost-and-found reports, claims, and item recovery in one place.
+  </text>
+  <text x="88" y="496" fill="#f1b7c8" font-family="Avenir Next, Inter, Segoe UI, Arial, sans-serif" font-size="23" font-weight="700" letter-spacing="5">
+    REPORT · DISCOVER · RECLAIM
+  </text>
+</svg>
