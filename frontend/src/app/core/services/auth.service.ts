@@ -36,6 +36,10 @@ export class AuthService {
     this.clearSession();
   }
 
+  clearStoredSession(): void {
+    this.clearSession();
+  }
+
   getStoredSession(): LoginResponse | null {
     return this.session();
   }

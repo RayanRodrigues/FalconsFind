@@ -15,7 +15,7 @@ type AuthDependencies = {
 };
 
 const isUserRole = (value: unknown): value is UserRole =>
-  value === UserRole.ADMIN || value === UserRole.SECURITY;
+  value === UserRole.ADMIN || value === UserRole.SECURITY || value === UserRole.STUDENT;
 
 const defaultDependencies: AuthDependencies = {
   verifyIdToken: async (token, checkRevoked) => admin.auth().verifyIdToken(token, checkRevoked),

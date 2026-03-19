@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { provideRouter, Router } from '@angular/router';
+import { ActivatedRoute, provideRouter, Router, convertToParamMap } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 import { AuthService } from '../../../core/services/auth.service';
@@ -9,10 +9,16 @@ describe('LoginComponent', () => {
   let component: LoginComponent;
   let authService: Pick<AuthService, 'login'>;
   let router: Router;
+  let activatedRoute: { snapshot: { queryParamMap: ReturnType<typeof convertToParamMap> } };
 
   beforeEach(async () => {
     authService = {
       login: vi.fn(),
+    };
+    activatedRoute = {
+      snapshot: {
+        queryParamMap: convertToParamMap({}),
+      },
     };
 
     await TestBed.configureTestingModule({
@@ -20,6 +26,7 @@ describe('LoginComponent', () => {
       providers: [
         provideRouter([]),
         { provide: AuthService, useValue: authService },
+        { provide: ActivatedRoute, useValue: activatedRoute },
       ],
     }).compileComponents();
 
@@ -56,6 +63,34 @@ describe('LoginComponent', () => {
       password: 'secret',
     });
     expect(router.navigateByUrl).toHaveBeenCalledWith('/admin/dashboard');
+  });
+
+  it('redirects staff users back to claim-request when login started from that protected route', async () => {
+    activatedRoute.snapshot.queryParamMap = convertToParamMap({ returnUrl: '/claim-request' });
+    const fixture = TestBed.createComponent(LoginComponent);
+    fixture.detectChanges();
+
+    (authService.login as ReturnType<typeof vi.fn>).mockReturnValue(of({
+      idToken: 'id-token',
+      refreshToken: 'refresh-token',
+      expiresIn: 3600,
+      user: {
+        uid: 'uid-123',
+        email: 'security@fanshawe.ca',
+        role: 'SECURITY',
+      },
+    }));
+
+    const routedComponent = fixture.componentInstance;
+    routedComponent.form.patchValue({
+      email: 'security@fanshawe.ca',
+      password: 'secret',
+    });
+
+    routedComponent.submit();
+    await Promise.resolve();
+
+    expect(router.navigateByUrl).toHaveBeenCalledWith('/claim-request');
   });
 
   it('redirects student users to the student-safe default destination', async () => {

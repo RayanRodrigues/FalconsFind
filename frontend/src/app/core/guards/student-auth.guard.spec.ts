@@ -3,9 +3,9 @@ import { Router, provideRouter } from '@angular/router';
 import { vi } from 'vitest';
 import { UserRole } from '../../models';
 import { AuthService } from '../services/auth.service';
-import { adminAuthGuard } from './admin-auth.guard';
+import { authenticatedUserGuard } from './student-auth.guard';
 
-describe('adminAuthGuard', () => {
+describe('authenticatedUserGuard', () => {
   let authService: Pick<AuthService, 'getStoredSession'>;
   let router: Router;
 
@@ -24,12 +24,33 @@ describe('adminAuthGuard', () => {
     router = TestBed.inject(Router);
   });
 
-  it('redirects unauthenticated users to /login', () => {
+  it('redirects unauthenticated users to login with a returnUrl', () => {
     (authService.getStoredSession as ReturnType<typeof vi.fn>).mockReturnValue(null);
 
-    const result = TestBed.runInInjectionContext(() => adminAuthGuard({} as never, {} as never));
+    const result = TestBed.runInInjectionContext(() =>
+      authenticatedUserGuard({ url: [{ path: 'claim-request' }] } as never, {} as never)
+    );
 
-    expect(result).toEqual(router.parseUrl('/login'));
+    expect(result).toEqual(router.parseUrl('/login?returnUrl=/claim-request'));
+  });
+
+  it('allows authenticated students', () => {
+    (authService.getStoredSession as ReturnType<typeof vi.fn>).mockReturnValue({
+      idToken: 'token',
+      refreshToken: 'refresh',
+      expiresIn: 3600,
+      user: {
+        uid: 'uid-1',
+        email: 'student@fanshawe.ca',
+        role: UserRole.STUDENT,
+      },
+    });
+
+    const result = TestBed.runInInjectionContext(() =>
+      authenticatedUserGuard({ url: [{ path: 'claim-request' }] } as never, {} as never)
+    );
+
+    expect(result).toBe(true);
   });
 
   it('allows authenticated staff users', () => {
@@ -38,31 +59,16 @@ describe('adminAuthGuard', () => {
       refreshToken: 'refresh',
       expiresIn: 3600,
       user: {
-        uid: 'uid-1',
-        email: 'security@fanshawe.ca',
-        role: UserRole.SECURITY,
+        uid: 'uid-2',
+        email: 'admin@fanshawe.ca',
+        role: UserRole.ADMIN,
       },
     });
 
-    const result = TestBed.runInInjectionContext(() => adminAuthGuard({} as never, {} as never));
+    const result = TestBed.runInInjectionContext(() =>
+      authenticatedUserGuard({ url: [{ path: 'claim-request' }] } as never, {} as never)
+    );
 
     expect(result).toBe(true);
-  });
-
-  it('redirects non-staff users to their role home without logging them out', () => {
-    (authService.getStoredSession as ReturnType<typeof vi.fn>).mockReturnValue({
-      idToken: 'token',
-      refreshToken: 'refresh',
-      expiresIn: 3600,
-      user: {
-        uid: 'uid-2',
-        email: 'student@fanshawe.ca',
-        role: 'STUDENT' as unknown as UserRole,
-      } as never,
-    });
-
-    const result = TestBed.runInInjectionContext(() => adminAuthGuard({} as never, {} as never));
-
-    expect(result).toEqual(router.parseUrl('/claim-request'));
   });
 });

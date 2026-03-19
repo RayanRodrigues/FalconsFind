@@ -11,7 +11,7 @@ import { LoginComponent } from './features/auth/login/login.component';
 import { RegisterComponent } from './features/auth/register/register.component';
 import { AdminDashboardComponent } from './features/admin/admin-dashboard.component';
 import { adminAuthGuard } from './core/guards/admin-auth.guard';
-import { studentAuthGuard } from './core/guards/student-auth.guard';
+import { authenticatedUserGuard } from './core/guards/student-auth.guard';
 
 export const routes: Routes = [
   {
@@ -47,7 +47,7 @@ export const routes: Routes = [
   {
     path: 'claim-request',
     component: ClaimRequest,
-    canActivate: [studentAuthGuard],
+    canActivate: [authenticatedUserGuard],
     title: 'Claim Request - FalconFind'
   },
   {

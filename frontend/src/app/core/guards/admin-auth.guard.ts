@@ -2,6 +2,7 @@ import { inject } from '@angular/core';
 import type { CanActivateFn } from '@angular/router';
 import { Router } from '@angular/router';
 import { UserRole } from '../../models';
+import { resolveRoleHomePath } from '../../features/auth/auth-navigation';
 import { AuthService } from '../services/auth.service';
 
 export const adminAuthGuard: CanActivateFn = () => {
@@ -14,8 +15,7 @@ export const adminAuthGuard: CanActivateFn = () => {
   }
 
   if (session.user.role !== UserRole.ADMIN && session.user.role !== UserRole.SECURITY) {
-    authService.logout();
-    return router.parseUrl('/login');
+    return router.parseUrl(resolveRoleHomePath(session.user.role));
   }
 
   return true;

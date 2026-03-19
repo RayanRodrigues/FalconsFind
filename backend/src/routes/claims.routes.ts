@@ -106,7 +106,7 @@ const getSingleRouteParam = (value: string | string[] | undefined): string => (
 
 type ClaimsRouterOptions = {
   requireStaffUser?: RequestHandler;
-  requireStudentUser?: RequestHandler;
+  requireAuthenticatedUser?: RequestHandler;
   requireClaimAccessUser?: RequestHandler;
 };
 
@@ -116,10 +116,10 @@ export const createClaimsRouter = (
 ): Router => {
   const router = Router();
   const requireStaffUser = options.requireStaffUser ?? createRequireStaffRoles(db, [UserRole.ADMIN, UserRole.SECURITY]);
-  const requireStudentUser = options.requireStudentUser ?? createRequireStaffRoles(db, [UserRole.STUDENT]);
+  const requireAuthenticatedUser = options.requireAuthenticatedUser ?? createRequireStaffRoles(db, [UserRole.ADMIN, UserRole.SECURITY, UserRole.STUDENT]);
   const requireClaimAccessUser = options.requireClaimAccessUser ?? createRequireStaffRoles(db, [UserRole.ADMIN, UserRole.SECURITY, UserRole.STUDENT]);
 
-  router.post(`${API_PREFIX}/claims`, requireStudentUser, async (req, res) => {
+  router.post(`${API_PREFIX}/claims`, requireAuthenticatedUser, async (req, res) => {
     const authUser = res.locals.authUser as { uid?: string; email?: string | null } | undefined;
     const uid = authUser?.uid?.trim();
     if (!uid) {

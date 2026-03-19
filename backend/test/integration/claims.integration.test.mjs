@@ -139,7 +139,7 @@ const buildTestApp = (db) => {
   app.use(express.json());
   app.use(createClaimsRouter(db, {
     requireStaffUser: (_req, _res, next) => next(),
-    requireStudentUser: (_req, res, next) => {
+    requireAuthenticatedUser: (_req, res, next) => {
       res.locals.authUser = {
         uid: 'student-1',
         email: 'jane@example.com',
@@ -227,6 +227,57 @@ test('POST /api/v1/claims creates a pending claim when item is in the items coll
   assert.equal(savedClaims[0].data.status, 'PENDING');
   assert.equal(savedClaims[0].data.claimantUid, 'student-1');
   assert.equal(savedClaims[0].data.claimantEmail, 'jane@example.com');
+});
+
+test('POST /api/v1/claims also allows authenticated admin users to create a claim', async () => {
+  const { db, savedClaims } = createFakeDb({
+    reports: {
+      'report-4': {
+        kind: 'FOUND',
+        status: 'VALIDATED',
+        referenceCode: 'FF-2024-00100',
+      },
+    },
+  });
+
+  const app = express();
+  app.use(express.json());
+  app.use(createClaimsRouter(db, {
+    requireStaffUser: (_req, _res, next) => next(),
+    requireAuthenticatedUser: (_req, res, next) => {
+      res.locals.authUser = {
+        uid: 'admin-1',
+        email: 'admin@fanshawe.ca',
+        role: 'ADMIN',
+      };
+      next();
+    },
+    requireClaimAccessUser: (_req, res, next) => {
+      res.locals.authUser = {
+        uid: 'admin-1',
+        email: 'admin@fanshawe.ca',
+        role: 'ADMIN',
+      };
+      next();
+    },
+  }));
+  app.use(notFoundHandler);
+  app.use(errorHandler);
+
+  const response = await request(app)
+    .post('/api/v1/claims')
+    .send({
+      referenceCode: 'FF-2024-00100',
+      itemName: 'Black jacket',
+      claimReason: 'I can identify where I left this and the personal items inside the pocket.',
+      proofDetails: 'There is a silver keychain on the zipper and my work badge in the sleeve.',
+      claimantName: 'Admin User',
+      claimantEmail: 'someone-else@example.com',
+    });
+
+  assert.equal(response.status, 201);
+  assert.equal(savedClaims[0].data.claimantUid, 'admin-1');
+  assert.equal(savedClaims[0].data.claimantEmail, 'admin@fanshawe.ca');
 });
 
 test('POST /api/v1/claims returns 404 when no item has that referenceCode', async () => {
