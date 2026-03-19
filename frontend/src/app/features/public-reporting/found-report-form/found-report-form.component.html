@@ -62,6 +62,19 @@
                 />
               </app-form-field>
 
+              <app-form-field id="category" label="Category" [required]="true" [error]="getFieldError('category')">
+                <app-select
+                  id="category"
+                  formControlName="category"
+                  placeholder="Select a category"
+                  [invalid]="isFieldInvalid('category')"
+                >
+                  @for (category of categories; track category) {
+                    <option [value]="category">{{ category }}</option>
+                  }
+                </app-select>
+              </app-form-field>
+
               <app-form-field id="description" label="Description" [required]="true" [error]="getFieldError('description')">
                 <app-textarea
                   id="description"
