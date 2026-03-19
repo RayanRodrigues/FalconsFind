@@ -7,12 +7,27 @@ import type {
   QuerySnapshot,
   Transaction,
 } from 'firebase-admin/firestore';
-import { ClaimStatus, ItemStatus } from '../contracts/index.js';
-import type { Claim, CreateClaimRequest, RequestAdditionalProofRequest } from '../contracts/index.js';
+import { ClaimStatus, ItemStatus, UserRole } from '../contracts/index.js';
+import type {
+  AdminClaimsListResponse,
+  AdminClaimResponse,
+  Claim,
+  CreateClaimRequest,
+  RequestAdditionalProofRequest,
+} from '../contracts/index.js';
 
 type StoredClaim = {
   itemId?: string;
+  referenceCode?: string;
+  claimantUid?: string;
+  itemName?: string;
   status?: ClaimStatus;
+  claimantName?: string;
+  claimantEmail?: string;
+  claimReason?: string;
+  proofDetails?: string;
+  phone?: string;
+  createdAt?: string;
   reviewedAt?: string;
   additionalProofRequest?: string;
   proofRequestedAt?: string;
@@ -82,6 +97,11 @@ type ClaimCancellationResult = {
   itemStatus: ItemStatus;
 };
 
+type ClaimActor = {
+  uid: string;
+  role: UserRole;
+};
+
 export class ClaimNotFoundError extends Error {
   constructor() {
     super('Claim not found');
@@ -107,6 +127,13 @@ export class ClaimItemNotEligibleError extends Error {
   constructor() {
     super('This item is not eligible for claim requests.');
     this.name = 'ClaimItemNotEligibleError';
+  }
+}
+
+export class ClaimForbiddenError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ClaimForbiddenError';
   }
 }
 
@@ -214,6 +241,7 @@ const isClaimAwaitingReview = (status: ClaimStatus | undefined): boolean => {
 export const createClaim = async (
   db: Firestore,
   payload: CreateClaimRequest,
+  actor: { uid: string },
 ): Promise<{ id: string; claim: Claim }> => {
   const targetItem = await findClaimableItemByReferenceCode(db, payload.referenceCode);
   if (targetItem.status !== ItemStatus.VALIDATED || targetItem.kind !== 'FOUND') {
@@ -223,14 +251,19 @@ export const createClaim = async (
   const createdAt = new Date().toISOString();
   const claimToSave: Omit<Claim, 'id'> = {
     itemId: targetItem.id,
+    referenceCode: payload.referenceCode,
+    claimantUid: actor.uid,
+    itemName: payload.itemName,
     status: ClaimStatus.PENDING,
     claimantName: payload.claimantName,
     claimantEmail: payload.claimantEmail,
+    claimReason: payload.claimReason,
+    proofDetails: payload.proofDetails,
     createdAt,
   };
 
-  if (payload.message) {
-    claimToSave.message = payload.message;
+  if (payload.phone?.trim()) {
+    claimToSave.phone = payload.phone.trim();
   }
 
   const docRef = db.collection('claims').doc();
@@ -349,6 +382,7 @@ export const requestAdditionalProof = async (
 export const cancelClaim = async (
   db: Firestore,
   claimId: string,
+  actor: ClaimActor,
 ): Promise<ClaimCancellationResult> => {
   return db.runTransaction(async (transaction: Transaction) => {
     const claimRef = db.collection('claims').doc(claimId);
@@ -372,6 +406,13 @@ export const cancelClaim = async (
       throw new ClaimConflictError('Only pending or proof-requested claims can be cancelled.');
     }
 
+    if (
+      actor.role === UserRole.STUDENT &&
+      (!claim.claimantUid || claim.claimantUid !== actor.uid)
+    ) {
+      throw new ClaimForbiddenError('You can only cancel your own claim requests.');
+    }
+
     const { ref: itemRef, data: item } = await getFirstExistingItem(transaction, db, itemId);
     const cancelledAt = new Date().toISOString();
     const nextItemStatus = item.status ?? ItemStatus.VALIDATED;
@@ -393,4 +434,76 @@ export const cancelClaim = async (
       itemStatus: nextItemStatus,
     };
   });
+};
+
+const mapStoredClaimToAdminClaim = (
+  id: string,
+  data: StoredClaim,
+): AdminClaimResponse | null => {
+  const referenceCode = typeof data.referenceCode === 'string' ? data.referenceCode.trim() : '';
+  const itemId = typeof data.itemId === 'string' ? data.itemId.trim() : '';
+  const itemName = typeof data.itemName === 'string' ? data.itemName.trim() : '';
+  const claimantName = typeof data.claimantName === 'string' ? data.claimantName.trim() : '';
+  const claimantEmail = typeof data.claimantEmail === 'string' ? data.claimantEmail.trim() : '';
+  const claimReason = typeof data.claimReason === 'string' ? data.claimReason.trim() : '';
+  const proofDetails = typeof data.proofDetails === 'string' ? data.proofDetails.trim() : '';
+  const createdAt = typeof data.createdAt === 'string' ? data.createdAt.trim() : '';
+  const status = data.status;
+
+  if (
+    !referenceCode ||
+    !itemId ||
+    !itemName ||
+    !claimantName ||
+    !claimantEmail ||
+    !claimReason ||
+    !proofDetails ||
+    !createdAt ||
+    !status
+  ) {
+    return null;
+  }
+
+  return {
+    id,
+    itemId,
+    referenceCode,
+    itemName,
+    claimantName,
+    claimantEmail,
+    claimReason,
+    proofDetails,
+    phone: typeof data.phone === 'string' && data.phone.trim() ? data.phone.trim() : undefined,
+    status,
+    additionalProofRequest:
+      typeof data.additionalProofRequest === 'string' && data.additionalProofRequest.trim()
+        ? data.additionalProofRequest.trim()
+        : undefined,
+    proofRequestedAt:
+      typeof data.proofRequestedAt === 'string' && data.proofRequestedAt.trim()
+        ? data.proofRequestedAt.trim()
+        : undefined,
+    createdAt,
+  };
+};
+
+export const listAdminClaims = async (db: Firestore): Promise<AdminClaimsListResponse> => {
+  const snapshot = await db.collection('claims').get();
+  const claims = snapshot.docs
+    .map((doc) => mapStoredClaimToAdminClaim(doc.id, (doc.data() as StoredClaim | undefined) ?? {}))
+    .filter((claim): claim is AdminClaimResponse => claim !== null)
+    .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+
+  return {
+    claims,
+    total: claims.length,
+    summary: {
+      totalClaims: claims.length,
+      pendingClaims: claims.filter((claim) => claim.status === ClaimStatus.PENDING).length,
+      needsProofClaims: claims.filter((claim) => claim.status === ClaimStatus.NEEDS_PROOF).length,
+      approvedClaims: claims.filter((claim) => claim.status === ClaimStatus.APPROVED).length,
+      rejectedClaims: claims.filter((claim) => claim.status === ClaimStatus.REJECTED).length,
+      cancelledClaims: claims.filter((claim) => claim.status === ClaimStatus.CANCELLED).length,
+    },
+  };
 };

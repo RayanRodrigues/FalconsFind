@@ -20,6 +20,9 @@ const createFakeDb = ({ claims = {}, items = {}, reports = {} } = {}) => {
     collection: (collectionName) => {
       if (collectionName === 'claims') {
         return {
+          get: async () => ({
+            docs: Object.entries(claims).map(([id, claim]) => createDocSnapshot({ id, collectionName }, claim)),
+          }),
           doc: (id) => {
             if (id) {
               return {
@@ -136,6 +139,22 @@ const buildTestApp = (db) => {
   app.use(express.json());
   app.use(createClaimsRouter(db, {
     requireStaffUser: (_req, _res, next) => next(),
+    requireStudentUser: (_req, res, next) => {
+      res.locals.authUser = {
+        uid: 'student-1',
+        email: 'jane@example.com',
+        role: 'STUDENT',
+      };
+      next();
+    },
+    requireClaimAccessUser: (_req, res, next) => {
+      res.locals.authUser = {
+        uid: 'student-1',
+        email: 'jane@example.com',
+        role: 'STUDENT',
+      };
+      next();
+    },
   }));
   app.use(notFoundHandler);
   app.use(errorHandler);
@@ -157,9 +176,12 @@ test('POST /api/v1/claims creates a pending claim for a validated item found by 
     .post('/api/v1/claims')
     .send({
       referenceCode: 'FF-2024-00001',
+      itemName: 'Black backpack',
+      claimReason: 'I left this backpack after class and returned shortly after to find it missing.',
+      proofDetails: 'It has a Falcon sticker and my initials on the inside pocket.',
       claimantName: 'Jane Doe',
       claimantEmail: 'jane@example.com',
-      message: 'I can identify the item.',
+      phone: '519-555-0100',
     });
 
   assert.equal(response.status, 201);
@@ -168,8 +190,14 @@ test('POST /api/v1/claims creates a pending claim for a validated item found by 
   assert.match(response.body.createdAt, /^\d{4}-\d{2}-\d{2}T/);
   assert.equal(savedClaims.length, 1);
   assert.equal(savedClaims[0].data.itemId, 'report-1');
+  assert.equal(savedClaims[0].data.referenceCode, 'FF-2024-00001');
+  assert.equal(savedClaims[0].data.claimantUid, 'student-1');
+  assert.equal(savedClaims[0].data.itemName, 'Black backpack');
   assert.equal(savedClaims[0].data.status, 'PENDING');
   assert.equal(savedClaims[0].data.claimantName, 'Jane Doe');
+  assert.equal(savedClaims[0].data.claimReason, 'I left this backpack after class and returned shortly after to find it missing.');
+  assert.equal(savedClaims[0].data.proofDetails, 'It has a Falcon sticker and my initials on the inside pocket.');
+  assert.equal(savedClaims[0].data.phone, '519-555-0100');
 });
 
 test('POST /api/v1/claims creates a pending claim when item is in the items collection', async () => {
@@ -187,6 +215,9 @@ test('POST /api/v1/claims creates a pending claim when item is in the items coll
     .post('/api/v1/claims')
     .send({
       referenceCode: 'FF-2024-00099',
+      itemName: 'Campus card holder',
+      claimReason: 'I dropped this in the hallway while heading to class and noticed it was gone.',
+      proofDetails: 'It contains my student card and a blue transit pass.',
       claimantName: 'John Smith',
       claimantEmail: 'john@example.com',
     });
@@ -194,6 +225,8 @@ test('POST /api/v1/claims creates a pending claim when item is in the items coll
   assert.equal(response.status, 201);
   assert.equal(savedClaims[0].data.itemId, 'item-ref');
   assert.equal(savedClaims[0].data.status, 'PENDING');
+  assert.equal(savedClaims[0].data.claimantUid, 'student-1');
+  assert.equal(savedClaims[0].data.claimantEmail, 'jane@example.com');
 });
 
 test('POST /api/v1/claims returns 404 when no item has that referenceCode', async () => {
@@ -203,6 +236,9 @@ test('POST /api/v1/claims returns 404 when no item has that referenceCode', asyn
     .post('/api/v1/claims')
     .send({
       referenceCode: 'FF-MISSING',
+      itemName: 'Bag',
+      claimReason: 'This is long enough to satisfy validation on the form and backend.',
+      proofDetails: 'This is also long enough to satisfy the backend validation rules.',
       claimantName: 'Jane Doe',
       claimantEmail: 'jane@example.com',
     });
@@ -226,6 +262,9 @@ test('POST /api/v1/claims returns 409 when the target item is not validated', as
     .post('/api/v1/claims')
     .send({
       referenceCode: 'FF-2024-00002',
+      itemName: 'Wallet',
+      claimReason: 'This is long enough to satisfy validation on the form and backend.',
+      proofDetails: 'This is also long enough to satisfy the backend validation rules.',
       claimantName: 'Jane Doe',
       claimantEmail: 'jane@example.com',
     });
@@ -249,6 +288,9 @@ test('POST /api/v1/claims returns 409 when the target item is not a found item',
     .post('/api/v1/claims')
     .send({
       referenceCode: 'FF-2024-00003',
+      itemName: 'Keys',
+      claimReason: 'This is long enough to satisfy validation on the form and backend.',
+      proofDetails: 'This is also long enough to satisfy the backend validation rules.',
       claimantName: 'Jane Doe',
       claimantEmail: 'jane@example.com',
     });
@@ -264,6 +306,9 @@ test('POST /api/v1/claims returns 400 for invalid request payload', async () => 
     .post('/api/v1/claims')
     .send({
       referenceCode: '',
+      itemName: '',
+      claimReason: 'short',
+      proofDetails: 'short',
       claimantName: '',
       claimantEmail: 'not-an-email',
     });
@@ -438,6 +483,51 @@ test('PATCH /api/v1/claims/:id/status returns 400 for unsupported review status'
   assert.equal(response.body.error.code, 'BAD_REQUEST');
 });
 
+test('GET /api/v1/admin/claims lists structured claims for the admin dashboard', async () => {
+  const { db } = createFakeDb({
+    claims: {
+      'claim-1': {
+        itemId: 'item-1',
+        referenceCode: 'FF-2024-00001',
+        claimantUid: 'student-1',
+        itemName: 'Black backpack',
+        status: 'PENDING',
+        claimantName: 'Jane Doe',
+        claimantEmail: 'jane@example.com',
+        claimReason: 'I left it after class and returned shortly after.',
+        proofDetails: 'It has my initials on the inner label.',
+        createdAt: '2026-03-18T10:00:00.000Z',
+      },
+      'claim-2': {
+        itemId: 'item-2',
+        referenceCode: 'FF-2024-00002',
+        claimantUid: 'student-2',
+        itemName: 'Silver bottle',
+        status: 'NEEDS_PROOF',
+        claimantName: 'John Smith',
+        claimantEmail: 'john@example.com',
+        claimReason: 'I lost it in the library on Tuesday afternoon.',
+        proofDetails: 'It has a dent near the base and a sticker from residence.',
+        additionalProofRequest: 'Please describe the sticker.',
+        proofRequestedAt: '2026-03-18T11:00:00.000Z',
+        createdAt: '2026-03-18T09:00:00.000Z',
+      },
+    },
+  });
+
+  const response = await request(buildTestApp(db))
+    .get('/api/v1/admin/claims');
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.total, 2);
+  assert.equal(response.body.summary.totalClaims, 2);
+  assert.equal(response.body.summary.pendingClaims, 1);
+  assert.equal(response.body.summary.needsProofClaims, 1);
+  assert.equal(response.body.claims[0].id, 'claim-1');
+  assert.equal(response.body.claims[1].id, 'claim-2');
+  assert.equal(response.body.claims[1].additionalProofRequest, 'Please describe the sticker.');
+});
+
 test('PATCH /api/v1/claims/:id/proof-request stores the additional proof request and marks the claim as NEEDS_PROOF', async () => {
   const { db, claims, items } = createFakeDb({
     items: {
@@ -562,6 +652,7 @@ test('PATCH /api/v1/claims/:id/cancel cancels a pending claim and keeps the item
     claims: {
       'claim-cancel': {
         itemId: 'item-cancel',
+        claimantUid: 'student-1',
         status: 'PENDING',
       },
     },
@@ -593,6 +684,7 @@ test('PATCH /api/v1/claims/:id/cancel cancels a proof-requested claim', async ()
     claims: {
       'claim-cancel-proof': {
         itemId: 'item-cancel-proof',
+        claimantUid: 'student-1',
         status: 'NEEDS_PROOF',
         additionalProofRequest: 'Please provide the serial number.',
         proofRequestedAt: '2026-03-17T12:00:00.000Z',
@@ -627,6 +719,7 @@ test('PATCH /api/v1/claims/:id/cancel returns 404 when the related item cannot b
     claims: {
       'claim-cancel-missing-item': {
         itemId: 'missing-item',
+        claimantUid: 'student-1',
         status: 'PENDING',
       },
     },
@@ -645,6 +738,7 @@ test('PATCH /api/v1/claims/:id/cancel returns 409 when the claim is already fina
     claims: {
       'claim-cancel-final': {
         itemId: 'item-cancel-final',
+        claimantUid: 'student-1',
         status: 'APPROVED',
       },
     },
@@ -675,6 +769,7 @@ test('PATCH /api/v1/claims/:id/cancel preserves the current item status when it 
     claims: {
       'claim-cancel-terminal': {
         itemId: 'item-cancel-terminal',
+        claimantUid: 'student-1',
         status: 'NEEDS_PROOF',
       },
     },
@@ -690,4 +785,29 @@ test('PATCH /api/v1/claims/:id/cancel preserves the current item status when it 
   assert.equal(claims['claim-cancel-terminal'].status, 'CANCELLED');
   assert.equal(items['item-cancel-terminal'].status, 'ARCHIVED');
   assert.equal(items['item-cancel-terminal'].claimStatus, 'CANCELLED');
+});
+
+test('PATCH /api/v1/claims/:id/cancel returns 403 when a student tries to cancel someone else’s claim', async () => {
+  const { db } = createFakeDb({
+    items: {
+      'item-other-owner': {
+        status: 'VALIDATED',
+        claimStatus: 'PENDING',
+      },
+    },
+    claims: {
+      'claim-other-owner': {
+        itemId: 'item-other-owner',
+        claimantUid: 'student-2',
+        status: 'PENDING',
+      },
+    },
+  });
+
+  const response = await request(buildTestApp(db))
+    .patch('/api/v1/claims/claim-other-owner/cancel')
+    .send();
+
+  assert.equal(response.status, 403);
+  assert.equal(response.body.error.code, 'FORBIDDEN');
 });

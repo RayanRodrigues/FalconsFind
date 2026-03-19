@@ -19,4 +19,8 @@ export class ApiClientService {
   get<TResponse>(path: string): Observable<TResponse> {
     return this.http.get<TResponse>(path);
   }
+
+  patch<TResponse, TBody = unknown>(path: string, body: TBody): Observable<TResponse> {
+    return this.http.patch<TResponse>(path, body);
+  }
 }

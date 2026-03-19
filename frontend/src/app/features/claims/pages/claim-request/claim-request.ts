@@ -102,27 +102,26 @@ export class ClaimRequest implements OnInit {
   }
 
   submitClaim(): void {
+    if (this.isSubmitting || this.submitSuccess) {
+      return;
+    }
+
     this.form.markAllAsTouched();
     if (this.form.invalid) return;
 
     const v = this.form.value;
-
-    const messageParts = [
-      `Claim Reason: ${v.claimReason ?? ''}`,
-      `Proof of Ownership: ${v.proofDetails ?? ''}`,
-    ];
-    if (v.phone?.trim()) {
-      messageParts.push(`Phone: ${v.phone.trim()}`);
-    }
 
     this.isSubmitting = true;
     this.submitError = null;
 
     this.claimsApi.createClaim({
       referenceCode: v.referenceCode ?? '',
+      itemName: v.itemName ?? '',
+      claimReason: v.claimReason ?? '',
+      proofDetails: v.proofDetails ?? '',
       claimantName: v.fullName ?? '',
       claimantEmail: v.email ?? '',
-      message: messageParts.join('\n'),
+      phone: v.phone?.trim() || undefined,
     })
       .pipe(finalize(() => { this.isSubmitting = false; }))
       .subscribe({

@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import type {
+  AdminClaimsListResponse,
   CreateClaimRequest,
   RequestAdditionalProofRequest,
   UpdateClaimStatusRequest,
@@ -52,11 +53,14 @@ const schemaModule = (await import(pathToFileURL(schemaPath).href)) as {
 const claimsServiceModule = (await import(pathToFileURL(servicePath).href)) as {
   ClaimNotFoundError: new () => Error;
   ClaimConflictError: new (message: string) => Error;
+  ClaimForbiddenError: new (message: string) => Error;
   ClaimItemNotFoundError: new () => Error;
   ClaimItemNotEligibleError: new () => Error;
+  listAdminClaims: (db: Firestore) => Promise<AdminClaimsListResponse>;
   createClaim: (
     db: Firestore,
     payload: CreateClaimRequest,
+    actor: { uid: string },
   ) => Promise<{
     id: string;
     claim: {
@@ -87,6 +91,7 @@ const claimsServiceModule = (await import(pathToFileURL(servicePath).href)) as {
   cancelClaim: (
     db: Firestore,
     claimId: string,
+    actor: { uid: string; role: UserRole },
   ) => Promise<{
     id: string;
     status: string;
@@ -101,6 +106,8 @@ const getSingleRouteParam = (value: string | string[] | undefined): string => (
 
 type ClaimsRouterOptions = {
   requireStaffUser?: RequestHandler;
+  requireStudentUser?: RequestHandler;
+  requireClaimAccessUser?: RequestHandler;
 };
 
 export const createClaimsRouter = (
@@ -109,12 +116,24 @@ export const createClaimsRouter = (
 ): Router => {
   const router = Router();
   const requireStaffUser = options.requireStaffUser ?? createRequireStaffRoles(db, [UserRole.ADMIN, UserRole.SECURITY]);
+  const requireStudentUser = options.requireStudentUser ?? createRequireStaffRoles(db, [UserRole.STUDENT]);
+  const requireClaimAccessUser = options.requireClaimAccessUser ?? createRequireStaffRoles(db, [UserRole.ADMIN, UserRole.SECURITY, UserRole.STUDENT]);
 
-  router.post(`${API_PREFIX}/claims`, async (req, res) => {
+  router.post(`${API_PREFIX}/claims`, requireStudentUser, async (req, res) => {
+    const authUser = res.locals.authUser as { uid?: string; email?: string | null } | undefined;
+    const uid = authUser?.uid?.trim();
+    if (!uid) {
+      throw new HttpError(401, 'AUTHENTICATION_REQUIRED', 'Authentication is required.');
+    }
+
     const payload = parseBodyOrThrow(schemaModule.createClaimSchema, req.body);
+    const claimantEmail = authUser?.email?.trim() || payload.claimantEmail;
 
     try {
-      const result = await claimsServiceModule.createClaim(db, payload);
+      const result = await claimsServiceModule.createClaim(db, {
+        ...payload,
+        claimantEmail,
+      }, { uid });
       res.status(201).json({
         id: result.id,
         status: result.claim.status,
@@ -131,6 +150,11 @@ export const createClaimsRouter = (
 
       throw error;
     }
+  });
+
+  router.get(`${API_PREFIX}/admin/claims`, requireStaffUser, async (_req, res) => {
+    const result = await claimsServiceModule.listAdminClaims(db);
+    res.status(200).json(result);
   });
 
   router.patch(`${API_PREFIX}/claims/:id/status`, requireStaffUser, async (req, res) => {
@@ -189,14 +213,21 @@ export const createClaimsRouter = (
     }
   });
 
-  router.patch(`${API_PREFIX}/claims/:id/cancel`, async (req, res) => {
-    const claimId = req.params.id?.trim();
+  router.patch(`${API_PREFIX}/claims/:id/cancel`, requireClaimAccessUser, async (req, res) => {
+    const claimId = getSingleRouteParam(req.params.id);
     if (!claimId) {
       throw new HttpError(400, 'BAD_REQUEST', 'id is required');
     }
 
+    const authUser = res.locals.authUser as { uid?: string; role?: UserRole } | undefined;
+    const uid = authUser?.uid?.trim();
+    const role = authUser?.role;
+    if (!uid || !role) {
+      throw new HttpError(401, 'AUTHENTICATION_REQUIRED', 'Authentication is required.');
+    }
+
     try {
-      const result = await claimsServiceModule.cancelClaim(db, claimId);
+      const result = await claimsServiceModule.cancelClaim(db, claimId, { uid, role });
       res.status(200).json(result);
     } catch (error) {
       if (error instanceof claimsServiceModule.ClaimNotFoundError) {
@@ -209,6 +240,10 @@ export const createClaimsRouter = (
 
       if (error instanceof claimsServiceModule.ClaimConflictError) {
         throw new HttpError(409, 'CLAIM_STATUS_CONFLICT', error.message);
+      }
+
+      if (error instanceof claimsServiceModule.ClaimForbiddenError) {
+        throw new HttpError(403, 'FORBIDDEN', error.message);
       }
 
       throw error;

@@ -150,31 +150,35 @@ describe('ClaimRequest', () => {
       expect(createClaimSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           referenceCode: 'FF-2024-00001',
+          itemName: 'Black laptop sleeve',
+          claimReason: 'I left this item in room B1040 on Friday morning after class.',
+          proofDetails: 'It has a small FalconFind sticker on the back and my name inside.',
           claimantName: 'Jane Doe',
           claimantEmail: 'student@fanshaweonline.ca',
+          phone: '519-555-0100',
         }),
       );
     });
 
-    it('includes claimReason, proofDetails and phone in the message', async () => {
+    it('sends claim details as structured fields', async () => {
       await setup();
       fillAllSteps(component);
       component.submitClaim();
 
       const payload = createClaimSpy.mock.calls[0][0];
-      expect(payload.message).toContain('Claim Reason:');
-      expect(payload.message).toContain('Proof of Ownership:');
-      expect(payload.message).toContain('Phone: 519-555-0100');
+      expect(payload.claimReason).toBe('I left this item in room B1040 on Friday morning after class.');
+      expect(payload.proofDetails).toBe('It has a small FalconFind sticker on the back and my name inside.');
+      expect(payload.phone).toBe('519-555-0100');
     });
 
-    it('omits phone from message when field is empty', async () => {
+    it('omits phone when the optional field is empty', async () => {
       await setup();
       fillAllSteps(component);
       component.form.patchValue({ phone: '' });
       component.submitClaim();
 
       const payload = createClaimSpy.mock.calls[0][0];
-      expect(payload.message).not.toContain('Phone:');
+      expect(payload.phone).toBeUndefined();
     });
 
     it('sets submitSuccess and stores claimResult on success', async () => {
@@ -185,6 +189,16 @@ describe('ClaimRequest', () => {
       expect(component.submitSuccess).toBe(true);
       expect(component.claimResult?.id).toBe('claim-abc');
       expect(component.claimResult?.status).toBe('PENDING');
+    });
+
+    it('does not submit again after a successful claim', async () => {
+      await setup();
+      fillAllSteps(component);
+
+      component.submitClaim();
+      component.submitClaim();
+
+      expect(createClaimSpy).toHaveBeenCalledTimes(1);
     });
 
     it('sets a reference-code error message for NOT_FOUND', async () => {
