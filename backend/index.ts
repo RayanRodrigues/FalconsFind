@@ -16,11 +16,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 loadEnvironment(__dirname);
 const appConfig = getAppConfig();
-const faviconPathCandidates = [
-  path.resolve(__dirname, './public/favicon.ico'),
-  path.resolve(process.cwd(), 'backend/public/favicon.ico'),
+const backendPublicDirCandidates = [
+  path.resolve(__dirname, './public'),
+  path.resolve(process.cwd(), 'backend/public'),
 ];
-const faviconPath = faviconPathCandidates.find((candidate) => fs.existsSync(candidate));
+const backendPublicDir = backendPublicDirCandidates.find((candidate) => fs.existsSync(candidate));
+const faviconPath = backendPublicDir ? path.join(backendPublicDir, 'favicon.ico') : null;
 
 const healthRoutesModule = await importRuntimeModule<{
   createHealthRouter: (db: FirebaseFirestore.Firestore) => express.Router;
@@ -89,12 +90,28 @@ app.use(express.json({ limit: '50kb' }));
 if (appConfig.appEnv !== 'production') {
   app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(openApiModule.openApiDocument));
 }
+if (backendPublicDir) {
+  app.use(express.static(backendPublicDir, {
+    index: false,
+    fallthrough: true,
+  }));
+}
 app.get('/favicon.ico', (_req, res) => {
   if (!faviconPath) {
     res.sendStatus(404);
     return;
   }
 
+  res.type('image/x-icon');
+  res.sendFile(faviconPath);
+});
+app.get(`${appConfig.apiPrefix}/favicon.ico`, (_req, res) => {
+  if (!faviconPath) {
+    res.sendStatus(404);
+    return;
+  }
+
+  res.type('image/x-icon');
   res.sendFile(faviconPath);
 });
 app.use(rootRoutesModule.createRootRouter(appConfig.apiPrefix));
