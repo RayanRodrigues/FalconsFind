@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, Output } from '@angular/core';
 import { FormFieldComponent } from './form-field.component';
 
 @Component({
@@ -38,11 +38,26 @@ import { FormFieldComponent } from './form-field.component';
           <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
             @for (url of photoPreviewUrls; track $index) {
               <div class="relative">
-                <img
-                  [src]="url"
-                  alt="Selected photo preview"
-                  class="w-full aspect-square rounded-md object-cover border border-border"
-                />
+                @if (isImageFailed($index)) {
+                  <div class="w-full aspect-square rounded-md border border-border overflow-hidden relative">
+                    <img
+                      src="/SVG/Icon2.svg"
+                      alt=""
+                      aria-hidden="true"
+                      class="absolute inset-0 w-full h-full object-cover opacity-20"
+                    />
+                    <div class="absolute inset-0 flex items-center justify-center">
+                      <span class="text-xs text-text-secondary font-medium text-center px-2">Preview not available</span>
+                    </div>
+                  </div>
+                } @else {
+                  <img
+                    [src]="url"
+                    alt="Selected photo preview"
+                    class="w-full aspect-square rounded-md object-cover border border-border"
+                    (error)="onImageError($index)"
+                  />
+                }
 
                 <button
                   type="button"
@@ -87,7 +102,7 @@ import { FormFieldComponent } from './form-field.component';
     </app-form-field>
   `
 })
-export class PhotoUploadFieldComponent {
+export class PhotoUploadFieldComponent implements OnChanges {
   @Input() id = 'photos';
   @Input() inputId = 'photosInput';
   @Input() label = 'Photos';
@@ -96,17 +111,30 @@ export class PhotoUploadFieldComponent {
   @Input() photosCount = 0;
   @Input() photoPreviewUrls: string[] = [];
 
+  ngOnChanges(): void {
+    this.failedIndices = new Set<number>();
+  }
+
   @Output() filesSelected = new EventEmitter<File[]>();
   @Output() removePhoto = new EventEmitter<number>();
 
   isDropActive = false;
+  failedIndices = new Set<number>();
 
   private readonly MAX_FILES = 5;
   private readonly MAX_SIZE_MB = 5;
   private readonly ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/jpg'];
 
   get hasPhotos(): boolean {
-    return this.photosCount > 0 && this.photoPreviewUrls.length > 0;
+    return this.photoPreviewUrls.length > 0;
+  }
+
+  onImageError(index: number): void {
+    this.failedIndices = new Set(this.failedIndices).add(index);
+  }
+
+  isImageFailed(index: number): boolean {
+    return this.failedIndices.has(index);
   }
 
   onFileInputChange(event: Event): void {

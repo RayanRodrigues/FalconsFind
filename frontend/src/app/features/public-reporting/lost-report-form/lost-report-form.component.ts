@@ -1,5 +1,5 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { ChangeDetectorRef, Component, OnInit, OnDestroy, inject, PLATFORM_ID } from '@angular/core';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Subject, takeUntil, finalize } from 'rxjs';
@@ -58,6 +58,7 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
     'Parking Lot', 'Other'
   ];
 
+  private readonly platformId = inject(PLATFORM_ID);
   private destroy$ = new Subject<void>();
   private readonly stepFields: Record<number, string[]> = {
     1: ['title', 'category', 'description'],
@@ -70,7 +71,8 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
     private reportService: ReportService,
     private errorService: ErrorService,
     private validationService: FormValidationService,
-    private router: Router
+    private router: Router,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
@@ -114,19 +116,27 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
     return control ? (control.invalid && control.touched) : false;
   }
 
-  private revokePreviewUrls(urls: string[] = this.photoPreviewUrls): void {
-    for (const url of urls) {
-      try {
-        URL.revokeObjectURL(url);
-      } catch {
-        // ignore
-      }
-    }
+  private revokePreviewUrls(): void {
+    this.photoPreviewUrls = [];
   }
 
   private rebuildPreviewUrls(files: File[]): void {
-    this.revokePreviewUrls();
-    this.photoPreviewUrls = files.map((file) => URL.createObjectURL(file));
+    if (!isPlatformBrowser(this.platformId)) {
+      this.photoPreviewUrls = [];
+      return;
+    }
+
+    Promise.all(
+      files.map(file => new Promise<string>(resolve => {
+        const reader = new FileReader();
+        reader.onload = e => resolve((e.target?.result as string) ?? '');
+        reader.onerror = () => resolve('');
+        reader.readAsDataURL(file);
+      }))
+    ).then(urls => {
+      this.photoPreviewUrls = urls.filter(Boolean);
+      this.cdr.markForCheck();
+    });
   }
 
   onPhotosSelected(files: File[]): void {
