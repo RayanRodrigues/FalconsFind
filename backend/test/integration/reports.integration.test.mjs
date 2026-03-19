@@ -107,10 +107,18 @@ const createFakeBucket = () => {
   return {
     bucket: {
       name: 'test-bucket',
+      storage: {
+        bucket: (bucketName) => ({
+          file: (fileName) => ({
+            getSignedUrl: async () => [`https://signed.example/${bucketName}/${fileName}`],
+          }),
+        }),
+      },
       file: (fileName) => ({
         save: async (buffer, options) => {
           uploads.push({ fileName, size: buffer.length, options });
         },
+        getSignedUrl: async () => [`https://signed.example/test-bucket/${fileName}`],
       }),
     },
     uploads,
@@ -384,6 +392,7 @@ test('GET /api/v1/admin/reports lists all reports with aggregated summary', asyn
       location: 'Gym',
       dateReported: '2026-03-17T10:00:00.000Z',
       contactEmail: 'finder@example.com',
+      photoUrl: 'gs://test-bucket/reports/wallet.jpg',
     },
     'report-2': {
       kind: 'LOST',
@@ -419,6 +428,8 @@ test('GET /api/v1/admin/reports lists all reports with aggregated summary', asyn
   assert.equal(response.body.reports.length, 2);
   assert.equal(response.body.reports[0].id, 'report-1');
   assert.equal(response.body.reports[1].id, 'report-2');
+  assert.equal(response.body.reports[0].photoUrl, 'https://signed.example/test-bucket/reports/wallet.jpg');
+  assert.deepEqual(response.body.reports[0].photoUrls, ['https://signed.example/test-bucket/reports/wallet.jpg']);
 });
 
 test('GET /api/v1/admin/reports filters by kind, status, and search', async () => {

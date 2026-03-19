@@ -13,4 +13,5 @@ export type AdminReportResponse = {
   dateReported: string;
   contactEmail?: string;
   photoUrl?: string;
+  photoUrls?: string[];
 };

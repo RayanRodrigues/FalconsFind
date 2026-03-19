@@ -83,6 +83,7 @@ const reportsServiceModule = (await import(pathToFileURL(servicePath).href)) as 
   ) => Promise<{ id: string; report: { status: string; referenceCode: string } }>;
   listAdminReports: (
     db: Firestore,
+    bucket: Bucket,
     params: {
       page: number;
       limit: number;
@@ -287,7 +288,7 @@ export const createReportsRouter = (
       throw new HttpError(400, 'BAD_REQUEST', `status must be one of: ${Object.values(ItemStatus).join(', ')}`);
     }
 
-    const result = await reportsServiceModule.listAdminReports(db, {
+    const result = await reportsServiceModule.listAdminReports(db, bucket, {
       page,
       limit,
       kind,

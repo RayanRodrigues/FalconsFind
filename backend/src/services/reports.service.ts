@@ -69,6 +69,68 @@ const createReferenceCode = (prefix: 'LST' | 'FND', docId: string, createdAt: Da
 
 type SupportedPhotoMimeType = 'image/jpeg' | 'image/png';
 
+const parseGsUrl = (value: string): { bucketName: string; filePath: string } | null => {
+  if (!value.startsWith('gs://')) {
+    return null;
+  }
+
+  const normalized = value.slice('gs://'.length);
+  const slashIndex = normalized.indexOf('/');
+  if (slashIndex <= 0 || slashIndex === normalized.length - 1) {
+    return null;
+  }
+
+  return {
+    bucketName: normalized.slice(0, slashIndex),
+    filePath: normalized.slice(slashIndex + 1),
+  };
+};
+
+const toAdminPhotoUrl = async (
+  defaultBucket: Bucket,
+  value: string | undefined,
+): Promise<string | undefined> => {
+  if (!value) {
+    return undefined;
+  }
+
+  const gs = parseGsUrl(value);
+  if (!gs) {
+    return value;
+  }
+
+  const targetBucket =
+    gs.bucketName === defaultBucket.name
+      ? defaultBucket
+      : defaultBucket.storage.bucket(gs.bucketName);
+
+  const [url] = await targetBucket.file(gs.filePath).getSignedUrl({
+    version: 'v4',
+    action: 'read',
+    expires: Date.now() + 1000 * 60 * 60,
+  });
+
+  return url;
+};
+
+const toAdminPhotoUrls = async (
+  defaultBucket: Bucket,
+  source: Partial<Report> & { imageUrls?: string[] },
+): Promise<string[] | undefined> => {
+  const rawValues = [
+    ...(Array.isArray(source.imageUrls) ? source.imageUrls : []),
+    ...(source.photoUrl ? [source.photoUrl] : []),
+  ].filter((value, index, all) => typeof value === 'string' && value.trim().length > 0 && all.indexOf(value) === index);
+
+  if (rawValues.length === 0) {
+    return undefined;
+  }
+
+  const urls = await Promise.all(rawValues.map((value) => toAdminPhotoUrl(defaultBucket, value)));
+  const validUrls = urls.filter((value): value is string => typeof value === 'string' && value.length > 0);
+  return validUrls.length > 0 ? validUrls : undefined;
+};
+
 const uploadPhotoBuffer = async (
   bucket: Bucket,
   buffer: Buffer,
@@ -117,7 +179,11 @@ const isItemStatus = (value: unknown): value is ItemStatus => {
   return typeof value === 'string' && Object.values(ItemStatus).includes(value as ItemStatus);
 };
 
-const mapAdminReport = (id: string, source: Partial<Report>): AdminReportResponse | null => {
+const mapAdminReport = async (
+  bucket: Bucket,
+  id: string,
+  source: Partial<Report> & { imageUrls?: string[] },
+): Promise<AdminReportResponse | null> => {
   const dateReported = normalizeDateReported(source.dateReported);
 
   if (
@@ -132,6 +198,8 @@ const mapAdminReport = (id: string, source: Partial<Report>): AdminReportRespons
     return null;
   }
 
+  const photoUrls = await toAdminPhotoUrls(bucket, source);
+
   return {
     id,
     kind: source.kind,
@@ -143,7 +211,8 @@ const mapAdminReport = (id: string, source: Partial<Report>): AdminReportRespons
     location: source.location,
     dateReported,
     contactEmail: source.contactEmail,
-    photoUrl: source.photoUrl,
+    photoUrl: photoUrls?.[0],
+    photoUrls,
   };
 };
 
@@ -350,6 +419,7 @@ export const validateFoundReport = async (
 
 export const listAdminReports = async (
   db: Firestore,
+  bucket: Bucket,
   params: ListAdminReportsParams,
 ): Promise<{
   reports: AdminReportResponse[];
@@ -375,8 +445,9 @@ export const listAdminReports = async (
   }
 
   const reportsSnap = await reportsQuery.get();
-  const allReports = reportsSnap.docs
-    .map((doc) => mapAdminReport(doc.id, doc.data() as Partial<Report>))
+  const allReports = (await Promise.all(
+    reportsSnap.docs.map((doc) => mapAdminReport(bucket, doc.id, doc.data() as Partial<Report>)),
+  ))
     .filter((report): report is AdminReportResponse => report !== null)
     .sort((a, b) => b.dateReported.localeCompare(a.dateReported));
 
