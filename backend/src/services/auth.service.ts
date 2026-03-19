@@ -54,7 +54,7 @@ export class RegistrationError extends Error {
 }
 
 const isUserRole = (value: unknown): value is UserRole => {
-  return value === UserRole.ADMIN || value === UserRole.SECURITY;
+  return value === UserRole.ADMIN || value === UserRole.SECURITY || value === UserRole.STUDENT;
 };
 
 const getFirebaseApiKey = (): string => {
@@ -66,20 +66,37 @@ const getFirebaseApiKey = (): string => {
   return apiKey;
 };
 
-const resolveStaffRole = async (db: Firestore, uid: string): Promise<UserRole> => {
+type ResolvedUserProfile = {
+  role: UserRole;
+  displayName: string | null;
+  trusted: boolean;
+};
+
+const resolveUserProfile = async (db: Firestore, uid: string): Promise<ResolvedUserProfile> => {
   const authUser = await admin.auth().getUser(uid);
   const claimRole = authUser.customClaims?.['role'];
-  if (isUserRole(claimRole)) {
-    return claimRole;
-  }
 
   const userDoc = await db.collection('users').doc(uid).get();
-  const storedRole = userDoc.data()?.['role'];
-  if (isUserRole(storedRole)) {
-    return storedRole;
+  const userData = userDoc.data() ?? {};
+  const storedRole = userData['role'];
+  const role = isUserRole(claimRole) ? claimRole : isUserRole(storedRole) ? storedRole : null;
+
+  if (role) {
+    const displayName =
+      typeof userData['displayName'] === 'string'
+        ? userData['displayName']
+        : typeof authUser.displayName === 'string'
+          ? authUser.displayName
+          : null;
+
+    return {
+      role,
+      displayName,
+      trusted: Boolean(userData['trusted']),
+    };
   }
 
-  throw new LoginForbiddenError('Only staff accounts can sign in here');
+  throw new LoginForbiddenError('This account is not authorized to sign in here');
 };
 
 const mapFirebaseErrorToDomainError = (errorCode: string | undefined): Error => {
@@ -95,7 +112,7 @@ const mapFirebaseErrorToDomainError = (errorCode: string | undefined): Error => 
   }
 };
 
-export const loginStaffUser = async (
+export const loginUser = async (
   db: Firestore,
   payload: LoginRequest,
 ): Promise<LoginResponse> => {
@@ -121,7 +138,7 @@ export const loginStaffUser = async (
   }
 
   const login = responseBody as FirebaseLoginSuccess;
-  const role = await resolveStaffRole(db, login.localId);
+  const profile = await resolveUserProfile(db, login.localId);
 
   return {
     idToken: login.idToken,
@@ -130,7 +147,9 @@ export const loginStaffUser = async (
     user: {
       uid: login.localId,
       email: login.email,
-      role,
+      displayName: profile.displayName,
+      role: profile.role,
+      trusted: profile.role === UserRole.STUDENT ? profile.trusted : undefined,
     },
   };
 };

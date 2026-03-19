@@ -11,12 +11,12 @@ export const studentAuthGuard: CanActivateFn = (route) => {
 
   if (!session) {
     const returnUrl = route.url.map(s => s.path).join('/');
-    return router.parseUrl(`/register?returnUrl=/${returnUrl}`);
+    return router.parseUrl(`/login?returnUrl=/${returnUrl}`);
   }
 
   if (session.user.role !== UserRole.STUDENT) {
     authService.logoutStudent();
-    return router.parseUrl('/register');
+    return router.parseUrl('/login');
   }
 
   return true;

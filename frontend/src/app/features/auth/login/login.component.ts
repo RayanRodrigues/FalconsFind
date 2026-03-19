@@ -1,11 +1,12 @@
 import { Component, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { AuthService } from '../../../core/services/auth.service';
 import { FormFieldComponent } from '../../../shared/components/forms/form-field.component';
 import { InputComponent } from '../../../shared/components/forms/input.component';
 import type { ErrorResponse, LoginRequest } from '../../../models';
+import { resolvePostLoginPath } from '../auth-navigation';
 
 @Component({
   selector: 'app-login',
@@ -29,6 +30,7 @@ export class LoginComponent {
   constructor(
     private readonly authService: AuthService,
     private readonly router: Router,
+    private readonly route: ActivatedRoute,
   ) {}
 
   get emailError(): string | null {
@@ -65,8 +67,9 @@ export class LoginComponent {
     this.authService.login(payload)
       .pipe(finalize(() => this.isSubmitting.set(false)))
       .subscribe({
-        next: () => {
-          void this.router.navigate(['/admin/dashboard']);
+        next: (session) => {
+          const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
+          void this.router.navigateByUrl(resolvePostLoginPath(session.user.role, returnUrl));
         },
         error: (error: ErrorResponse) => {
           this.errorMessage.set(this.mapLoginError(error));
@@ -82,7 +85,7 @@ export class LoginComponent {
       case 'RATE_LIMITED':
         return error.error.message;
       case 'FORBIDDEN':
-        return 'This account is not authorized for staff access.';
+        return 'This account is not authorized to sign in here.';
       case 'NETWORK_ERROR':
         return 'Network error occurred. Please check your connection.';
       default:

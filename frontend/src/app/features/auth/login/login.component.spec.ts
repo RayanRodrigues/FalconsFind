@@ -24,14 +24,14 @@ describe('LoginComponent', () => {
     }).compileComponents();
 
     router = TestBed.inject(Router);
-    vi.spyOn(router, 'navigate').mockResolvedValue(true);
+    vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
 
     const fixture = TestBed.createComponent(LoginComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
   });
 
-  it('submits login credentials and redirects on success', async () => {
+  it('submits login credentials and redirects staff users to the admin dashboard', async () => {
     (authService.login as ReturnType<typeof vi.fn>).mockReturnValue(of({
       idToken: 'id-token',
       refreshToken: 'refresh-token',
@@ -55,7 +55,32 @@ describe('LoginComponent', () => {
       email: 'security@fanshawe.ca',
       password: 'secret',
     });
-    expect(router.navigate).toHaveBeenCalledWith(['/admin/dashboard']);
+    expect(router.navigateByUrl).toHaveBeenCalledWith('/admin/dashboard');
+  });
+
+  it('redirects student users to the student-safe default destination', async () => {
+    (authService.login as ReturnType<typeof vi.fn>).mockReturnValue(of({
+      idToken: 'student-token',
+      refreshToken: 'student-refresh-token',
+      expiresIn: 3600,
+      user: {
+        uid: 'student-123',
+        email: 'student@fanshaweonline.ca',
+        displayName: 'Student Example',
+        role: 'STUDENT',
+        trusted: true,
+      },
+    }));
+
+    component.form.patchValue({
+      email: 'student@fanshaweonline.ca',
+      password: 'secret',
+    });
+
+    component.submit();
+    await Promise.resolve();
+
+    expect(router.navigateByUrl).toHaveBeenCalledWith('/claim-request');
   });
 
   it('shows a friendly message when credentials are invalid', async () => {

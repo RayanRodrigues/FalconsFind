@@ -2,12 +2,12 @@ import type { OpenApiModule } from '../openapi.types.js';
 import { errorResponseRefs } from './common.openapi.js';
 
 export const authOpenApi: OpenApiModule = {
-  tags: [{ name: 'Auth', description: 'Internal staff authentication' }],
+  tags: [{ name: 'Auth', description: 'Authentication for students and staff' }],
   paths: {
     '/api/v1/auth/login': {
       post: {
         tags: ['Auth'],
-        summary: 'Sign in an internal staff account',
+        summary: 'Sign in an existing account',
         requestBody: {
           required: true,
           content: {
@@ -20,7 +20,7 @@ export const authOpenApi: OpenApiModule = {
         },
         responses: {
           200: {
-            description: 'Staff login successful',
+            description: 'Login successful',
             content: {
               'application/json': {
                 schema: {
@@ -53,10 +53,10 @@ export const authOpenApi: OpenApiModule = {
     '/api/v1/auth/logout': {
       post: {
         tags: ['Auth'],
-        summary: 'Sign out the current staff session',
+        summary: 'Sign out the current authenticated session',
         responses: {
           204: {
-            description: 'Staff logout successful',
+            description: 'Logout successful',
           },
           401: {
             ...errorResponseRefs.unauthorized,
@@ -74,7 +74,7 @@ export const authOpenApi: OpenApiModule = {
   schemas: {
     UserRole: {
       type: 'string',
-      enum: ['SECURITY', 'ADMIN'],
+      enum: ['SECURITY', 'ADMIN', 'STUDENT'],
     },
     LoginRequest: {
       type: 'object',
@@ -97,7 +97,9 @@ export const authOpenApi: OpenApiModule = {
           properties: {
             uid: { type: 'string', example: 'firebase-uid-123' },
             email: { type: 'string', format: 'email', example: 'security@fanshawe.ca' },
+            displayName: { type: 'string', nullable: true, example: 'Hendrick Nkuba' },
             role: { $ref: '#/components/schemas/UserRole' },
+            trusted: { type: 'boolean', example: true },
           },
         },
       },

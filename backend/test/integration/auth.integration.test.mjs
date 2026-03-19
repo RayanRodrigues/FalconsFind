@@ -33,7 +33,7 @@ test('POST /api/v1/auth/login returns tokens and staff role on success', async (
     InvalidLoginCredentialsError: class InvalidLoginCredentialsError extends Error {},
     LoginConfigurationError: class LoginConfigurationError extends Error {},
     LoginForbiddenError: class LoginForbiddenError extends Error {},
-    loginStaffUser: async (_db, payload) => ({
+    loginUser: async (_db, payload) => ({
       idToken: 'id-token',
       refreshToken: 'refresh-token',
       expiresIn: 3600,
@@ -64,7 +64,7 @@ test('POST /api/v1/auth/login returns 401 for invalid credentials', async () => 
     InvalidLoginCredentialsError,
     LoginConfigurationError: class LoginConfigurationError extends Error {},
     LoginForbiddenError: class LoginForbiddenError extends Error {},
-    loginStaffUser: async () => {
+    loginUser: async () => {
       throw new InvalidLoginCredentialsError('Invalid email or password');
     },
   };
@@ -86,7 +86,7 @@ test('POST /api/v1/auth/login locks repeated failed attempts', async () => {
     InvalidLoginCredentialsError,
     LoginConfigurationError: class LoginConfigurationError extends Error {},
     LoginForbiddenError: class LoginForbiddenError extends Error {},
-    loginStaffUser: async () => {
+    loginUser: async () => {
       throw new InvalidLoginCredentialsError('Invalid email or password');
     },
   };
@@ -116,21 +116,53 @@ test('POST /api/v1/auth/login locks repeated failed attempts', async () => {
   assert.ok(lockedResponse.headers['retry-after']);
 });
 
-test('POST /api/v1/auth/login returns 403 for non-staff accounts', async () => {
-  class LoginForbiddenError extends Error {}
+test('POST /api/v1/auth/login returns tokens and student role on success', async () => {
   const authService = {
     InvalidLoginCredentialsError: class InvalidLoginCredentialsError extends Error {},
     LoginConfigurationError: class LoginConfigurationError extends Error {},
-    LoginForbiddenError,
-    loginStaffUser: async () => {
-      throw new LoginForbiddenError('Only staff accounts can sign in here');
-    },
+    LoginForbiddenError: class LoginForbiddenError extends Error {},
+    loginUser: async (_db, payload) => ({
+      idToken: 'student-id-token',
+      refreshToken: 'student-refresh-token',
+      expiresIn: 3600,
+      user: {
+        uid: 'student-123',
+        email: payload.email,
+        displayName: 'Student Example',
+        role: 'STUDENT',
+        trusted: true,
+      },
+    }),
   };
 
   const response = await request(buildTestApp(authService))
     .post('/api/v1/auth/login')
     .send({
       email: 'student@example.com',
+      password: 'secret',
+    });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.user.role, 'STUDENT');
+  assert.equal(response.body.user.displayName, 'Student Example');
+  assert.equal(response.body.user.trusted, true);
+});
+
+test('POST /api/v1/auth/login returns 403 for accounts without an allowed role', async () => {
+  class LoginForbiddenError extends Error {}
+  const authService = {
+    InvalidLoginCredentialsError: class InvalidLoginCredentialsError extends Error {},
+    LoginConfigurationError: class LoginConfigurationError extends Error {},
+    LoginForbiddenError,
+    loginUser: async () => {
+      throw new LoginForbiddenError('This account is not authorized to sign in here');
+    },
+  };
+
+  const response = await request(buildTestApp(authService))
+    .post('/api/v1/auth/login')
+    .send({
+      email: 'unknown@example.com',
       password: 'secret',
     });
 
@@ -144,7 +176,7 @@ test('POST /api/v1/auth/logout revokes the current staff session', async () => {
     InvalidLoginCredentialsError: class InvalidLoginCredentialsError extends Error {},
     LoginConfigurationError: class LoginConfigurationError extends Error {},
     LoginForbiddenError: class LoginForbiddenError extends Error {},
-    loginStaffUser: async () => {
+    loginUser: async () => {
       throw new Error('not used');
     },
     revokeStaffSession: async (uid) => {

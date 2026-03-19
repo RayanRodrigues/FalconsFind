@@ -6,45 +6,7 @@ import { AuthService } from '../../../core/services/auth.service';
 import { FormFieldComponent } from '../../../shared/components/forms/form-field.component';
 import { InputComponent } from '../../../shared/components/forms/input.component';
 import type { ErrorResponse, RegisterRequest } from '../../../models';
-
-/**
- * Allowlist of route prefixes a STUDENT role is permitted to land on after
- * registration or login via a `returnUrl` query parameter.
- *
- * SECURITY: This list is the primary defence against privilege-escalation via
- * a crafted returnUrl (e.g. `?returnUrl=/admin/dashboard`). Even though every
- * privileged route has its own guard, we do not rely on downstream guards alone —
- * we reject disallowed destinations at the point of consumption so a student
- * session can never even attempt to navigate to a restricted area.
- *
- * TODO: As new student-facing routes are added to the app, add them here.
- *       Consider moving this list to a shared route-permissions file so it
- *       stays in sync with app.routes.ts and the studentAuthGuard.
- */
-const ALLOWED_STUDENT_PATHS = ['/claim-request', '/found-items', '/items'];
-
-/**
- * Sanitizes a `returnUrl` query parameter to prevent open-redirect attacks.
- *
- * Three attack vectors are blocked:
- *  1. External redirects    — e.g. `https://evil.com`  → rejected (no absolute URLs)
- *  2. Protocol-relative URLs — e.g. `//evil.com`        → rejected (must start with exactly one `/`)
- *  3. Privilege escalation  — e.g. `/admin/dashboard`  → rejected (not in ALLOWED_STUDENT_PATHS)
- *
- * Any value that fails validation silently falls back to `/claim-request`.
- */
-function sanitizeReturnUrl(raw: string | null): string {
-  const fallback = '/claim-request';
-  if (!raw) return fallback;
-  // Must be a relative path starting with exactly one '/'
-  if (!raw.startsWith('/') || raw.startsWith('//')) return fallback;
-  // Must not contain a protocol scheme anywhere (catches encoded variants too)
-  if (/[a-zA-Z][a-zA-Z\d+\-.]*:/.test(raw)) return fallback;
-  // Must resolve to a path a student is allowed to visit
-  const path = raw.split('?')[0];
-  const allowed = ALLOWED_STUDENT_PATHS.some(p => path === p || path.startsWith(p + '/'));
-  return allowed ? raw : fallback;
-}
+import { sanitizeStudentReturnUrl } from '../auth-navigation';
 
 @Component({
   selector: 'app-register',
@@ -133,7 +95,7 @@ export class RegisterComponent {
       .subscribe({
         next: () => {
           const raw = this.route.snapshot.queryParamMap.get('returnUrl');
-          void this.router.navigateByUrl(sanitizeReturnUrl(raw));
+          void this.router.navigateByUrl(sanitizeStudentReturnUrl(raw));
         },
         error: (error: ErrorResponse) => this.errorMessage.set(this.mapError(error)),
       });

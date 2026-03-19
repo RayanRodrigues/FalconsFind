@@ -7,6 +7,8 @@ export type LoginResponse = {
   user: {
     uid: string;
     email: string;
+    displayName?: string | null;
     role: UserRole;
+    trusted?: boolean;
   };
 };

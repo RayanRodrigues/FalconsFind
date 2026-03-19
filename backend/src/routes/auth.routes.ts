@@ -14,7 +14,7 @@ import {
   LoginConfigurationError,
   LoginForbiddenError,
   RegistrationError,
-  loginStaffUser,
+  loginUser,
   registerStudentUser,
   revokeStaffSession,
 } from '../services/auth.service.js';
@@ -22,7 +22,7 @@ import { loginSchema, registerSchema } from '../schemas/auth.schema.js';
 import { createRequireStaffRoles } from '../middleware/require-staff-user.js';
 
 type AuthService = {
-  loginStaffUser: (db: Firestore, payload: LoginRequest) => Promise<LoginResponse>;
+  loginUser: (db: Firestore, payload: LoginRequest) => Promise<LoginResponse>;
   registerStudentUser: (db: Firestore, payload: RegisterRequest) => Promise<RegisterResponse>;
   revokeStaffSession: (uid: string) => Promise<void>;
   EmailAlreadyInUseError: typeof EmailAlreadyInUseError;
@@ -33,7 +33,7 @@ type AuthService = {
 };
 
 const defaultAuthService: AuthService = {
-  loginStaffUser,
+  loginUser,
   registerStudentUser,
   revokeStaffSession,
   EmailAlreadyInUseError,
@@ -96,7 +96,7 @@ export const createAuthRouter = (
 
     let result: LoginResponse;
     try {
-      result = await authService.loginStaffUser(db, payload);
+      result = await authService.loginUser(db, payload);
       await attempts.clear(payload.email, clientIp);
     } catch (error) {
       if (error instanceof authService.InvalidLoginCredentialsError) {
