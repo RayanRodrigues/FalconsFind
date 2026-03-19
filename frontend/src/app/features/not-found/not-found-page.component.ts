@@ -14,26 +14,27 @@ import { RouterLink } from '@angular/router';
         <div class="absolute right-0 top-1/3 h-56 w-56 rounded-full bg-info/10 blur-3xl"></div>
       </div>
 
-      <div class="relative mx-auto flex min-h-[calc(100vh-72px)] max-w-5xl items-center justify-center px-4 py-16 sm:px-6 lg:px-8">
-        <div class="flex w-full flex-col items-center text-center">
-          <div class="mx-auto flex w-fit items-end justify-center gap-1 sm:gap-3">
-            <span class="text-[88px] font-bold leading-none tracking-[-0.08em] text-primary sm:text-[160px]">4</span>
-            <span class="flex h-20 w-20 items-center justify-center sm:h-32 sm:w-32">
+      <div class="relative mx-auto flex min-h-[calc(100vh-72px)] max-w-6xl items-center justify-center px-4 py-16 sm:px-6 lg:px-8">
+        <div class="w-full text-center">
+          <div class="mx-auto flex w-fit items-center justify-center gap-2 sm:gap-5">
+            <span class="text-[92px] font-black leading-none tracking-[-0.09em] text-primary sm:text-[180px]">4</span>
+            <div class="not-found-search relative flex h-24 w-24 items-center justify-center sm:h-36 sm:w-36">
               <img
                 src="/SVG/Icon1.svg"
                 alt="FalconFind"
                 class="not-found-search__icon relative h-12 w-auto sm:h-16"
               />
-            </span>
-            <span class="text-[88px] font-bold leading-none tracking-[-0.08em] text-primary sm:text-[160px]">4</span>
-            <span class="mb-2 ml-2 text-2xl font-semibold uppercase tracking-tight text-text-primary sm:mb-4 sm:ml-4 sm:text-5xl">
-              Error
-            </span>
+            </div>
+            <span class="text-[92px] font-black leading-none tracking-[-0.09em] text-primary sm:text-[180px]">4</span>
           </div>
 
-          <div class="mx-auto mt-10 flex w-full max-w-2xl flex-col items-center text-center">
-            <h1 class="text-5xl font-bold uppercase leading-none tracking-[-0.05em] text-text-primary sm:text-8xl">
-              OH NO!
+          <div class="mx-auto mt-8 flex max-w-3xl flex-col items-center text-center">
+            <p class="rounded-full border border-primary/15 bg-primary/8 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-primary sm:text-xs">
+              Lost Page Report
+            </p>
+
+            <h1 class="mt-5 text-4xl font-black leading-none tracking-[-0.05em] text-text-primary sm:text-7xl">
+              This page pulled a disappearing act
             </h1>
             <p class="mt-4 text-lg font-medium text-primary sm:text-2xl">
               Good news: the rest of FalconFind is still on the case.
@@ -43,12 +44,20 @@ import { RouterLink } from '@angular/router';
               We checked the usual hiding spots and this route is still missing. Head back home, browse found items, or file a report before the trail goes cold.
             </p>
 
-            <a
-              routerLink="/"
-              class="mt-12 inline-flex items-center justify-center rounded-xl bg-primary px-10 py-4 text-lg font-semibold !text-white shadow-sm transition-colors hover:bg-secondary sm:px-16"
-            >
-              Back to home
-            </a>
+            <div class="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <a
+                routerLink="/"
+                class="inline-flex items-center justify-center rounded-full bg-primary px-8 py-3.5 text-base font-semibold !text-white shadow-[0_18px_40px_rgba(30,64,175,0.22)] transition-colors hover:bg-secondary sm:px-10"
+              >
+                Back Home
+              </a>
+              <a
+                routerLink="/found-items"
+                class="inline-flex items-center justify-center rounded-full border border-border bg-white px-8 py-3.5 text-base font-semibold text-text-primary transition-colors hover:border-primary hover:text-primary sm:px-10"
+              >
+                Browse Found Items
+              </a>
+            </div>
           </div>
         </div>
       </div>
