@@ -316,6 +316,10 @@
   font-size: 0.9rem;
 }
 
+.claim-proof-form__upload {
+  max-width: 420px;
+}
+
 .claim-card__actions {
   display: flex;
   justify-content: flex-end;

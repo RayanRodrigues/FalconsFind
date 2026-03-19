@@ -1,5 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 import { tap, finalize } from 'rxjs';
+import { firstValueFrom } from 'rxjs';
 import type { Observable } from 'rxjs';
 import type { LoginRequest, LoginResponse, RegisterRequest } from '../../models';
 import { ApiClientService } from '../http/api-client.service';
@@ -42,6 +43,25 @@ export class AuthService {
 
   getStoredSession(): LoginResponse | null {
     return this.session();
+  }
+
+  async restoreSession(): Promise<void> {
+    const currentSession = this.readSession();
+    if (!currentSession?.refreshToken) {
+      this.session.set(currentSession);
+      return;
+    }
+
+    try {
+      const refreshedSession = await firstValueFrom(
+        this.apiClient.post<LoginResponse, { refreshToken: string }>('/auth/refresh', {
+          refreshToken: currentSession.refreshToken,
+        }),
+      );
+      this.persistSession(refreshedSession);
+    } catch {
+      this.clearSession();
+    }
   }
 
   isAuthenticated(): boolean {

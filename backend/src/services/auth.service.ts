@@ -2,7 +2,13 @@ import admin from 'firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import type { Firestore } from 'firebase-admin/firestore';
 import { UserRole } from '../contracts/index.js';
-import type { LoginRequest, LoginResponse, RegisterRequest, RegisterResponse } from '../contracts/index.js';
+import type {
+  LoginRequest,
+  LoginResponse,
+  RefreshSessionRequest,
+  RegisterRequest,
+  RegisterResponse,
+} from '../contracts/index.js';
 
 type FirebaseLoginSuccess = {
   localId: string;
@@ -16,6 +22,13 @@ type FirebaseLoginError = {
   error?: {
     message?: string;
   };
+};
+
+type FirebaseRefreshSuccess = {
+  user_id: string;
+  refresh_token: string;
+  id_token: string;
+  expires_in: string;
 };
 
 export class InvalidLoginCredentialsError extends Error {
@@ -147,6 +160,48 @@ export const loginUser = async (
     user: {
       uid: login.localId,
       email: login.email,
+      displayName: profile.displayName,
+      role: profile.role,
+      trusted: profile.role === UserRole.STUDENT ? profile.trusted : undefined,
+    },
+  };
+};
+
+export const refreshUserSession = async (
+  db: Firestore,
+  payload: RefreshSessionRequest,
+): Promise<LoginResponse> => {
+  const apiKey = getFirebaseApiKey();
+  const response = await fetch(
+    `https://securetoken.googleapis.com/v1/token?key=${encodeURIComponent(apiKey)}`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        grant_type: 'refresh_token',
+        refresh_token: payload.refreshToken,
+      }),
+    },
+  );
+
+  const responseBody = await response.json() as FirebaseRefreshSuccess | FirebaseLoginError;
+  if (!response.ok) {
+    throw mapFirebaseErrorToDomainError((responseBody as FirebaseLoginError).error?.message);
+  }
+
+  const refresh = responseBody as FirebaseRefreshSuccess;
+  const authUser = await admin.auth().getUser(refresh.user_id);
+  const profile = await resolveUserProfile(db, refresh.user_id);
+
+  return {
+    idToken: refresh.id_token,
+    refreshToken: refresh.refresh_token,
+    expiresIn: Number.parseInt(refresh.expires_in, 10),
+    user: {
+      uid: refresh.user_id,
+      email: authUser.email ?? '',
       displayName: profile.displayName,
       role: profile.role,
       trusted: profile.role === UserRole.STUDENT ? profile.trusted : undefined,

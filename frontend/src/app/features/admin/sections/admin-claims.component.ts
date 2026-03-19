@@ -22,6 +22,11 @@ export class AdminClaimsComponent implements OnInit, OnDestroy {
   claims: ClaimRow[] = [];
   archivedIds = new Set<string>();
   private refreshTimer: number | null = null;
+  private readonly handleVisibilityRefresh = () => {
+    if (document.visibilityState === 'visible') {
+      this.load(false);
+    }
+  };
 
   constructor(
     private readonly adminClaimsApi: AdminClaimsApiService,
@@ -33,6 +38,7 @@ export class AdminClaimsComponent implements OnInit, OnDestroy {
       this.loadArchivedIds();
       this.load();
       this.startAutoRefresh();
+      document.addEventListener('visibilitychange', this.handleVisibilityRefresh);
       return;
     }
 
@@ -41,6 +47,9 @@ export class AdminClaimsComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.stopAutoRefresh();
+    if (isPlatformBrowser(this.platformId)) {
+      document.removeEventListener('visibilitychange', this.handleVisibilityRefresh);
+    }
   }
 
   get stats() {
@@ -193,6 +202,33 @@ export class AdminClaimsComponent implements OnInit, OnDestroy {
     }
   }
 
+  studentReplyPreview(claim: Claim): string | null {
+    const message = claim.proofResponseMessage?.trim();
+    const photoCount = claim.proofResponsePhotoUrls?.length ?? 0;
+
+    if (message) {
+      return `Student replied: ${message}`;
+    }
+
+    if (photoCount > 0) {
+      return `Student replied with ${photoCount} photo${photoCount === 1 ? '' : 's'}`;
+    }
+
+    if (claim.proofRespondedAt) {
+      return 'Student submitted an update';
+    }
+
+    return null;
+  }
+
+  hasStudentReply(claim: Claim): boolean {
+    return Boolean(
+      claim.proofResponseMessage?.trim()
+      || (claim.proofResponsePhotoUrls?.length ?? 0) > 0
+      || claim.proofRespondedAt,
+    );
+  }
+
   private runClaimAction(
     claim: ClaimRow,
     action: () => import('rxjs').Observable<unknown>,
@@ -265,7 +301,7 @@ export class AdminClaimsComponent implements OnInit, OnDestroy {
 
     this.refreshTimer = window.setInterval(() => {
       this.load(false);
-    }, 15000);
+    }, 5000);
   }
 
   private stopAutoRefresh(): void {

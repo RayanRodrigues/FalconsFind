@@ -170,6 +170,61 @@ test('POST /api/v1/auth/login returns 403 for accounts without an allowed role',
   assert.equal(response.body.error.code, 'FORBIDDEN');
 });
 
+test('POST /api/v1/auth/refresh returns a renewed session on success', async () => {
+  const authService = {
+    InvalidLoginCredentialsError: class InvalidLoginCredentialsError extends Error {},
+    LoginConfigurationError: class LoginConfigurationError extends Error {},
+    LoginForbiddenError: class LoginForbiddenError extends Error {},
+    loginUser: async () => {
+      throw new Error('not used');
+    },
+    refreshUserSession: async (_db, payload) => ({
+      idToken: 'renewed-id-token',
+      refreshToken: payload.refreshToken,
+      expiresIn: 3600,
+      user: {
+        uid: 'uid-refresh-1',
+        email: 'admin@example.com',
+        role: 'ADMIN',
+      },
+    }),
+  };
+
+  const response = await request(buildTestApp(authService))
+    .post('/api/v1/auth/refresh')
+    .send({
+      refreshToken: 'refresh-token',
+    });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.idToken, 'renewed-id-token');
+  assert.equal(response.body.refreshToken, 'refresh-token');
+});
+
+test('POST /api/v1/auth/refresh returns 401 for invalid refresh tokens', async () => {
+  class InvalidLoginCredentialsError extends Error {}
+  const authService = {
+    InvalidLoginCredentialsError,
+    LoginConfigurationError: class LoginConfigurationError extends Error {},
+    LoginForbiddenError: class LoginForbiddenError extends Error {},
+    loginUser: async () => {
+      throw new Error('not used');
+    },
+    refreshUserSession: async () => {
+      throw new InvalidLoginCredentialsError('invalid refresh');
+    },
+  };
+
+  const response = await request(buildTestApp(authService))
+    .post('/api/v1/auth/refresh')
+    .send({
+      refreshToken: 'bad-refresh-token',
+    });
+
+  assert.equal(response.status, 401);
+  assert.equal(response.body.error.code, 'INVALID_REFRESH_TOKEN');
+});
+
 test('POST /api/v1/auth/logout revokes the current staff session', async () => {
   const revokedUids = [];
   const authService = {

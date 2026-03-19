@@ -183,17 +183,19 @@
                   ></textarea>
                 </div>
 
-                <app-photo-upload-field
-                  [id]="'proof-photos-' + claim.id"
-                  [inputId]="'proof-photos-input-' + claim.id"
-                  label="Proof Photos"
-                  [required]="false"
-                  [error]="claim.proofError || null"
-                  [photosCount]="claim.pendingProofPhotos?.length ?? 0"
-                  [photoPreviewUrls]="claim.pendingProofPreviewUrls ?? []"
-                  (filesSelected)="onProofPhotosSelected(claim, $event)"
-                  (removePhoto)="removeProofPhoto(claim, $event)"
-                />
+                <div class="claim-proof-form__upload">
+                  <app-photo-upload-field
+                    [id]="'proof-photos-' + claim.id"
+                    [inputId]="'proof-photos-input-' + claim.id"
+                    label="Proof Photos"
+                    [required]="false"
+                    [error]="claim.proofError || null"
+                    [photosCount]="claim.pendingProofPhotos?.length ?? 0"
+                    [photoPreviewUrls]="claim.pendingProofPreviewUrls ?? []"
+                    (filesSelected)="onProofPhotosSelected(claim, $event)"
+                    (removePhoto)="removeProofPhoto(claim, $event)"
+                  />
+                </div>
 
                 <div class="claim-proof-form__hint">
                   Add up to 5 JPEG or PNG photos if they help identify the item.

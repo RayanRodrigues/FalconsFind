@@ -10,6 +10,7 @@ export * from './dtos/create-lost-report.request.dto.js';
 export * from './dtos/create-found-report.request.dto.js';
 export * from './dtos/login.request.dto.js';
 export * from './dtos/login.response.dto.js';
+export * from './dtos/refresh-session.request.dto.js';
 export * from './dtos/register.request.dto.js';
 export * from './dtos/register.response.dto.js';
 export * from './dtos/update-report-by-reference.request.dto.js';

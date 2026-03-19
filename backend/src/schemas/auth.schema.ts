@@ -11,5 +11,10 @@ export const registerSchema = z.object({
   displayName: z.string().trim().min(2, 'display name must be at least 2 characters').max(100).optional(),
 });
 
+export const refreshSessionSchema = z.object({
+  refreshToken: z.string().trim().min(1, 'refreshToken is required'),
+});
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
+export type RefreshSessionInput = z.infer<typeof refreshSessionSchema>;

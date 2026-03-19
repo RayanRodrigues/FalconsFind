@@ -4,7 +4,13 @@ import rateLimit from 'express-rate-limit';
 import type { Firestore } from 'firebase-admin/firestore';
 import type { RedisClient } from '../bootstrap/redis.js';
 import { UserRole } from '../contracts/index.js';
-import type { LoginRequest, LoginResponse, RegisterRequest, RegisterResponse } from '../contracts/index.js';
+import type {
+  LoginRequest,
+  LoginResponse,
+  RefreshSessionRequest,
+  RegisterRequest,
+  RegisterResponse,
+} from '../contracts/index.js';
 import { HttpError, API_PREFIX } from './route-utils.js';
 import { parseBodyOrThrow } from './schema-validation.js';
 import { createLoginAttemptsService } from '../services/login-attempts.service.js';
@@ -15,14 +21,16 @@ import {
   LoginForbiddenError,
   RegistrationError,
   loginUser,
+  refreshUserSession,
   registerStudentUser,
   revokeStaffSession,
 } from '../services/auth.service.js';
-import { loginSchema, registerSchema } from '../schemas/auth.schema.js';
+import { loginSchema, refreshSessionSchema, registerSchema } from '../schemas/auth.schema.js';
 import { createRequireStaffRoles } from '../middleware/require-staff-user.js';
 
 type AuthService = {
   loginUser: (db: Firestore, payload: LoginRequest) => Promise<LoginResponse>;
+  refreshUserSession: (db: Firestore, payload: RefreshSessionRequest) => Promise<LoginResponse>;
   registerStudentUser: (db: Firestore, payload: RegisterRequest) => Promise<RegisterResponse>;
   revokeStaffSession: (uid: string) => Promise<void>;
   EmailAlreadyInUseError: typeof EmailAlreadyInUseError;
@@ -34,6 +42,7 @@ type AuthService = {
 
 const defaultAuthService: AuthService = {
   loginUser,
+  refreshUserSession,
   registerStudentUser,
   revokeStaffSession,
   EmailAlreadyInUseError,
@@ -107,6 +116,31 @@ export const createAuthRouter = (
         }
 
         throw new HttpError(401, 'INVALID_CREDENTIALS', error.message);
+      }
+
+      if (error instanceof authService.LoginForbiddenError) {
+        throw new HttpError(403, 'FORBIDDEN', error.message);
+      }
+
+      if (error instanceof authService.LoginConfigurationError) {
+        throw new HttpError(503, 'AUTH_PROVIDER_UNAVAILABLE', error.message);
+      }
+
+      throw error;
+    }
+
+    res.status(200).json(result);
+  });
+
+  router.post(`${API_PREFIX}/auth/refresh`, async (req, res) => {
+    const payload = parseBodyOrThrow(refreshSessionSchema, req.body);
+
+    let result: LoginResponse;
+    try {
+      result = await authService.refreshUserSession(db, payload);
+    } catch (error) {
+      if (error instanceof authService.InvalidLoginCredentialsError) {
+        throw new HttpError(401, 'INVALID_REFRESH_TOKEN', 'Session refresh failed. Please sign in again.');
       }
 
       if (error instanceof authService.LoginForbiddenError) {
