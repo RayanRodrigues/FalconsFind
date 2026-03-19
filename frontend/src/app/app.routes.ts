@@ -10,6 +10,7 @@ import { EditReportPageComponent } from './features/public-reporting/edit-report
 import { LoginComponent } from './features/auth/login/login.component';
 import { RegisterComponent } from './features/auth/register/register.component';
 import { AdminDashboardComponent } from './features/admin/admin-dashboard.component';
+import { NotFoundPageComponent } from './features/not-found/not-found-page.component';
 import { adminAuthGuard } from './core/guards/admin-auth.guard';
 import { authenticatedUserGuard } from './core/guards/student-auth.guard';
 
@@ -96,6 +97,7 @@ export const routes: Routes = [
   // optional fallback
   {
     path: '**',
-    redirectTo: ''
+    component: NotFoundPageComponent,
+    title: 'Page Not Found - FalconFind'
   }
 ];
