@@ -53,6 +53,20 @@ export const uploadSinglePhoto: RequestHandler = (req, res, next) => {
   });
 };
 
+export const createPhotoArrayUpload = (fieldName: string, maxCount: number): RequestHandler => (
+  (req, res, next) => {
+    upload.array(fieldName, maxCount)(req, res, (error: unknown) => {
+      if (!error) {
+        next();
+        return;
+      }
+
+      const message = error instanceof Error ? error.message : 'Invalid upload payload';
+      next(new HttpError(400, 'BAD_REQUEST', message));
+    });
+  }
+);
+
 export function getValidatedUploadedPhoto(
   file: Express.Multer.File | undefined,
   options: { required: true },
@@ -82,4 +96,30 @@ export function getValidatedUploadedPhoto(
     buffer: file.buffer,
     mimeType,
   };
+}
+
+export function getValidatedUploadedPhotos(
+  files: Express.Multer.File[] | undefined,
+  options: { required: boolean },
+): UploadedPhoto[] {
+  const normalizedFiles = Array.isArray(files) ? files : [];
+  if (normalizedFiles.length === 0) {
+    if (options.required) {
+      throw new HttpError(400, 'BAD_REQUEST', 'At least one photo is required');
+    }
+
+    return [];
+  }
+
+  return normalizedFiles.map((file) => {
+    const mimeType = detectAllowedImageMime(file.buffer);
+    if (!mimeType) {
+      throw new HttpError(400, 'BAD_REQUEST', 'Each photo must be a valid JPEG or PNG');
+    }
+
+    return {
+      buffer: file.buffer,
+      mimeType,
+    };
+  });
 }

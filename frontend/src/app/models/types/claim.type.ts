@@ -13,5 +13,8 @@ export type Claim = {
   phone?: string;
   additionalProofRequest?: string;
   proofRequestedAt?: string;
+  proofResponseMessage?: string;
+  proofResponsePhotoUrls?: string[];
+  proofRespondedAt?: string;
   createdAt: string;
 };

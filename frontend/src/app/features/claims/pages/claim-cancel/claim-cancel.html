@@ -97,6 +97,69 @@
               </div>
             }
 
+            @if (claim.proofResponseMessage || (claim.proofResponsePhotoUrls?.length ?? 0) > 0) {
+              <div class="claim-proof-response">
+                <p class="claim-proof-response__label">Your latest proof response</p>
+                @if (claim.proofResponseMessage) {
+                  <p class="claim-proof-response__message">{{ claim.proofResponseMessage }}</p>
+                }
+                @if (claim.proofRespondedAt) {
+                  <p class="claim-proof-response__time">Submitted on {{ claim.proofRespondedAt | date: 'medium' }}</p>
+                }
+                @if ((claim.proofResponsePhotoUrls?.length ?? 0) > 0) {
+                  <div class="claim-proof-response__gallery">
+                    @for (photoUrl of claim.proofResponsePhotoUrls ?? []; track photoUrl) {
+                      <a class="claim-proof-response__thumb" [href]="photoUrl" target="_blank" rel="noreferrer">
+                        <img [src]="photoUrl" alt="Proof photo submitted by claimant" />
+                      </a>
+                    }
+                  </div>
+                }
+              </div>
+            }
+
+            @if (canSubmitProof(claim)) {
+              <div class="claim-proof-form">
+                <div class="claim-card__section">
+                  <h3>Respond to this proof request</h3>
+                  <textarea
+                    class="claim-proof-form__textarea"
+                    rows="4"
+                    [(ngModel)]="claim.proofResponseDraft"
+                    [ngModelOptions]="{ standalone: true }"
+                    placeholder="Share the identifying details that confirm the item is yours, and attach photos if they help."
+                  ></textarea>
+                </div>
+
+                <app-photo-upload-field
+                  [id]="'proof-photos-' + claim.id"
+                  [inputId]="'proof-photos-input-' + claim.id"
+                  label="Proof Photos"
+                  [required]="false"
+                  [error]="claim.proofError || null"
+                  [photosCount]="claim.pendingProofPhotos?.length ?? 0"
+                  [photoPreviewUrls]="claim.pendingProofPreviewUrls ?? []"
+                  (filesSelected)="onProofPhotosSelected(claim, $event)"
+                  (removePhoto)="removeProofPhoto(claim, $event)"
+                />
+
+                <div class="claim-proof-form__hint">
+                  Add up to 5 JPEG or PNG photos if they help identify the item.
+                </div>
+
+                <div class="claim-card__actions claim-card__actions--stacked">
+                  <button
+                    type="button"
+                    class="submit-proof-button"
+                    (click)="submitProof(claim)"
+                    [disabled]="claim.isSubmittingProof"
+                  >
+                    {{ claim.isSubmittingProof ? 'Submitting Proof…' : 'Submit Additional Proof' }}
+                  </button>
+                </div>
+              </div>
+            }
+
             @if (canCancel(claim)) {
               <div class="claim-card__actions">
                 <button

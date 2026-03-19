@@ -30,6 +30,14 @@ export type CancelClaimResponse = {
   itemStatus: string;
 };
 
+export type SubmitClaimProofResponse = {
+  id: string;
+  status: string;
+  proofResponseMessage: string;
+  proofResponsePhotoUrls?: string[];
+  proofRespondedAt: string;
+};
+
 @Injectable({ providedIn: 'root' })
 export class ClaimsApiService {
   constructor(private readonly apiClient: ApiClientService) {}
@@ -44,5 +52,9 @@ export class ClaimsApiService {
 
   cancelClaim(id: string): Observable<CancelClaimResponse> {
     return this.apiClient.patch<CancelClaimResponse, Record<string, never>>(`/claims/${id}/cancel`, {});
+  }
+
+  submitProof(id: string, formData: FormData): Observable<SubmitClaimProofResponse> {
+    return this.apiClient.patch<SubmitClaimProofResponse, FormData>(`/claims/${id}/proof-response`, formData);
   }
 }

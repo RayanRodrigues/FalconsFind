@@ -33,6 +33,13 @@ describe('ClaimCancel', () => {
               itemId: 'item-1',
               itemStatus: 'VALIDATED',
             })),
+            submitProof: vi.fn().mockReturnValue(of({
+              id: 'claim-1',
+              status: 'PENDING',
+              proofResponseMessage: 'Here is the extra proof you requested.',
+              proofResponsePhotoUrls: [],
+              proofRespondedAt: '2026-03-18T12:00:00.000Z',
+            })),
           },
         },
       ],

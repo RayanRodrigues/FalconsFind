@@ -1,14 +1,26 @@
 import { CommonModule, isPlatformBrowser } from '@angular/common';
-import { Component, Inject, OnInit, PLATFORM_ID, signal } from '@angular/core';
+import { ChangeDetectorRef, Component, Inject, OnInit, PLATFORM_ID, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { finalize } from 'rxjs';
 import { ClaimStatus } from '../../../../models';
 import type { Claim, ErrorResponse } from '../../../../models';
 import { ClaimsApiService } from '../../../../core/services/claims-api.service';
+import { PhotoUploadFieldComponent } from '../../../../shared/components/forms/photo-upload-field.component';
+import { mergeSelectedPhotos } from '../../../../shared/utils/photo-upload.util';
+
+type ClaimRow = Claim & {
+  isCancelling?: boolean;
+  isSubmittingProof?: boolean;
+  proofResponseDraft?: string;
+  pendingProofPhotos?: File[];
+  pendingProofPreviewUrls?: string[];
+  proofError?: string;
+};
 
 @Component({
   selector: 'app-claim-cancel',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule, PhotoUploadFieldComponent],
   templateUrl: './claim-cancel.html',
   styleUrl: './claim-cancel.css'
 })
@@ -16,7 +28,7 @@ export class ClaimCancel implements OnInit {
   readonly loading = signal(true);
   readonly errorMessage = signal('');
   readonly successMessage = signal('');
-  readonly claims = signal<(Claim & { isCancelling?: boolean })[]>([]);
+  readonly claims = signal<ClaimRow[]>([]);
   readonly summary = signal({
     totalClaims: 0,
     pendingClaims: 0,
@@ -28,6 +40,7 @@ export class ClaimCancel implements OnInit {
 
   constructor(
     private readonly claimsApi: ClaimsApiService,
+    private readonly cdr: ChangeDetectorRef,
     @Inject(PLATFORM_ID) private readonly platformId: object,
   ) {}
 
@@ -49,7 +62,15 @@ export class ClaimCancel implements OnInit {
       .pipe(finalize(() => this.loading.set(false)))
       .subscribe({
         next: (response) => {
-          this.claims.set((response.claims ?? []).map((claim) => ({ ...claim, isCancelling: false })));
+          this.claims.set((response.claims ?? []).map((claim) => ({
+            ...claim,
+            isCancelling: false,
+            isSubmittingProof: false,
+            proofResponseDraft: '',
+            pendingProofPhotos: [],
+            pendingProofPreviewUrls: [],
+            proofError: '',
+          })));
           this.summary.set(response.summary);
         },
         error: () => {
@@ -62,7 +83,7 @@ export class ClaimCancel implements OnInit {
     return claim.status === ClaimStatus.PENDING || claim.status === ClaimStatus.NEEDS_PROOF;
   }
 
-  cancelClaim(claim: Claim & { isCancelling?: boolean }): void {
+  cancelClaim(claim: ClaimRow): void {
     if (!this.canCancel(claim) || claim.isCancelling) {
       return;
     }
@@ -87,6 +108,73 @@ export class ClaimCancel implements OnInit {
         },
         error: (error: ErrorResponse) => {
           this.errorMessage.set(this.mapCancelError(error));
+        },
+      });
+  }
+
+  canSubmitProof(claim: Claim): boolean {
+    return claim.status === ClaimStatus.NEEDS_PROOF;
+  }
+
+  onProofPhotosSelected(claim: ClaimRow, files: File[]): void {
+    const currentPhotos = claim.pendingProofPhotos ?? [];
+    const { photos: nextPhotos, error: nextError } = mergeSelectedPhotos(currentPhotos, files);
+    claim.pendingProofPhotos = nextPhotos;
+    claim.proofError = nextError ?? '';
+    void this.rebuildPreviewUrls(claim, nextPhotos);
+  }
+
+  removeProofPhoto(claim: ClaimRow, index: number): void {
+    const currentPhotos = claim.pendingProofPhotos ?? [];
+    const nextPhotos = currentPhotos.filter((_, currentIndex) => currentIndex !== index);
+    claim.pendingProofPhotos = nextPhotos;
+    void this.rebuildPreviewUrls(claim, nextPhotos);
+  }
+
+  submitProof(claim: ClaimRow): void {
+    if (!this.canSubmitProof(claim) || claim.isSubmittingProof) {
+      return;
+    }
+
+    const message = claim.proofResponseDraft?.trim() ?? '';
+    if (message.length < 10) {
+      claim.proofError = 'Please describe your proof in a bit more detail.';
+      return;
+    }
+
+    claim.isSubmittingProof = true;
+    claim.proofError = '';
+    this.errorMessage.set('');
+    this.successMessage.set('');
+
+    const formData = new FormData();
+    formData.append('message', message);
+
+    for (const photo of claim.pendingProofPhotos ?? []) {
+      formData.append('photos', photo);
+    }
+
+    this.claimsApi.submitProof(claim.id, formData)
+      .pipe(finalize(() => { claim.isSubmittingProof = false; }))
+      .subscribe({
+        next: (response) => {
+          claim.status = ClaimStatus.PENDING;
+          claim.proofResponseMessage = response.proofResponseMessage;
+          claim.proofResponsePhotoUrls = response.proofResponsePhotoUrls ?? [];
+          claim.proofRespondedAt = response.proofRespondedAt;
+          claim.proofResponseDraft = '';
+          claim.pendingProofPhotos = [];
+          claim.pendingProofPreviewUrls = [];
+          claim.proofError = '';
+          this.summary.update((value) => ({
+            ...value,
+            pendingClaims: value.pendingClaims + 1,
+            needsProofClaims: Math.max(0, value.needsProofClaims - 1),
+          }));
+          this.successMessage.set(`Additional proof for ${claim.referenceCode} was submitted successfully.`);
+        },
+        error: (error: ErrorResponse) => {
+          claim.proofError = this.mapProofError(error);
         },
       });
   }
@@ -136,5 +224,40 @@ export class ClaimCancel implements OnInit {
       default:
         return 'There was an error cancelling the claim request.';
     }
+  }
+
+  private mapProofError(error: ErrorResponse): string {
+    switch (error.error?.code) {
+      case 'CLAIM_STATUS_CONFLICT':
+        return 'This claim is no longer waiting for additional proof.';
+      case 'FORBIDDEN':
+        return 'You can only respond to your own claim requests.';
+      case 'NOT_FOUND':
+      case 'CLAIM_ITEM_NOT_FOUND':
+        return 'This claim is no longer available.';
+      case 'BAD_REQUEST':
+        return error.error.message || 'Please review your proof details and photos.';
+      default:
+        return 'There was an error submitting your additional proof.';
+    }
+  }
+
+  private async rebuildPreviewUrls(claim: ClaimRow, files: File[]): Promise<void> {
+    if (!isPlatformBrowser(this.platformId)) {
+      claim.pendingProofPreviewUrls = [];
+      return;
+    }
+
+    const urls = await Promise.all(
+      files.map((file) => new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (event) => resolve((event.target?.result as string) ?? '');
+        reader.onerror = () => resolve('');
+        reader.readAsDataURL(file);
+      })),
+    );
+
+    claim.pendingProofPreviewUrls = urls.filter(Boolean);
+    this.cdr.markForCheck();
   }
 }

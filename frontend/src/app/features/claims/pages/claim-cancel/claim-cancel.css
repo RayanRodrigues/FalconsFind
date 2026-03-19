@@ -218,9 +218,92 @@
   font-size: 0.82rem;
 }
 
+.claim-proof-response,
+.claim-proof-form {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: rgba(248, 250, 252, 0.92);
+}
+
+.claim-proof-response__label {
+  margin: 0 0 0.35rem;
+  color: var(--color-text-secondary);
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+}
+
+.claim-proof-response__message,
+.claim-proof-form__hint {
+  margin: 0;
+  color: var(--color-text-primary);
+  line-height: 1.6;
+}
+
+.claim-proof-response__time {
+  margin: 0.45rem 0 0;
+  color: var(--color-text-secondary);
+  font-size: 0.82rem;
+}
+
+.claim-proof-response__gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.85rem;
+}
+
+.claim-proof-response__thumb {
+  display: block;
+  border-radius: 0.95rem;
+  overflow: hidden;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: white;
+}
+
+.claim-proof-response__thumb img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+}
+
+.claim-proof-form__textarea {
+  width: 100%;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 1rem;
+  padding: 0.9rem 1rem;
+  background: white;
+  color: var(--color-text-primary);
+  resize: vertical;
+  min-height: 7rem;
+  line-height: 1.6;
+}
+
+.claim-proof-form__textarea:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--color-info) 42%, white);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-info) 14%, transparent);
+}
+
+.claim-proof-form__hint {
+  margin-top: 0.8rem;
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+}
+
 .claim-card__actions {
   display: flex;
   justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.claim-card__actions--stacked {
+  margin-top: 1rem;
+  justify-content: flex-start;
 }
 
 .cancel-button {
@@ -235,11 +318,28 @@
   box-shadow: 0 12px 26px rgba(239, 68, 68, 0.25);
 }
 
+.submit-proof-button {
+  border: none;
+  border-radius: 999px;
+  padding: 0.85rem 1.25rem;
+  background: color-mix(in srgb, var(--color-info) 88%, black 12%);
+  color: white;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+  box-shadow: 0 12px 26px rgba(59, 130, 246, 0.22);
+}
+
 .cancel-button:hover:not(:disabled) {
   transform: translateY(-1px);
 }
 
-.cancel-button:disabled {
+.submit-proof-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.cancel-button:disabled,
+.submit-proof-button:disabled {
   opacity: 0.65;
   cursor: not-allowed;
 }

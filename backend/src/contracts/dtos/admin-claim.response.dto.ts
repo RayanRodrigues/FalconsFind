@@ -13,5 +13,8 @@ export type AdminClaimResponse = {
   status: ClaimStatus;
   additionalProofRequest?: string;
   proofRequestedAt?: string;
+  proofResponseMessage?: string;
+  proofResponsePhotoUrls?: string[];
+  proofRespondedAt?: string;
   createdAt: string;
 };

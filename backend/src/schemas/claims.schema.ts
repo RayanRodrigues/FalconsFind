@@ -18,6 +18,12 @@ export const requestAdditionalProofSchema = z.object({
 
 export type RequestAdditionalProofInput = z.infer<typeof requestAdditionalProofSchema>;
 
+export const submitClaimProofSchema = z.object({
+  message: z.string().trim().min(10, 'message must be at least 10 characters').max(2000, 'message must be 2000 characters or fewer'),
+});
+
+export type SubmitClaimProofInput = z.infer<typeof submitClaimProofSchema>;
+
 export const updateClaimStatusSchema = z.object({
   status: z.enum(['APPROVED', 'REJECTED']),
 });

@@ -145,10 +145,37 @@ const createFakeDb = ({ claims = {}, items = {}, reports = {} } = {}) => {
   return { db, savedClaims, claims, items, reports };
 };
 
+const createFakeBucket = () => {
+  const uploads = [];
+  const createFileHandle = (fileName) => ({
+    save: async (buffer, options) => {
+      uploads.push({ fileName, size: buffer.length, options });
+    },
+    getSignedUrl: async () => [`https://signed.local/${fileName}`],
+  });
+  const storage = {
+    bucket: (bucketName) => ({
+      name: bucketName,
+      storage,
+      file: (fileName) => createFileHandle(fileName),
+    }),
+  };
+
+  return {
+    bucket: {
+      name: 'test-bucket',
+      storage,
+      file: (fileName) => createFileHandle(fileName),
+    },
+    uploads,
+  };
+};
+
 const buildTestApp = (db) => {
+  const { bucket, uploads } = createFakeBucket();
   const app = express();
   app.use(express.json());
-  app.use(createClaimsRouter(db, {
+  app.use(createClaimsRouter(db, bucket, {
     requireStaffUser: (_req, _res, next) => next(),
     requireAuthenticatedUser: (_req, res, next) => {
       res.locals.authUser = {
@@ -169,6 +196,7 @@ const buildTestApp = (db) => {
   }));
   app.use(notFoundHandler);
   app.use(errorHandler);
+  app.uploads = uploads;
   return app;
 };
 
@@ -183,7 +211,8 @@ test('POST /api/v1/claims creates a pending claim for a validated item found by 
     },
   });
 
-  const response = await request(buildTestApp(db))
+  const app = buildTestApp(db);
+  const response = await request(app)
     .post('/api/v1/claims')
     .send({
       referenceCode: 'FF-2024-00001',
@@ -222,7 +251,8 @@ test('POST /api/v1/claims creates a pending claim when item is in the items coll
     },
   });
 
-  const response = await request(buildTestApp(db))
+  const app = buildTestApp(db);
+  const response = await request(app)
     .post('/api/v1/claims')
     .send({
       referenceCode: 'FF-2024-00099',
@@ -253,7 +283,8 @@ test('POST /api/v1/claims also allows authenticated admin users to create a clai
 
   const app = express();
   app.use(express.json());
-  app.use(createClaimsRouter(db, {
+  const { bucket } = createFakeBucket();
+  app.use(createClaimsRouter(db, bucket, {
     requireStaffUser: (_req, _res, next) => next(),
     requireAuthenticatedUser: (_req, res, next) => {
       res.locals.authUser = {
@@ -423,7 +454,8 @@ test('GET /api/v1/claims/me lists only the authenticated user claims', async () 
     },
   });
 
-  const response = await request(buildTestApp(db)).get('/api/v1/claims/me');
+  const app = buildTestApp(db);
+  const response = await request(app).get('/api/v1/claims/me');
 
   assert.equal(response.status, 200);
   assert.equal(response.body.total, 2);
@@ -434,6 +466,55 @@ test('GET /api/v1/claims/me lists only the authenticated user claims', async () 
   assert.equal(response.body.claims[0].id, 'claim-1');
   assert.equal(response.body.claims[1].id, 'claim-2');
   assert.equal(response.body.claims[1].additionalProofRequest, 'Please provide a photo of the sticker on the inside.');
+});
+
+test('PATCH /api/v1/claims/:id/proof-response submits additional proof, uploads photos, and returns the claim to pending review', async () => {
+  const { db, claims, items } = createFakeDb({
+    claims: {
+      'claim-proof-1': {
+        itemId: 'item-proof-1',
+        referenceCode: 'FND-2024-00090',
+        claimantUid: 'student-1',
+        itemName: 'Laptop sleeve',
+        status: 'NEEDS_PROOF',
+        claimantName: 'Jane Doe',
+        claimantEmail: 'jane@example.com',
+        claimReason: 'I lost this after class.',
+        proofDetails: 'It contains my name tag inside.',
+        additionalProofRequest: 'Please send a clearer photo of the inside label.',
+        proofRequestedAt: '2026-03-18T10:00:00.000Z',
+        createdAt: '2026-03-18T09:00:00.000Z',
+      },
+    },
+    items: {
+      'item-proof-1': {
+        status: 'VALIDATED',
+        claimStatus: 'NEEDS_PROOF',
+      },
+    },
+  });
+
+  const app = buildTestApp(db);
+  const uploads = app.uploads;
+  const jpegBuffer = Buffer.from([0xff, 0xd8, 0xff, 0xdb, 0x00, 0x43, 0x00]);
+
+  const response = await request(app)
+    .patch('/api/v1/claims/claim-proof-1/proof-response')
+    .field('message', 'Here is a clearer photo of the inside label and stitching.')
+    .attach('photos', jpegBuffer, {
+      filename: 'label.jpg',
+      contentType: 'image/jpeg',
+    });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.status, 'PENDING');
+  assert.equal(response.body.proofResponseMessage, 'Here is a clearer photo of the inside label and stitching.');
+  assert.match(response.body.proofRespondedAt, /^\d{4}-\d{2}-\d{2}T/);
+  assert.match(response.body.proofResponsePhotoUrls[0], /^https:\/\/signed\.local\/claims\//);
+  assert.equal(uploads.length, 1);
+  assert.equal(claims['claim-proof-1'].status, 'PENDING');
+  assert.equal(items['item-proof-1'].claimStatus, 'PENDING');
+  assert.equal(claims['claim-proof-1'].proofResponsePhotoUrls.length, 1);
 });
 
 test('PATCH /api/v1/claims/:id/status approves a pending claim and marks the item as claimed', async () => {

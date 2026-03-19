@@ -7,6 +7,8 @@ import type {
   QuerySnapshot,
   Transaction,
 } from 'firebase-admin/firestore';
+import type { Bucket } from '@google-cloud/storage';
+import { randomUUID } from 'node:crypto';
 import { ClaimStatus, ItemStatus, UserRole } from '../contracts/index.js';
 import type {
   AdminClaimsListResponse,
@@ -15,6 +17,7 @@ import type {
   CreateClaimRequest,
   RequestAdditionalProofRequest,
   Report,
+  SubmitClaimProofRequest,
   UserClaimsListResponse,
 } from '../contracts/index.js';
 
@@ -33,6 +36,9 @@ type StoredClaim = {
   reviewedAt?: string;
   additionalProofRequest?: string;
   proofRequestedAt?: string;
+  proofResponseMessage?: string;
+  proofResponsePhotoUrls?: string[];
+  proofRespondedAt?: string;
   message?: string;
 };
 
@@ -64,6 +70,11 @@ type StoredProofRequestPatch = Partial<StoredClaim> & {
 
 type StoredItemProofRequestPatch = Partial<StoredItem> & {
   claimStatus: Extract<ClaimStatus, 'NEEDS_PROOF'>;
+  updatedAt: string;
+};
+
+type StoredItemProofResponsePatch = Partial<StoredItem> & {
+  claimStatus: Extract<ClaimStatus, 'PENDING'>;
   updatedAt: string;
 };
 
@@ -100,6 +111,14 @@ type ClaimCancellationResult = {
   status: Extract<ClaimStatus, 'CANCELLED'>;
   itemId: string;
   itemStatus: ItemStatus;
+};
+
+type SubmitClaimProofResult = {
+  id: string;
+  status: Extract<ClaimStatus, 'PENDING'>;
+  proofResponseMessage: string;
+  proofResponsePhotoUrls?: string[];
+  proofRespondedAt: string;
 };
 
 type ClaimActor = {
@@ -141,6 +160,83 @@ export class ClaimForbiddenError extends Error {
     this.name = 'ClaimForbiddenError';
   }
 }
+
+type SupportedPhotoMimeType = 'image/jpeg' | 'image/png';
+
+const uploadProofPhotoBuffer = async (
+  bucket: Bucket,
+  buffer: Buffer,
+  contentType: SupportedPhotoMimeType,
+): Promise<string> => {
+  const extension = contentType === 'image/png' ? 'png' : 'jpg';
+  const fileName = `claims/${Date.now()}-${randomUUID()}.${extension}`;
+  const file = bucket.file(fileName);
+
+  await file.save(buffer, {
+    metadata: { contentType },
+    resumable: false,
+    public: false,
+  });
+
+  return `gs://${bucket.name}/${fileName}`;
+};
+
+const parseGsUrl = (value: string): { bucketName: string; filePath: string } | null => {
+  if (!value.startsWith('gs://')) {
+    return null;
+  }
+
+  const normalized = value.slice('gs://'.length);
+  const slashIndex = normalized.indexOf('/');
+  if (slashIndex <= 0 || slashIndex === normalized.length - 1) {
+    return null;
+  }
+
+  return {
+    bucketName: normalized.slice(0, slashIndex),
+    filePath: normalized.slice(slashIndex + 1),
+  };
+};
+
+const toClaimPhotoUrl = async (
+  defaultBucket: Bucket,
+  value: string,
+): Promise<string> => {
+  const gs = parseGsUrl(value);
+  if (!gs) {
+    return value;
+  }
+
+  const targetBucket =
+    gs.bucketName === defaultBucket.name
+      ? defaultBucket
+      : defaultBucket.storage.bucket(gs.bucketName);
+
+  const [url] = await targetBucket.file(gs.filePath).getSignedUrl({
+    version: 'v4',
+    action: 'read',
+    expires: Date.now() + 1000 * 60 * 60,
+  });
+
+  return url;
+};
+
+const toClaimPhotoUrls = async (
+  bucket: Bucket,
+  values: string[] | undefined,
+): Promise<string[] | undefined> => {
+  if (!Array.isArray(values) || values.length === 0) {
+    return undefined;
+  }
+
+  const urls = await Promise.all(
+    values
+      .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+      .map((value) => toClaimPhotoUrl(bucket, value)),
+  );
+
+  return urls.length > 0 ? urls : undefined;
+};
 
 type TransactionReader = {
   get<T>(ref: DocumentReference<T>): Promise<DocumentSnapshot<T>>;
@@ -524,8 +620,86 @@ export const cancelClaim = async (
   });
 };
 
+export const submitClaimProof = async (
+  db: Firestore,
+  bucket: Bucket,
+  claimId: string,
+  payload: SubmitClaimProofRequest,
+  photos: Array<{ buffer: Buffer; mimeType: SupportedPhotoMimeType }>,
+  actor: { uid: string },
+): Promise<SubmitClaimProofResult> => {
+  const storedProofResponsePhotoUrls = photos.length > 0
+    ? await Promise.all(photos.map((photo) => uploadProofPhotoBuffer(bucket, photo.buffer, photo.mimeType)))
+    : undefined;
+
+  const result = await db.runTransaction(async (transaction: Transaction) => {
+    const claimRef = db.collection('claims').doc(claimId);
+    const claimSnap = await transaction.get(claimRef);
+
+    if (!claimSnap.exists) {
+      throw new ClaimNotFoundError();
+    }
+
+    const claim = claimSnap.data() as StoredClaim | undefined;
+    if (!claim) {
+      throw new ClaimNotFoundError();
+    }
+
+    const itemId = claim.itemId?.trim();
+    const claimantUid = claim.claimantUid?.trim();
+    if (!itemId) {
+      throw new ClaimItemNotFoundError();
+    }
+
+    if (!claimantUid || claimantUid !== actor.uid) {
+      throw new ClaimForbiddenError('You can only submit proof for your own claim requests.');
+    }
+
+    if (claim.status !== ClaimStatus.NEEDS_PROOF) {
+      throw new ClaimConflictError('Additional proof can only be submitted when a claim is awaiting more proof.');
+    }
+
+    const itemRef = await getFirstExistingItemRef(transaction, db, itemId);
+    const proofRespondedAt = new Date().toISOString();
+
+    transaction.update(claimRef, {
+      status: ClaimStatus.PENDING,
+      proofResponseMessage: payload.message,
+      proofResponsePhotoUrls: storedProofResponsePhotoUrls,
+      proofRespondedAt,
+    } satisfies Partial<StoredClaim> & {
+      status: Extract<ClaimStatus, 'PENDING'>;
+      proofResponseMessage: string;
+      proofResponsePhotoUrls?: string[];
+      proofRespondedAt: string;
+    });
+
+    transaction.update(itemRef, {
+      claimStatus: ClaimStatus.PENDING,
+      updatedAt: proofRespondedAt,
+    } satisfies StoredItemProofResponsePatch);
+
+    return {
+      id: claimId,
+      status: ClaimStatus.PENDING,
+      proofResponseMessage: payload.message,
+      proofResponsePhotoUrls: storedProofResponsePhotoUrls,
+      proofRespondedAt,
+    };
+  });
+
+  return {
+    id: result.id,
+    status: ClaimStatus.PENDING,
+    proofResponseMessage: result.proofResponseMessage,
+    proofResponsePhotoUrls: await toClaimPhotoUrls(bucket, result.proofResponsePhotoUrls),
+    proofRespondedAt: result.proofRespondedAt,
+  };
+};
+
 const mapStoredClaimToAdminClaim = async (
   db: Firestore,
+  bucket: Bucket,
   id: string,
   data: StoredClaim,
 ): Promise<AdminClaimResponse | null> => {
@@ -556,6 +730,12 @@ const mapStoredClaimToAdminClaim = async (
   const phone = typeof data.phone === 'string' && data.phone.trim()
     ? data.phone.trim()
     : legacyFields.phone;
+  const proofResponsePhotoUrls = await toClaimPhotoUrls(
+    bucket,
+    Array.isArray(data.proofResponsePhotoUrls)
+      ? data.proofResponsePhotoUrls.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+      : undefined,
+  );
 
   return {
     id,
@@ -576,14 +756,23 @@ const mapStoredClaimToAdminClaim = async (
       typeof data.proofRequestedAt === 'string' && data.proofRequestedAt.trim()
         ? data.proofRequestedAt.trim()
         : undefined,
+    proofResponseMessage:
+      typeof data.proofResponseMessage === 'string' && data.proofResponseMessage.trim()
+        ? data.proofResponseMessage.trim()
+        : undefined,
+    proofResponsePhotoUrls,
+    proofRespondedAt:
+      typeof data.proofRespondedAt === 'string' && data.proofRespondedAt.trim()
+        ? data.proofRespondedAt.trim()
+        : undefined,
     createdAt,
   };
 };
 
-export const listAdminClaims = async (db: Firestore): Promise<AdminClaimsListResponse> => {
+export const listAdminClaims = async (db: Firestore, bucket: Bucket): Promise<AdminClaimsListResponse> => {
   const snapshot = await db.collection('claims').get();
   const claims = (await Promise.all(
-    snapshot.docs.map((doc) => mapStoredClaimToAdminClaim(db, doc.id, (doc.data() as StoredClaim | undefined) ?? {})),
+    snapshot.docs.map((doc) => mapStoredClaimToAdminClaim(db, bucket, doc.id, (doc.data() as StoredClaim | undefined) ?? {})),
   ))
     .filter((claim): claim is AdminClaimResponse => claim !== null)
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
@@ -602,10 +791,11 @@ export const listAdminClaims = async (db: Firestore): Promise<AdminClaimsListRes
   };
 };
 
-const mapStoredClaimToUserClaim = (
+const mapStoredClaimToUserClaim = async (
+  bucket: Bucket,
   id: string,
   data: StoredClaim,
-): Claim | null => {
+): Promise<Claim | null> => {
   const itemId = typeof data.itemId === 'string' ? data.itemId.trim() : '';
   const claimantUid = typeof data.claimantUid === 'string' ? data.claimantUid.trim() : '';
   const claimantName = typeof data.claimantName === 'string' ? data.claimantName.trim() : '';
@@ -633,6 +823,12 @@ const mapStoredClaimToUserClaim = (
   const phone = typeof data.phone === 'string' && data.phone.trim()
     ? data.phone.trim()
     : legacyFields.phone;
+  const proofResponsePhotoUrls = await toClaimPhotoUrls(
+    bucket,
+    Array.isArray(data.proofResponsePhotoUrls)
+      ? data.proofResponsePhotoUrls.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+      : undefined,
+  );
 
   return {
     id,
@@ -654,17 +850,28 @@ const mapStoredClaimToUserClaim = (
       typeof data.proofRequestedAt === 'string' && data.proofRequestedAt.trim()
         ? data.proofRequestedAt.trim()
         : undefined,
+    proofResponseMessage:
+      typeof data.proofResponseMessage === 'string' && data.proofResponseMessage.trim()
+        ? data.proofResponseMessage.trim()
+        : undefined,
+    proofResponsePhotoUrls,
+    proofRespondedAt:
+      typeof data.proofRespondedAt === 'string' && data.proofRespondedAt.trim()
+        ? data.proofRespondedAt.trim()
+        : undefined,
     createdAt,
   };
 };
 
 export const listClaimsForUser = async (
   db: Firestore,
+  bucket: Bucket,
   uid: string,
 ): Promise<UserClaimsListResponse> => {
   const snapshot = await db.collection('claims').where('claimantUid', '==', uid).get();
-  const claims = snapshot.docs
-    .map((doc) => mapStoredClaimToUserClaim(doc.id, (doc.data() as StoredClaim | undefined) ?? {}))
+  const claims = (await Promise.all(
+    snapshot.docs.map((doc) => mapStoredClaimToUserClaim(bucket, doc.id, (doc.data() as StoredClaim | undefined) ?? {})),
+  ))
     .filter((claim): claim is Claim => claim !== null)
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
 

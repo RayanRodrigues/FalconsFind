@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type { RequestHandler } from 'express';
 import type { Firestore } from 'firebase-admin/firestore';
+import type { Bucket } from '@google-cloud/storage';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -8,6 +9,7 @@ import type {
   AdminClaimsListResponse,
   CreateClaimRequest,
   RequestAdditionalProofRequest,
+  SubmitClaimProofRequest,
   UpdateClaimStatusRequest,
   UserClaimsListResponse,
 } from '../contracts/index.js';
@@ -15,6 +17,7 @@ import { UserRole } from '../contracts/index.js';
 import { API_PREFIX, HttpError } from './route-utils.js';
 import { parseBodyOrThrow } from './schema-validation.js';
 import { createRequireStaffRoles } from '../middleware/require-staff-user.js';
+import { createPhotoArrayUpload, getValidatedUploadedPhotos } from './report-photo-upload.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -42,6 +45,13 @@ const schemaModule = (await import(pathToFileURL(schemaPath).href)) as {
       | { success: true; data: RequestAdditionalProofRequest }
       | { success: false; error: { issues: Array<{ message?: string }> } };
   };
+  submitClaimProofSchema: {
+    safeParse: (
+      input: unknown,
+    ) =>
+      | { success: true; data: SubmitClaimProofRequest }
+      | { success: false; error: { issues: Array<{ message?: string }> } };
+  };
   updateClaimStatusSchema: {
     safeParse: (
       input: unknown,
@@ -57,8 +67,8 @@ const claimsServiceModule = (await import(pathToFileURL(servicePath).href)) as {
   ClaimForbiddenError: new (message: string) => Error;
   ClaimItemNotFoundError: new () => Error;
   ClaimItemNotEligibleError: new () => Error;
-  listAdminClaims: (db: Firestore) => Promise<AdminClaimsListResponse>;
-  listClaimsForUser: (db: Firestore, uid: string) => Promise<UserClaimsListResponse>;
+  listAdminClaims: (db: Firestore, bucket: Bucket) => Promise<AdminClaimsListResponse>;
+  listClaimsForUser: (db: Firestore, bucket: Bucket, uid: string) => Promise<UserClaimsListResponse>;
   createClaim: (
     db: Firestore,
     payload: CreateClaimRequest,
@@ -90,6 +100,20 @@ const claimsServiceModule = (await import(pathToFileURL(servicePath).href)) as {
     additionalProofRequest: string;
     proofRequestedAt: string;
   }>;
+  submitClaimProof: (
+    db: Firestore,
+    bucket: Bucket,
+    claimId: string,
+    payload: SubmitClaimProofRequest,
+    photos: Array<{ buffer: Buffer; mimeType: 'image/jpeg' | 'image/png' }>,
+    actor: { uid: string },
+  ) => Promise<{
+    id: string;
+    status: string;
+    proofResponseMessage: string;
+    proofResponsePhotoUrls?: string[];
+    proofRespondedAt: string;
+  }>;
   cancelClaim: (
     db: Firestore,
     claimId: string,
@@ -114,6 +138,7 @@ type ClaimsRouterOptions = {
 
 export const createClaimsRouter = (
   db: Firestore,
+  bucket: Bucket,
   options: ClaimsRouterOptions = {},
 ): Router => {
   const router = Router();
@@ -161,12 +186,12 @@ export const createClaimsRouter = (
       throw new HttpError(401, 'AUTHENTICATION_REQUIRED', 'Authentication is required.');
     }
 
-    const result = await claimsServiceModule.listClaimsForUser(db, uid);
+    const result = await claimsServiceModule.listClaimsForUser(db, bucket, uid);
     res.status(200).json(result);
   });
 
   router.get(`${API_PREFIX}/admin/claims`, requireStaffUser, async (_req, res) => {
-    const result = await claimsServiceModule.listAdminClaims(db);
+    const result = await claimsServiceModule.listAdminClaims(db, bucket);
     res.status(200).json(result);
   });
 
@@ -225,6 +250,50 @@ export const createClaimsRouter = (
       throw error;
     }
   });
+
+  router.patch(
+    `${API_PREFIX}/claims/:id/proof-response`,
+    requireClaimAccessUser,
+    createPhotoArrayUpload('photos', 5),
+    async (req, res) => {
+      const claimId = getSingleRouteParam(req.params.id);
+      if (!claimId) {
+        throw new HttpError(400, 'BAD_REQUEST', 'id is required');
+      }
+
+      const authUser = res.locals.authUser as { uid?: string } | undefined;
+      const uid = authUser?.uid?.trim();
+      if (!uid) {
+        throw new HttpError(401, 'AUTHENTICATION_REQUIRED', 'Authentication is required.');
+      }
+
+      const payload = parseBodyOrThrow(schemaModule.submitClaimProofSchema, req.body);
+      const photos = getValidatedUploadedPhotos(req.files as Express.Multer.File[] | undefined, { required: false });
+
+      try {
+        const result = await claimsServiceModule.submitClaimProof(db, bucket, claimId, payload, photos, { uid });
+        res.status(200).json(result);
+      } catch (error) {
+        if (error instanceof claimsServiceModule.ClaimNotFoundError) {
+          throw new HttpError(404, 'NOT_FOUND', error.message);
+        }
+
+        if (error instanceof claimsServiceModule.ClaimItemNotFoundError) {
+          throw new HttpError(404, 'CLAIM_ITEM_NOT_FOUND', error.message);
+        }
+
+        if (error instanceof claimsServiceModule.ClaimConflictError) {
+          throw new HttpError(409, 'CLAIM_STATUS_CONFLICT', error.message);
+        }
+
+        if (error instanceof claimsServiceModule.ClaimForbiddenError) {
+          throw new HttpError(403, 'FORBIDDEN', error.message);
+        }
+
+        throw error;
+      }
+    },
+  );
 
   router.patch(`${API_PREFIX}/claims/:id/cancel`, requireClaimAccessUser, async (req, res) => {
     const claimId = getSingleRouteParam(req.params.id);
