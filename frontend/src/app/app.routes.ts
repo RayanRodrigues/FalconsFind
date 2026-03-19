@@ -4,12 +4,21 @@ import { FoundReportFormComponent } from './features/public-reporting/found-repo
 import { LostReportFormComponent } from './features/public-reporting/lost-report-form/lost-report-form.component';
 import { FoundItemsPageComponent } from './features/items/pages/found-items-page/found-items-page';
 import { ItemDetailsComponent } from './features/items/item-details/item-details.component';
+import { ClaimRequest } from './features/claims/pages/claim-request/claim-request';
+import { ClaimCancel } from './features/claims/pages/claim-cancel/claim-cancel';
+import { EditReportPageComponent } from './features/public-reporting/edit-report-page/edit-report-page.component';
+import { LoginComponent } from './features/auth/login/login.component';
+import { RegisterComponent } from './features/auth/register/register.component';
+import { AdminDashboardComponent } from './features/admin/admin-dashboard.component';
+import { NotFoundPageComponent } from './features/not-found/not-found-page.component';
+import { adminAuthGuard } from './core/guards/admin-auth.guard';
+import { authenticatedUserGuard } from './core/guards/student-auth.guard';
 
 export const routes: Routes = [
   {
     path: '',
     component: DevHomeComponent,
-    title: 'FalconFind - In Development'
+    title: 'FalconFind - Lost & Found'
   },
   {
     path: 'report/lost',
@@ -27,9 +36,68 @@ export const routes: Routes = [
     title: 'Found Items - FalconFind'
   },
   {
+    path: 'login',
+    component: LoginComponent,
+    title: 'Login - FalconFind'
+  },
+  {
+    path: 'register',
+    component: RegisterComponent,
+    title: 'Create Account - FalconFind'
+  },
+  {
+    path: 'claim-request',
+    component: ClaimRequest,
+    canActivate: [authenticatedUserGuard],
+    title: 'Claim Request - FalconFind'
+  },
+  {
+    path: 'admin/dashboard',
+    component: AdminDashboardComponent,
+    canActivate: [adminAuthGuard],
+    title: 'Admin Dashboard - FalconFind'
+  },
+  {
+    path: 'admin',
+    redirectTo: 'admin/dashboard',
+    pathMatch: 'full'
+  },
+  {
+    path: 'admin/claims',
+    redirectTo: 'admin/dashboard',
+    pathMatch: 'full'
+  },
+  {
+    path: 'admin/validate-items',
+    redirectTo: 'admin/dashboard',
+    pathMatch: 'full'
+  },
+  {
+    path: 'my-claims',
+    component: ClaimCancel,
+    canActivate: [authenticatedUserGuard],
+    title: 'My Claims - FalconFind'
+  },
+  {
+    path: 'claim-cancel',
+    redirectTo: 'my-claims',
+    pathMatch: 'full'
+  },
+  {
+    path: 'edit-report',
+    component: EditReportPageComponent,
+    title: 'Edit Report - FalconFind'
+  },
+  {
     path: 'items/:id',
     component: ItemDetailsComponent,
     title: 'Item Details - FalconFind'
   },
-  // ... other routes
+
+  // optional fallback
+  {
+    path: '**',
+    component: NotFoundPageComponent,
+    title: 'Page Not Found - FalconFind'
+  }
 ];

@@ -11,7 +11,10 @@ export * from './dtos/create-found-report.request.dto';
 export * from './dtos/create-claim.request.dto';
 export * from './dtos/item-public.response.dto';
 export * from './dtos/item-details.response.dto';
+export * from './dtos/login.request.dto';
+export * from './dtos/register.request.dto';
 
 export * from './responses/error-response.model';
 export * from './responses/create-report.response.dto';
+export * from './responses/login.response.dto';
 export * from './responses/pagination.model';

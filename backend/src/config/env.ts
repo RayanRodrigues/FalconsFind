@@ -1,4 +1,5 @@
 type AppEnv = 'development' | 'production';
+import { resolveAppEnv } from '../utils/app-env.js';
 
 const DEFAULT_DEV_CORS_ORIGINS = ['http://localhost:4200', 'http://localhost:5173', 'http://localhost:3000'];
 
@@ -14,11 +15,6 @@ const parsePort = (value: string | undefined): number => {
   }
 
   return parsed;
-};
-
-const resolveAppEnv = (): AppEnv => {
-  const raw = (process.env.APP_ENV ?? process.env.NODE_ENV ?? 'development').toLowerCase();
-  return raw === 'production' ? 'production' : 'development';
 };
 
 const resolveApiBaseUrl = (appEnv: AppEnv): string => {
@@ -66,5 +62,6 @@ export const getAppConfig = () => {
     apiPrefix: process.env.API_PREFIX ?? '/api/v1',
     apiBaseUrl: resolveApiBaseUrl(appEnv),
     corsAllowedOrigins: resolveCorsAllowedOrigins(appEnv),
+    redisUrl: process.env.REDIS_URL,
   };
 };

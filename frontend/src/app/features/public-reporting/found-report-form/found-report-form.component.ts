@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnDestroy, OnInit, inject, PLATFORM_ID } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Subject, finalize, takeUntil } from 'rxjs';
@@ -13,6 +14,7 @@ import { AlertComponent } from '../../../shared/components/feedback/alert.compon
 import { FormFieldComponent } from '../../../shared/components/forms/form-field.component';
 import { InputComponent } from '../../../shared/components/forms/input.component';
 import { PhotoUploadFieldComponent } from '../../../shared/components/forms/photo-upload-field.component';
+import { SelectComponent } from '../../../shared/components/forms/select.component';
 import { TextareaComponent } from '../../../shared/components/forms/textarea.component';
 import { CardComponent } from '../../../shared/components/layout/card.component';
 import { ReportStepsComponent } from '../../../shared/components/navigation/report-steps.component';
@@ -28,6 +30,7 @@ import { mergeSelectedPhotos } from '../../../shared/utils/photo-upload.util';
     FormFieldComponent,
     InputComponent,
     PhotoUploadFieldComponent,
+    SelectComponent,
     TextareaComponent,
     ReportStepsComponent,
     ButtonComponent,
@@ -45,10 +48,15 @@ export class FoundReportFormComponent implements OnInit, OnDestroy {
   currentStep = 1;
   readonly totalSteps = 3;
   readonly todayDate = this.formatLocalDate(new Date());
+  readonly categories = [
+    'Electronics', 'Wallets & Purses', 'Keys', 'ID Cards', 'Clothing',
+    'Backpacks & Bags', 'Books', 'Jewelry', 'Eyewear', 'Personal Items', 'Other'
+  ];
 
+  private readonly platformId = inject(PLATFORM_ID);
   private destroy$ = new Subject<void>();
   private readonly stepFields: Record<number, string[]> = {
-    1: ['title', 'description'],
+    1: ['title', 'category', 'description'],
     2: ['foundLocation', 'foundDate', 'foundTime', 'photos'],
     3: ['contactEmail']
   };
@@ -58,12 +66,14 @@ export class FoundReportFormComponent implements OnInit, OnDestroy {
     private reportService: ReportService,
     private errorService: ErrorService,
     private validationService: FormValidationService,
-    private router: Router
+    private router: Router,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
     this.foundForm = this.fb.group({
       title: ['', [Validators.required, Validators.minLength(3), Validators.maxLength(100)]],
+      category: ['', Validators.required],
       description: ['', [Validators.required, Validators.minLength(10), Validators.maxLength(500)]],
       foundLocation: ['', [Validators.required, Validators.maxLength(120)]],
       foundDate: [this.todayDate, [Validators.required, this.validationService.pastDateValidator()]],
@@ -154,6 +164,7 @@ export class FoundReportFormComponent implements OnInit, OnDestroy {
 
     const formData = new FormData();
     formData.append('title', value.title ?? '');
+    formData.append('category', value.category ?? '');
     formData.append('foundLocation', value.foundLocation ?? '');
     // Backend currently accepts a single file field named "photo".
     formData.append('photo', photos[0]);
@@ -209,18 +220,26 @@ export class FoundReportFormComponent implements OnInit, OnDestroy {
     return `${year}-${month}-${day}`;
   }
 
-  private revokePreviewUrls(urls: string[] = this.photoPreviewUrls): void {
-    for (const url of urls) {
-      try {
-        URL.revokeObjectURL(url);
-      } catch {
-        // ignore
-      }
-    }
+  private revokePreviewUrls(): void {
+    this.photoPreviewUrls = [];
   }
 
   private rebuildPreviewUrls(files: File[]): void {
-    this.revokePreviewUrls();
-    this.photoPreviewUrls = files.map((file) => URL.createObjectURL(file));
+    if (!isPlatformBrowser(this.platformId)) {
+      this.photoPreviewUrls = [];
+      return;
+    }
+
+    Promise.all(
+      files.map(file => new Promise<string>(resolve => {
+        const reader = new FileReader();
+        reader.onload = e => resolve((e.target?.result as string) ?? '');
+        reader.onerror = () => resolve('');
+        reader.readAsDataURL(file);
+      }))
+    ).then(urls => {
+      this.photoPreviewUrls = urls.filter(Boolean);
+      this.cdr.markForCheck();
+    });
   }
 }

@@ -12,7 +12,15 @@ export class ApiClientService {
     return this.http.post<TResponse>(path, body);
   }
 
+  postEmpty(path: string): Observable<void> {
+    return this.http.post<void>(path, null, { responseType: 'text' as 'json' });
+  }
+
   get<TResponse>(path: string): Observable<TResponse> {
     return this.http.get<TResponse>(path);
+  }
+
+  patch<TResponse, TBody = unknown>(path: string, body: TBody): Observable<TResponse> {
+    return this.http.patch<TResponse>(path, body);
   }
 }

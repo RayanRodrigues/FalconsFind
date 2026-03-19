@@ -1,6 +1,7 @@
-import { Component, signal, PLATFORM_ID, inject } from '@angular/core';
-import { isPlatformBrowser, JsonPipe } from '@angular/common';
-import { RouterOutlet } from '@angular/router';
+import { Component, signal, PLATFORM_ID, inject, OnInit } from '@angular/core';
+import { isPlatformBrowser, JsonPipe, DOCUMENT } from '@angular/common';
+import { RouterOutlet, Router, NavigationEnd } from '@angular/router';
+import { filter } from 'rxjs/operators';
 import type { ErrorResponse } from './models';
 import { NavbarComponent } from './shared/components/layout/navbar.component';
 import { FooterComponent } from './shared/components/layout/footer.component';
@@ -8,14 +9,23 @@ import { publicEnv } from './config/public-env.generated';
 
 type FirebaseStatus = 'idle' | 'ok' | 'error';
 
+const ROUTES_WITHOUT_SHELL: string[] = ['/login', '/register', '/admin'];
+
+const isShellless = (url: string): boolean =>
+  ROUTES_WITHOUT_SHELL.some(r => url === r || url.startsWith(r + '/'));
+
 @Component({
   selector: 'app-root',
   imports: [RouterOutlet, JsonPipe, NavbarComponent, FooterComponent],
   templateUrl: './app.html',
   styleUrl: './app.css'
 })
-export class App {
+export class App implements OnInit {
   private readonly platformId = inject(PLATFORM_ID);
+  private readonly router = inject(Router);
+  private readonly doc = inject(DOCUMENT);
+
+  readonly showShell = signal(!isShellless(this.doc.location?.pathname ?? '/'));
   protected readonly title = signal('frontend');
   protected readonly showFirebaseHealthTest = signal(false);
   protected readonly firebaseStatus = signal<FirebaseStatus>('idle');
@@ -23,6 +33,11 @@ export class App {
   protected readonly firebaseDetails = signal<Record<string, unknown> | null>(null);
 
   async ngOnInit() {
+    this.router.events.pipe(filter(e => e instanceof NavigationEnd)).subscribe(e => {
+      const url = (e as NavigationEnd).urlAfterRedirects.split('?')[0];
+      this.showShell.set(!isShellless(url));
+    });
+
     // Skip Firebase initialization during SSR
     if (!isPlatformBrowser(this.platformId)) {
       return;

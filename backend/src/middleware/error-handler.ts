@@ -1,6 +1,7 @@
 import type { ErrorRequestHandler, RequestHandler } from 'express';
 import type { ErrorResponse } from '../contracts/index.js';
 import { HttpError } from '../routes/route-utils.js';
+import { isProductionApp } from '../utils/app-env.js';
 
 export const notFoundHandler: RequestHandler = (_req, res) => {
   const payload: ErrorResponse = {
@@ -14,6 +15,11 @@ export const notFoundHandler: RequestHandler = (_req, res) => {
 
 export const errorHandler: ErrorRequestHandler = (error, _req, res, next) => {
   if (res.headersSent) {
+    if (error instanceof Error) {
+      console.error(error.stack ?? error.message);
+    } else {
+      console.error('Unexpected error after headers were sent');
+    }
     next(error);
     return;
   }
@@ -29,11 +35,16 @@ export const errorHandler: ErrorRequestHandler = (error, _req, res, next) => {
     return;
   }
 
-  const message = error instanceof Error ? error.message : 'Unexpected server error';
+  if (error instanceof Error) {
+    console.error(error.stack ?? error.message);
+  } else {
+    console.error('Unexpected non-error thrown', error);
+  }
+
   const payload: ErrorResponse = {
     error: {
       code: 'INTERNAL_SERVER_ERROR',
-      message,
+      message: isProductionApp() ? 'Internal server error' : error instanceof Error ? error.message : 'Unexpected server error',
     },
   };
   res.status(500).json(payload);

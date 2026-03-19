@@ -1,4 +1,5 @@
 import type { OpenApiModule } from '../openapi.types.js';
+import { errorResponseRefs } from './common.openapi.js';
 
 export const healthOpenApi: OpenApiModule = {
   tags: [{ name: 'Health', description: 'Service and Firebase health checks' }],
@@ -55,24 +56,10 @@ export const healthOpenApi: OpenApiModule = {
             },
           },
           404: {
-            description: 'Firebase health document is missing',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.notFound,
           },
           500: {
-            description: 'Unexpected Firebase check error',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.internalServerError,
           },
         },
       },
@@ -94,20 +81,6 @@ export const healthOpenApi: OpenApiModule = {
         ok: { type: 'boolean', example: true },
         firebase: { type: 'boolean', example: true },
         data: { type: 'object', additionalProperties: true },
-      },
-    },
-    ErrorResponse: {
-      type: 'object',
-      required: ['error'],
-      properties: {
-        error: {
-          type: 'object',
-          required: ['code', 'message'],
-          properties: {
-            code: { type: 'string', example: 'BAD_REQUEST' },
-            message: { type: 'string', example: 'Invalid request payload' },
-          },
-        },
       },
     },
   },

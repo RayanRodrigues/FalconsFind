@@ -190,11 +190,35 @@ Single export point for imports inside the frontend.
 * `contactEmail?: string`  
 * `photo: File` *(required, JPEG/PNG, max 5MB)*
 
+**Create Lost Report (request) - current fields**
+
+* `Content-Type: multipart/form-data`
+* `title: string`
+* `category?: string`
+* `description?: string`
+* `additionalInfo?: string`
+* `lastSeenLocation?: string`
+* `lastSeenAt?: string`
+* `contactEmail?: string`
+* `photo?: File` *(optional, JPEG/PNG, max 5MB)*
+
 **TODO (Photo Strategy)**
 
 * Analyze and decide whether `lost` and `found` reports should support **multiple photos** in the backend contract.
-* Current state: both flows are implemented as **single-photo persistence** on backend (`lost`: `photoDataUrl` optional, `found`: multipart field `photo` required).
+* Current state: both flows are implemented as **single-photo persistence** using multipart uploads to Storage.
 * If approved for multi-photo: update backend DTOs/schemas/routes, OpenAPI docs, and frontend submit payloads in both forms.
+
+**TODO (Items Pagination Strategy)**
+
+* Evaluate moving `GET /items` from page-number pagination to a true cursor-token contract.
+* Current state: the backend avoids Firestore `offset(...)`, but the public API still exposes `page` and `limit`.
+* If approved: return a cursor such as `nextCursor`, update the backend route/OpenAPI contract, and align the frontend found-items flow to request subsequent pages by cursor instead of page number.
+
+**TODO (Firebase Admin Credential Precedence)**
+
+* Document and enforce the precedence between `FIREBASE_ADMIN_CREDENTIALS_JSON` and `FIREBASE_ADMIN_CREDENTIALS`.
+* Current state: the backend accepts either source and currently prefers the raw JSON env var when both are set.
+* If approved: choose one explicit precedence rule or fail fast when both are present, and document that rule in environment setup docs.
 
 **Report Reference Code format**
 

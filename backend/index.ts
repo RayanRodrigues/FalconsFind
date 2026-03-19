@@ -7,8 +7,10 @@ import swaggerUi from 'swagger-ui-express';
 import { loadEnvironment } from './src/bootstrap/runtime-paths.js';
 import { importRuntimeModule } from './src/bootstrap/runtime-module.js';
 import { initializeFirebaseServices, runStartupFirestoreCheck } from './src/bootstrap/firebase.js';
+import { createRedisClient } from './src/bootstrap/redis.js';
 import { getAppConfig } from './src/config/env.js';
 import { errorHandler, notFoundHandler } from './src/middleware/error-handler.js';
+import { HttpError } from './src/routes/route-utils.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -32,8 +34,16 @@ const itemsRoutesModule = await importRuntimeModule<{
   createItemsRouter: (
     db: FirebaseFirestore.Firestore,
     bucket: unknown,
+    redis: unknown,
   ) => express.Router;
 }>(__dirname, './src/routes/items.routes');
+
+const authRoutesModule = await importRuntimeModule<{
+  createAuthRouter: (
+    db: FirebaseFirestore.Firestore,
+    redis: unknown,
+  ) => express.Router;
+}>(__dirname, './src/routes/auth.routes');
 
 const reportsRoutesModule = await importRuntimeModule<{
   createReportsRouter: (
@@ -42,6 +52,13 @@ const reportsRoutesModule = await importRuntimeModule<{
   ) => express.Router;
 }>(__dirname, './src/routes/reports.routes');
 
+const claimsRoutesModule = await importRuntimeModule<{
+  createClaimsRouter: (
+    db: FirebaseFirestore.Firestore,
+    bucket: unknown,
+  ) => express.Router;
+}>(__dirname, './src/routes/claims.routes');
+
 const openApiModule = await importRuntimeModule<{
   openApiDocument: object;
 }>(__dirname, './src/docs/openapi');
@@ -49,6 +66,7 @@ const openApiModule = await importRuntimeModule<{
 const app = express();
 const { db, bucket } = initializeFirebaseServices(__dirname);
 await runStartupFirestoreCheck(db);
+const redis = await createRedisClient(appConfig.redisUrl);
 
 app.use(
   cors({
@@ -63,11 +81,11 @@ app.use(
         return;
       }
 
-      callback(new Error('CORS origin not allowed'));
+      callback(new HttpError(403, 'CORS_NOT_ALLOWED', 'CORS origin not allowed'));
     },
   }),
 );
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '50kb' }));
 if (appConfig.appEnv !== 'production') {
   app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(openApiModule.openApiDocument));
 }
@@ -87,13 +105,14 @@ app.get('/health', (_req, res) => {
 
 
 app.use(healthRoutesModule.createHealthRouter(db));
+app.use(authRoutesModule.createAuthRouter(db, redis));
 app.use(reportsRoutesModule.createReportsRouter(db, bucket));
-app.use(itemsRoutesModule.createItemsRouter(db, bucket));
+app.use(claimsRoutesModule.createClaimsRouter(db, bucket));
+app.use(itemsRoutesModule.createItemsRouter(db, bucket, redis));
 app.use(notFoundHandler);
 app.use(errorHandler);
 
 app.listen(appConfig.port, () => {
-  console.log(`Server running at http://localhost:${appConfig.port}`);
   console.log(
     `Environment: ${appConfig.appEnv} | Public API base: ${appConfig.apiBaseUrl}${appConfig.apiPrefix}`,
   );

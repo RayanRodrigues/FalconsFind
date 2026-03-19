@@ -1,4 +1,5 @@
 import type { OpenApiModule } from '../openapi.types.js';
+import { errorResponseRefs } from './common.openapi.js';
 
 export const itemsOpenApi: OpenApiModule = {
   tags: [{ name: 'Items', description: 'Public item details operations' }],
@@ -31,6 +32,54 @@ export const itemsOpenApi: OpenApiModule = {
             },
             description: 'Items per page',
           },
+          {
+            name: 'keyword',
+            in: 'query',
+            required: false,
+            schema: {
+              type: 'string',
+              minLength: 1,
+            },
+            description: 'Case-insensitive keyword search over item title and description',
+          },
+          {
+            name: 'category',
+            in: 'query',
+            required: false,
+            schema: {
+              type: 'string',
+            },
+            description: 'Exact found-item category match',
+          },
+          {
+            name: 'location',
+            in: 'query',
+            required: false,
+            schema: {
+              type: 'string',
+            },
+            description: 'Exact found-item location match',
+          },
+          {
+            name: 'dateFrom',
+            in: 'query',
+            required: false,
+            schema: {
+              type: 'string',
+              format: 'date-time',
+            },
+            description: 'Inclusive start of the reported date range. Also accepts YYYY-MM-DD.',
+          },
+          {
+            name: 'dateTo',
+            in: 'query',
+            required: false,
+            schema: {
+              type: 'string',
+              format: 'date-time',
+            },
+            description: 'Inclusive end of the reported date range. Also accepts YYYY-MM-DD.',
+          },
         ],
         responses: {
           200: {
@@ -44,14 +93,7 @@ export const itemsOpenApi: OpenApiModule = {
             },
           },
           500: {
-            description: 'Unexpected server error',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.internalServerError,
           },
         },
       },
@@ -83,54 +125,19 @@ export const itemsOpenApi: OpenApiModule = {
             },
           },
           400: {
-            description: 'Invalid item id parameter',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.badRequest,
           },
           403: {
-            description: 'Item exists but is not publicly visible yet',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.forbidden,
           },
           404: {
-            description: 'Item was not found',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.notFound,
           },
           422: {
-            description: 'Item data exists but is malformed/incomplete',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.unprocessableEntity,
           },
           500: {
-            description: 'Unexpected server error',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+            ...errorResponseRefs.internalServerError,
           },
         },
       },
@@ -143,7 +150,7 @@ export const itemsOpenApi: OpenApiModule = {
     },
     ClaimStatus: {
       type: 'string',
-      enum: ['PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'],
+      enum: ['PENDING', 'NEEDS_PROOF', 'APPROVED', 'REJECTED', 'CANCELLED'],
     },
     ItemPublicResponse: {
       type: 'object',
@@ -151,8 +158,14 @@ export const itemsOpenApi: OpenApiModule = {
       properties: {
         id: { type: 'string', example: 'item-abc123' },
         title: { type: 'string', example: 'Black Backpack' },
+        category: { type: 'string', example: 'Accessories' },
         status: { $ref: '#/components/schemas/ItemStatus' },
-        referenceCode: { type: 'string', example: 'FND-20260225-ABC12345' },
+        referenceCode: {
+          type: 'string',
+          pattern: '^(LST|FND)-\\d{8}-[A-Z0-9]+$',
+          description: 'Reference code formatted as PREFIX-YYYYMMDD-SUFFIX, where PREFIX is LST or FND.',
+          example: 'FND-20260225-ABC12345',
+        },
         location: { type: 'string', example: 'Library' },
         dateReported: { type: 'string', format: 'date-time' },
         thumbnailUrl: { type: 'string', format: 'uri' },
@@ -168,6 +181,16 @@ export const itemsOpenApi: OpenApiModule = {
         totalPages: { type: 'integer', minimum: 1, example: 5 },
         hasNextPage: { type: 'boolean', example: true },
         hasPrevPage: { type: 'boolean', example: false },
+        filters: {
+          type: 'object',
+          properties: {
+            keyword: { type: 'string', example: 'backpack' },
+            category: { type: 'string', example: 'Accessories' },
+            location: { type: 'string', example: 'Library' },
+            dateFrom: { type: 'string', format: 'date-time' },
+            dateTo: { type: 'string', format: 'date-time' },
+          },
+        },
         items: {
           type: 'array',
           items: {
@@ -182,9 +205,15 @@ export const itemsOpenApi: OpenApiModule = {
       properties: {
         id: { type: 'string', example: 'item-abc123' },
         title: { type: 'string', example: 'Black Backpack' },
+        category: { type: 'string', example: 'Accessories' },
         description: { type: 'string', example: 'Black backpack with laptop sleeve' },
         status: { $ref: '#/components/schemas/ItemStatus' },
-        referenceCode: { type: 'string', example: 'FND-20260225-ABC12345' },
+        referenceCode: {
+          type: 'string',
+          pattern: '^(LST|FND)-\\d{8}-[A-Z0-9]+$',
+          description: 'Reference code formatted as PREFIX-YYYYMMDD-SUFFIX, where PREFIX is LST or FND.',
+          example: 'FND-20260225-ABC12345',
+        },
         location: { type: 'string', example: 'Library' },
         dateReported: { type: 'string', format: 'date-time' },
         imageUrls: {

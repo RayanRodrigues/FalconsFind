@@ -1,0 +1,167 @@
+<div class="min-h-screen bg-neutral-base py-12 px-4 sm:px-6 lg:px-8">
+  <div class="max-w-3xl mx-auto">
+
+    <div class="text-center mb-8">
+      <h1 class="text-3xl font-semibold text-primary mb-2">Claim Request</h1>
+      <p class="text-text-secondary">Provide your details so Campus Security can verify your ownership.</p>
+    </div>
+
+    <!-- Success state -->
+    @if (submitSuccess) {
+      <app-card>
+        <div class="text-center py-8">
+          <svg class="w-16 h-16 text-success mx-auto mb-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12A9 9 0 1 1 3 12a9 9 0 0 1 18 0Z" />
+          </svg>
+          <h2 class="text-2xl font-semibold text-success mb-3">Claim Submitted</h2>
+          <p class="text-text-secondary mb-2">Campus Security will review your claim and get in touch with you.</p>
+          @if (claimResult) {
+            <p class="text-xs text-text-secondary font-mono mb-6">Claim ID: {{ claimResult.id }}</p>
+          }
+          <div class="flex gap-4 justify-center">
+            <app-button variant="primary" (click)="resetForm()">Submit Another Claim</app-button>
+            <app-button variant="secondary" (click)="navigateHome()">Return to Home</app-button>
+          </div>
+        </div>
+      </app-card>
+    }
+
+    <!-- Error banner -->
+    @if (submitError && !submitSuccess) {
+      <div class="mb-6 flex items-start gap-3 rounded-xl border border-error/30 bg-white px-4 py-3 text-sm text-error">
+        <svg class="h-4 w-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        {{ submitError }}
+      </div>
+    }
+
+    @if (!submitSuccess) {
+      <app-card cardTitle="Claim Request" subtitle="All fields marked * are required">
+        <form [formGroup]="form" (ngSubmit)="submitClaim()" novalidate class="space-y-8">
+
+          <app-report-steps [currentStep]="currentStep" [labels]="stepLabels" />
+
+          <p class="text-sm text-text-secondary pt-2"><span class="text-red-500">*</span> Required fields</p>
+
+          <!-- Step 1: Item -->
+          @if (currentStep === 1) {
+            <div class="space-y-4">
+              <h3 class="text-lg font-semibold text-text-primary">Item Information</h3>
+              <p class="text-sm text-text-secondary -mt-2">Identify the item you are claiming.</p>
+
+              <app-form-field id="referenceCode" label="Reference Code" [required]="true" [error]="getFieldError('referenceCode')" hint="The reference code is displayed on the found item listing.">
+                <app-input
+                  id="referenceCode"
+                  formControlName="referenceCode"
+                  placeholder="e.g., FF-2024-00123"
+                  [invalid]="isFieldInvalid('referenceCode')"
+                />
+              </app-form-field>
+
+              <app-form-field id="itemName" label="Item Name" [required]="true" [error]="getFieldError('itemName')">
+                <app-input
+                  id="itemName"
+                  formControlName="itemName"
+                  placeholder="e.g., Black backpack, Silver water bottle"
+                  [invalid]="isFieldInvalid('itemName')"
+                />
+              </app-form-field>
+            </div>
+          }
+
+          <!-- Step 2: Your Claim -->
+          @if (currentStep === 2) {
+            <div class="space-y-4">
+              <h3 class="text-lg font-semibold text-text-primary">Your Claim</h3>
+              <p class="text-sm text-text-secondary -mt-2">Help Campus Security verify this item belongs to you.</p>
+
+              <app-form-field id="claimReason" label="Why do you believe this item is yours?" [required]="true" [error]="getFieldError('claimReason')">
+                <app-textarea
+                  id="claimReason"
+                  formControlName="claimReason"
+                  [rows]="4"
+                  placeholder="Describe why you believe this item belongs to you…"
+                  [invalid]="isFieldInvalid('claimReason')"
+                />
+              </app-form-field>
+
+              <app-form-field id="proofDetails" label="Proof of Ownership" [required]="true" [error]="getFieldError('proofDetails')" hint="Describe any identifying marks, contents, brand, serial number, or other details only the owner would know.">
+                <app-textarea
+                  id="proofDetails"
+                  formControlName="proofDetails"
+                  [rows]="4"
+                  placeholder="e.g., Has a red keychain attached, initials J.D. scratched inside the lid…"
+                  [invalid]="isFieldInvalid('proofDetails')"
+                />
+              </app-form-field>
+            </div>
+          }
+
+          <!-- Step 3: Contact -->
+          @if (currentStep === 3) {
+            <div class="space-y-4">
+              <h3 class="text-lg font-semibold text-text-primary">Contact Information</h3>
+              <p class="text-sm text-text-secondary -mt-2">Campus Security will use this to reach you about your claim.</p>
+
+              <app-form-field id="fullName" label="Full Name" [required]="true" [error]="getFieldError('fullName')">
+                <app-input
+                  id="fullName"
+                  formControlName="fullName"
+                  placeholder="Enter your full name"
+                  [invalid]="isFieldInvalid('fullName')"
+                />
+              </app-form-field>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <app-form-field id="email" label="Email Address" [required]="true" [error]="getFieldError('email')">
+                  <app-input
+                    id="email"
+                    type="email"
+                    formControlName="email"
+                    placeholder="your.email@example.com"
+                    [invalid]="isFieldInvalid('email')"
+                  />
+                </app-form-field>
+
+                <app-form-field id="phone" label="Phone Number" [error]="getFieldError('phone')" hint="Optional">
+                  <app-input
+                    id="phone"
+                    type="tel"
+                    formControlName="phone"
+                    placeholder="e.g., 519-555-0100"
+                    [invalid]="isFieldInvalid('phone')"
+                  />
+                </app-form-field>
+              </div>
+            </div>
+          }
+
+          <!-- Navigation -->
+          <div class="flex flex-row justify-end gap-3 pt-6 border-t border-border">
+            <app-button type="button" variant="secondary" (click)="navigateHome()" [disabled]="isSubmitting">
+              Cancel
+            </app-button>
+            @if (currentStep > 1) {
+              <app-button type="button" variant="secondary" (click)="previousStep()" [disabled]="isSubmitting">
+                Back
+              </app-button>
+            }
+            @if (currentStep < totalSteps) {
+              <app-button type="button" variant="primary" (click)="nextStep()">
+                Next
+              </app-button>
+            }
+            @if (currentStep === totalSteps) {
+              <app-button type="submit" variant="primary" [loading]="isSubmitting" [disabled]="isSubmitting">
+                @if (!isSubmitting) { Submit Claim }
+              </app-button>
+            }
+          </div>
+
+        </form>
+      </app-card>
+    }
+
+  </div>
+</div>

@@ -5,9 +5,11 @@ export type OpenApiTag = {
 
 export type OpenApiSchema = Record<string, unknown>;
 export type OpenApiPathItem = Record<string, unknown>;
+export type OpenApiResponse = Record<string, unknown>;
 
 export type OpenApiModule = {
   tags?: OpenApiTag[];
   paths?: Record<string, OpenApiPathItem>;
   schemas?: Record<string, OpenApiSchema>;
+  responses?: Record<string, OpenApiResponse>;
 };

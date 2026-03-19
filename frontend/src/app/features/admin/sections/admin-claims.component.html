@@ -1,0 +1,209 @@
+<div>
+  <!-- Stats -->
+  <div class="mb-4 flex items-center justify-between gap-3">
+    <div class="text-sm text-text-secondary">
+      Archived claims are hidden from the main list for cleaner review.
+    </div>
+    <div class="flex items-center gap-2">
+      <button
+        type="button"
+        (click)="load(false)"
+        class="rounded-lg border border-border px-3 py-2 text-xs font-semibold text-text-primary hover:bg-neutral-base/40 transition-colors"
+      >
+        Refresh
+      </button>
+      <button
+        type="button"
+        (click)="toggleArchivedVisibility()"
+        class="rounded-lg border border-border px-3 py-2 text-xs font-semibold text-text-primary hover:bg-neutral-base/40 transition-colors"
+      >
+        {{ showArchived() ? 'Hide Archived' : 'Show Archived' }}
+      </button>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+    <div class="relative overflow-hidden bg-white rounded-xl border border-border/60 p-4 shadow-sm">
+      <img src="/SVG/Icon2.svg" alt="" aria-hidden="true" class="absolute -right-[10%] top-1/2 h-[140%] w-[30%] -translate-y-1/2 object-contain opacity-[0.08] pointer-events-none select-none" />
+      <div class="relative z-10">
+        <p class="text-xs text-text-secondary font-medium mb-1">Total Claims</p>
+        <p class="text-2xl font-bold text-text-primary mb-0">{{ stats.total }}</p>
+      </div>
+    </div>
+    <div class="relative overflow-hidden bg-white rounded-xl border border-warning/30 p-4 shadow-sm">
+      <img src="/SVG/Icon2.svg" alt="" aria-hidden="true" class="absolute -right-[10%] top-1/2 h-[140%] w-[30%] -translate-y-1/2 object-contain opacity-[0.08] pointer-events-none select-none" />
+      <div class="relative z-10">
+        <p class="text-xs text-text-secondary font-medium mb-1">Pending</p>
+        <p class="text-2xl font-bold text-warning mb-0">{{ stats.pending }}</p>
+      </div>
+    </div>
+    <div class="relative overflow-hidden bg-white rounded-xl border border-success/30 p-4 shadow-sm">
+      <img src="/SVG/Icon2.svg" alt="" aria-hidden="true" class="absolute -right-[10%] top-1/2 h-[140%] w-[30%] -translate-y-1/2 object-contain opacity-[0.08] pointer-events-none select-none" />
+      <div class="relative z-10">
+        <p class="text-xs text-text-secondary font-medium mb-1">Approved</p>
+        <p class="text-2xl font-bold text-success mb-0">{{ stats.approved }}</p>
+      </div>
+    </div>
+    <div class="relative overflow-hidden bg-white rounded-xl border border-info/30 p-4 shadow-sm">
+      <img src="/SVG/Icon2.svg" alt="" aria-hidden="true" class="absolute -right-[10%] top-1/2 h-[140%] w-[30%] -translate-y-1/2 object-contain opacity-[0.08] pointer-events-none select-none" />
+      <div class="relative z-10">
+        <p class="text-xs text-text-secondary font-medium mb-1">Needs Proof</p>
+        <p class="text-2xl font-bold text-info mb-0">{{ stats.needsProof }}</p>
+      </div>
+    </div>
+    <div class="relative overflow-hidden bg-white rounded-xl border border-error/30 p-4 shadow-sm">
+      <img src="/SVG/Icon2.svg" alt="" aria-hidden="true" class="absolute -right-[10%] top-1/2 h-[140%] w-[30%] -translate-y-1/2 object-contain opacity-[0.08] pointer-events-none select-none" />
+      <div class="relative z-10">
+        <p class="text-xs text-text-secondary font-medium mb-1">Rejected</p>
+        <p class="text-2xl font-bold text-error mb-0">{{ stats.rejected }}</p>
+      </div>
+    </div>
+  </div>
+
+  @if (error()) {
+    <div class="mb-4 flex items-center justify-between gap-3 rounded-xl border border-error/30 bg-white px-4 py-3 text-sm text-error">
+      <span>{{ error() }}</span>
+      <button type="button" (click)="load()" class="rounded-lg border border-error/30 px-3 py-1.5 font-semibold hover:bg-error/10 transition-colors">
+        Retry
+      </button>
+    </div>
+  }
+
+  <!-- Toast -->
+  @if (toast()) {
+    <div class="mb-4 flex items-center gap-2 rounded-xl border px-4 py-3 text-sm"
+      [class]="toast()!.type === 'success' ? 'border-success/30 bg-success/8 text-success' : 'border-error/30 bg-error/8 text-error'">
+      <svg style="width:15px;height:15px;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        @if (toast()!.type === 'success') {
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12.75 11.25 15 15 9.75M21 12A9 9 0 1 1 3 12a9 9 0 0 1 18 0Z"/>
+        } @else {
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        }
+      </svg>
+      {{ toast()!.message }}
+    </div>
+  }
+
+  <!-- Claims list -->
+  @if (!loading() && claims.length === 0 && !error()) {
+    <div class="bg-white rounded-xl border border-border/60 p-10 text-center shadow-sm">
+      <p class="text-text-secondary text-sm mb-0">No claim requests at the moment.</p>
+    </div>
+  }
+
+  @if (loading()) {
+    <div class="flex flex-col gap-3">
+      @for (_ of [1,2,3]; track $index) {
+        <div class="bg-white rounded-xl border border-border/60 shadow-sm overflow-hidden animate-pulse">
+          <div class="px-5 py-4 flex items-center justify-between gap-3">
+            <div class="space-y-2 flex-1">
+              <div class="h-4 w-48 rounded bg-neutral-base"></div>
+              <div class="h-3 w-32 rounded bg-neutral-base"></div>
+            </div>
+            <div class="h-6 w-24 rounded-full bg-neutral-base"></div>
+          </div>
+        </div>
+      }
+    </div>
+  }
+
+  <div class="flex flex-col gap-3" [hidden]="loading() || visibleClaims.length === 0">
+    @for (claim of visibleClaims; track claim.id) {
+      <div class="bg-white rounded-xl border shadow-sm overflow-hidden transition-colors"
+        [class]="claim.status === 'PENDING' ? 'border-border/60' : 'border-border/40'">
+
+        <!-- Claim header row -->
+        <button type="button" (click)="toggle(claim.id)"
+          class="w-full flex items-center justify-between gap-3 px-5 py-4 text-left hover:bg-neutral-base/40 transition-colors">
+          <div class="flex items-center gap-3 min-w-0">
+            <div class="min-w-0">
+              <p class="font-semibold text-text-primary text-sm mb-0.5 truncate">{{ claim.itemName }}</p>
+              <p class="text-xs text-text-secondary mb-0">{{ claim.id }} · {{ claim.claimantName }}</p>
+              @if (studentReplyPreview(claim); as replyPreview) {
+                <p class="mt-1 truncate text-xs font-medium text-success">
+                  {{ replyPreview }}
+                </p>
+              }
+            </div>
+          </div>
+          <div class="flex items-center gap-3 shrink-0">
+            <span class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold" [class]="statusClass(claim.status)">
+              {{ statusLabel(claim.status) }}
+            </span>
+            <svg style="width:16px;height:16px;" class="text-text-secondary transition-transform" [style.transform]="expandedId === claim.id ? 'rotate(180deg)' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </div>
+        </button>
+
+        <!-- Expanded details -->
+        @if (expandedId === claim.id) {
+          <div class="border-t border-border/40 px-5 py-4 space-y-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+              <div><p class="text-xs text-text-secondary mb-0.5">Reference Code</p><p class="font-medium text-text-primary mb-0">{{ claim.referenceCode }}</p></div>
+              <div><p class="text-xs text-text-secondary mb-0.5">Email</p><p class="font-medium text-text-primary mb-0">{{ claim.claimantEmail }}</p></div>
+              @if (claim.phone) {
+                <div><p class="text-xs text-text-secondary mb-0.5">Phone</p><p class="font-medium text-text-primary mb-0">{{ claim.phone }}</p></div>
+              }
+              <div><p class="text-xs text-text-secondary mb-0.5">Submitted</p><p class="font-medium text-text-primary mb-0">{{ claim.createdAt | date: 'medium' }}</p></div>
+              <div class="sm:col-span-2"><p class="text-xs text-text-secondary mb-0.5">Claim Reason</p><p class="text-text-primary mb-0">{{ claim.claimReason }}</p></div>
+              <div class="sm:col-span-2"><p class="text-xs text-text-secondary mb-0.5">Proof of Ownership</p><p class="text-text-primary mb-0">{{ claim.proofDetails }}</p></div>
+              @if (claim.additionalProofRequest) {
+                <div class="sm:col-span-2 rounded-lg bg-info/8 border border-info/20 px-3 py-2.5">
+                  <p class="text-xs font-semibold text-info mb-0.5">Additional Proof Requested</p>
+                  <p class="text-sm text-text-primary mb-0">{{ claim.additionalProofRequest }}</p>
+                </div>
+              }
+              @if (hasStudentReply(claim)) {
+                <div class="sm:col-span-2 rounded-lg bg-success/8 border border-success/20 px-3 py-3">
+                  <p class="text-xs font-semibold text-success mb-1">Student Proof Response</p>
+                  @if (claim.proofResponseMessage) {
+                    <p class="text-sm text-text-primary mb-2">{{ claim.proofResponseMessage }}</p>
+                  } @else {
+                    <p class="text-sm text-text-primary mb-2">The student submitted an update for this proof request.</p>
+                  }
+                  @if (claim.proofRespondedAt) {
+                    <p class="text-xs text-text-secondary mb-2">Submitted {{ claim.proofRespondedAt | date: 'medium' }}</p>
+                  }
+                  @if ((claim.proofResponsePhotoUrls?.length ?? 0) > 0) {
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      @for (photoUrl of claim.proofResponsePhotoUrls ?? []; track photoUrl) {
+                        <a [href]="photoUrl" target="_blank" rel="noreferrer" class="block overflow-hidden rounded-lg border border-border/60 bg-white">
+                          <img [src]="photoUrl" alt="Claim proof response photo" class="w-full aspect-square object-cover" />
+                        </a>
+                      }
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+
+            @if (claim.status === 'PENDING' || claim.status === 'NEEDS_PROOF') {
+              <div class="pt-2 border-t border-border/40 space-y-3">
+                <div>
+                  <label [for]="'proof-' + claim.id" class="block text-xs font-medium text-text-secondary mb-1.5">Request Additional Proof</label>
+                  <div class="flex gap-2">
+                    <textarea [id]="'proof-' + claim.id" [(ngModel)]="claim.proofInput" rows="2" placeholder="Describe what proof you need…" class="flex-1 rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary transition resize-none"></textarea>
+                    <button type="button" (click)="requestProof(claim)" [disabled]="claim.isUpdating" class="self-end rounded-lg border border-info/30 bg-info/10 px-3 py-2 text-xs font-semibold text-info hover:bg-info/20 transition-colors whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed">Request Proof</button>
+                  </div>
+                </div>
+                <div class="flex gap-2 justify-end">
+                  <button type="button" (click)="reject(claim)" [disabled]="claim.isUpdating" class="rounded-lg bg-error/10 border border-error/30 px-4 py-2 text-xs font-semibold text-error hover:bg-error/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Reject</button>
+                  <button type="button" (click)="approve(claim)" [disabled]="claim.isUpdating" class="rounded-lg bg-success/10 border border-success/30 px-4 py-2 text-xs font-semibold text-success hover:bg-success/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Approve</button>
+                </div>
+              </div>
+            } @else if (canArchive(claim)) {
+              <div class="pt-2 border-t border-border/40 flex justify-end">
+                @if (isArchived(claim.id)) {
+                  <button type="button" (click)="restoreClaim(claim)" class="rounded-lg border border-border px-4 py-2 text-xs font-semibold text-text-primary hover:bg-neutral-base/40 transition-colors">Restore to Active List</button>
+                } @else {
+                  <button type="button" (click)="archiveClaim(claim)" class="rounded-lg border border-border px-4 py-2 text-xs font-semibold text-text-primary hover:bg-neutral-base/40 transition-colors">Archive from List</button>
+                }
+              </div>
+            }
+          </div>
+        }
+      </div>
+    }
+  </div>
+</div>

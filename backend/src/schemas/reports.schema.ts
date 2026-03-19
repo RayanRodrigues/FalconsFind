@@ -2,21 +2,35 @@ import { z } from 'zod';
 
 export const createLostReportSchema = z.object({
   title: z.string().trim().min(1, 'title is required'),
+  category: z.string().trim().min(1).optional(),
   description: z.string().trim().min(1).optional(),
+  additionalInfo: z.string().trim().min(1).optional(),
   lastSeenLocation: z.string().trim().min(1).optional(),
   lastSeenAt: z.string().datetime().optional(),
   contactEmail: z.string().email().optional(),
-  photoDataUrl: z.string().startsWith('data:image/', 'photo must be an image data URL').optional(),
 });
 
 export const createFoundReportSchema = z.object({
   title: z.string().trim().min(1, 'title is required'),
+  category: z.string().trim().min(1).optional(),
   description: z.string().trim().min(1).optional(),
   foundLocation: z.string().trim().min(1, 'foundLocation is required'),
   foundAt: z.string().datetime().optional(),
   contactEmail: z.string().email().optional(),
-  photoDataUrl: z.string().startsWith('data:image/', 'photo must be an image data URL'),
 });
+
+export const updateReportByReferenceSchema = z.object({
+  title: z.string().trim().min(1, 'title cannot be empty').optional(),
+  category: z.string().trim().min(1, 'category cannot be empty').optional(),
+  description: z.string().trim().min(1, 'description cannot be empty').optional(),
+  location: z.string().trim().min(1, 'location cannot be empty').optional(),
+  dateReported: z.string().datetime('dateReported must be a valid ISO date-time').optional(),
+  contactEmail: z.string().email('contactEmail must be a valid email').optional(),
+}).refine(
+  (payload) => Object.keys(payload).length > 0,
+  { message: 'At least one editable field must be provided' },
+);
 
 export type CreateLostReportInput = z.infer<typeof createLostReportSchema>;
 export type CreateFoundReportInput = z.infer<typeof createFoundReportSchema>;
+export type UpdateReportByReferenceInput = z.infer<typeof updateReportByReferenceSchema>;

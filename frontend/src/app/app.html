@@ -1,6 +1,8 @@
 <div class="flex flex-col min-h-screen">
 
-  <app-navbar />
+  @if (showShell()) {
+    <app-navbar />
+  }
 
   @if (showFirebaseHealthTest()) {
     <!-- Do not remove: this block is controlled by ENABLE_FIREBASE_HEALTH_TEST in .env -->
@@ -19,10 +21,13 @@
     </section>
   }
 
-  <main class="flex-1">
+  <!-- padding-top offsets the fixed navbar (72px) when shell is visible -->
+  <main class="flex-1" [style.paddingTop]="showShell() ? '72px' : '0'">
     <router-outlet />
   </main>
 
-  <app-footer />
+  @if (showShell()) {
+    <app-footer />
+  }
 
 </div>

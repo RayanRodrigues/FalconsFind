@@ -1,6 +1,9 @@
 export type CreateClaimRequest = {
-  itemId: string;
+  referenceCode: string;
+  itemName: string;
+  claimReason: string;
+  proofDetails: string;
   claimantName: string;
   claimantEmail: string;
-  message?: string;
+  phone?: string;
 };

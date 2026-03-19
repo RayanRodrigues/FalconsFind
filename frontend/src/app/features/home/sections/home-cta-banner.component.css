@@ -1,0 +1,80 @@
+.cta-section { background-color: #1e2433; }
+
+.cta-eyebrow {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-align: center;
+  margin: 0 0 0.5rem;
+}
+
+.cta-title {
+  color: #ffffff;
+  font-size: 1.5rem;
+  font-weight: 700;
+  text-align: center;
+  margin: 0 0 2.5rem;
+  line-height: 1.25;
+}
+
+.cta-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  border-radius: 1rem;
+  background-color: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 1.25rem 1.5rem;
+  text-decoration: none;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+.cta-card:hover {
+  background-color: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: inherit;
+}
+
+.cta-card__icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 0.75rem;
+  background-color: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+}
+
+.cta-card__body { flex: 1; }
+
+.cta-card__title {
+  font-weight: 600;
+  color: #ffffff;
+  font-size: 0.9375rem;
+  margin: 0 0 0.25rem;
+}
+
+.cta-card__desc {
+  font-size: 0.8125rem;
+  color: rgba(255, 255, 255, 0.55);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.cta-card__arrow {
+  flex-shrink: 0;
+  margin-left: auto;
+  width: 20px;
+  height: 20px;
+  color: rgba(255, 255, 255, 0.5);
+  transition: transform 0.15s, color 0.15s;
+}
+
+.cta-card:hover .cta-card__arrow {
+  transform: translateX(3px);
+  color: #ffffff;
+}

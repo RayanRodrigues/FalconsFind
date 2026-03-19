@@ -1,0 +1,244 @@
+<div class="my-claims-page">
+  <div class="my-claims-shell">
+    <div class="my-claims-hero">
+      <p class="my-claims-eyebrow">Student Claims</p>
+      <h1>My Claim Requests</h1>
+      <p class="my-claims-intro">
+        Track your submitted claims, review proof requests from Campus Security, and cancel a request if you no longer need it.
+      </p>
+    </div>
+
+    <div class="my-claims-stats">
+      <div class="stats-card">
+        <p>Total</p>
+        <strong>{{ summary().totalClaims }}</strong>
+      </div>
+      <div class="stats-card">
+        <p>Pending</p>
+        <strong>{{ summary().pendingClaims }}</strong>
+      </div>
+      <div class="stats-card">
+        <p>Needs Proof</p>
+        <strong>{{ summary().needsProofClaims }}</strong>
+      </div>
+      <div class="stats-card">
+        <p>Resolved</p>
+        <strong>{{ summary().approvedClaims + summary().rejectedClaims + summary().cancelledClaims }}</strong>
+      </div>
+    </div>
+
+    @if (successMessage()) {
+      <div class="message success-message">
+        {{ successMessage() }}
+      </div>
+    }
+
+    @if (errorMessage()) {
+      <div class="message error-message">
+        {{ errorMessage() }}
+      </div>
+    }
+
+    @if (loading()) {
+      <div class="claims-loading">
+        <p>Loading your claims…</p>
+      </div>
+    } @else if (claims().length === 0) {
+      <div class="claims-empty">
+        <h2>No claim requests yet</h2>
+        <p>Your submitted claims will appear here once you request an item.</p>
+      </div>
+    } @else {
+      <div class="claims-list">
+        @for (claim of claims(); track claim.id) {
+          <article class="claim-card">
+            <div class="claim-card__header">
+              <div>
+                <p class="claim-card__reference">{{ claim.referenceCode }}</p>
+                <h2>{{ claim.itemName }}</h2>
+              </div>
+              <span [class]="statusClass(claim.status)">{{ statusLabel(claim.status) }}</span>
+            </div>
+
+            <div class="claim-card__meta">
+              <div>
+                <span>Submitted</span>
+                <strong>{{ claim.createdAt | date: 'medium' }}</strong>
+              </div>
+              <div>
+                <span>Email</span>
+                <strong>{{ claim.claimantEmail }}</strong>
+              </div>
+              @if (claim.phone) {
+                <div>
+                  <span>Phone</span>
+                  <strong>{{ claim.phone }}</strong>
+                </div>
+              }
+            </div>
+
+            @if (claim.isEditing) {
+              <div class="claim-edit-form">
+                <div class="claim-card__section">
+                  <h3>Item Name</h3>
+                  <input
+                    class="claim-edit-form__input"
+                    [(ngModel)]="claim.editItemName"
+                    [ngModelOptions]="{ standalone: true }"
+                    type="text"
+                    placeholder="Item name"
+                  />
+                </div>
+                <div class="claim-card__section">
+                  <h3>Claim Reason</h3>
+                  <textarea
+                    class="claim-proof-form__textarea"
+                    rows="4"
+                    [(ngModel)]="claim.editClaimReason"
+                    [ngModelOptions]="{ standalone: true }"
+                  ></textarea>
+                </div>
+                <div class="claim-card__section">
+                  <h3>Proof of Ownership</h3>
+                  <textarea
+                    class="claim-proof-form__textarea"
+                    rows="4"
+                    [(ngModel)]="claim.editProofDetails"
+                    [ngModelOptions]="{ standalone: true }"
+                  ></textarea>
+                </div>
+                <div class="claim-card__section">
+                  <h3>Phone</h3>
+                  <input
+                    class="claim-edit-form__input"
+                    [(ngModel)]="claim.editPhone"
+                    [ngModelOptions]="{ standalone: true }"
+                    type="text"
+                    placeholder="Optional phone number"
+                  />
+                </div>
+                @if (claim.editError) {
+                  <p class="claim-inline-error">{{ claim.editError }}</p>
+                }
+                <div class="claim-card__actions">
+                  <button type="button" class="secondary-button" (click)="toggleEdit(claim)" [disabled]="claim.isSavingEdit">Cancel</button>
+                  <button type="button" class="submit-proof-button" (click)="saveEdit(claim)" [disabled]="claim.isSavingEdit">
+                    {{ claim.isSavingEdit ? 'Saving…' : 'Save Changes' }}
+                  </button>
+                </div>
+              </div>
+            } @else {
+              <div class="claim-card__section">
+                <h3>Claim Reason</h3>
+                <p>{{ claim.claimReason }}</p>
+              </div>
+
+              <div class="claim-card__section">
+                <h3>Proof of Ownership</h3>
+                <p>{{ claim.proofDetails }}</p>
+              </div>
+            }
+
+            @if (claim.additionalProofRequest) {
+              <div class="claim-proof-request">
+                <p class="claim-proof-request__label">Additional proof requested</p>
+                <p class="claim-proof-request__message">{{ claim.additionalProofRequest }}</p>
+                @if (claim.proofRequestedAt) {
+                  <p class="claim-proof-request__time">Requested on {{ claim.proofRequestedAt | date: 'medium' }}</p>
+                }
+              </div>
+            }
+
+            @if (claim.proofResponseMessage || (claim.proofResponsePhotoUrls?.length ?? 0) > 0) {
+              <div class="claim-proof-response">
+                <p class="claim-proof-response__label">Your latest proof response</p>
+                @if (claim.proofResponseMessage) {
+                  <p class="claim-proof-response__message">{{ claim.proofResponseMessage }}</p>
+                }
+                @if (claim.proofRespondedAt) {
+                  <p class="claim-proof-response__time">Submitted on {{ claim.proofRespondedAt | date: 'medium' }}</p>
+                }
+                @if ((claim.proofResponsePhotoUrls?.length ?? 0) > 0) {
+                  <div class="claim-proof-response__gallery">
+                    @for (photoUrl of claim.proofResponsePhotoUrls ?? []; track photoUrl) {
+                      <a class="claim-proof-response__thumb" [href]="photoUrl" target="_blank" rel="noreferrer">
+                        <img [src]="photoUrl" alt="Proof photo submitted by claimant" />
+                      </a>
+                    }
+                  </div>
+                }
+              </div>
+            }
+
+            @if (canSubmitProof(claim)) {
+              <div class="claim-proof-form">
+                <div class="claim-card__section">
+                  <h3>Respond to this proof request</h3>
+                  <textarea
+                    class="claim-proof-form__textarea"
+                    rows="4"
+                    [(ngModel)]="claim.proofResponseDraft"
+                    [ngModelOptions]="{ standalone: true }"
+                    placeholder="Share the identifying details that confirm the item is yours, and attach photos if they help."
+                  ></textarea>
+                </div>
+
+                <div class="claim-proof-form__upload">
+                  <app-photo-upload-field
+                    [id]="'proof-photos-' + claim.id"
+                    [inputId]="'proof-photos-input-' + claim.id"
+                    label="Proof Photos"
+                    [required]="false"
+                    [error]="claim.proofError || null"
+                    [photosCount]="claim.pendingProofPhotos?.length ?? 0"
+                    [photoPreviewUrls]="claim.pendingProofPreviewUrls ?? []"
+                    (filesSelected)="onProofPhotosSelected(claim, $event)"
+                    (removePhoto)="removeProofPhoto(claim, $event)"
+                  />
+                </div>
+
+                <div class="claim-proof-form__hint">
+                  Add up to 5 JPEG or PNG photos if they help identify the item.
+                </div>
+
+                <div class="claim-card__actions claim-card__actions--stacked">
+                  <button
+                    type="button"
+                    class="submit-proof-button"
+                    (click)="submitProof(claim)"
+                    [disabled]="claim.isSubmittingProof"
+                  >
+                    {{ claim.isSubmittingProof ? 'Submitting Proof…' : 'Submit Additional Proof' }}
+                  </button>
+                </div>
+              </div>
+            }
+
+            @if (canCancel(claim)) {
+              <div class="claim-card__actions">
+                @if (canEdit(claim)) {
+                  <button
+                    type="button"
+                    class="secondary-button"
+                    (click)="toggleEdit(claim)"
+                    [disabled]="claim.isCancelling || claim.isSubmittingProof"
+                  >
+                    {{ claim.isEditing ? 'Close Edit' : 'Edit Claim' }}
+                  </button>
+                }
+                <button
+                  type="button"
+                  class="cancel-button"
+                  (click)="cancelClaim(claim)"
+                  [disabled]="claim.isCancelling || claim.isEditing"
+                >
+                  {{ claim.isCancelling ? 'Cancelling…' : 'Cancel Claim Request' }}
+                </button>
+              </div>
+            }
+          </article>
+        }
+      </div>
+    }
+  </div>
+</div>
