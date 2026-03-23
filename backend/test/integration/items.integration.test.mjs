@@ -5,7 +5,7 @@ import request from './request-helper.mjs';
 import { createItemsRouter } from '../../dist/src/routes/items.routes.js';
 import { errorHandler, notFoundHandler } from '../../dist/src/middleware/error-handler.js';
 
-const createFakeDb = ({ items = {}, reports = {} } = {}) => {
+const createFakeDb = ({ items = {}, reports = {}, claims = {}, itemHistory = {} } = {}) => {
   const normalizeDoc = (id, source) => ({
     id,
     exists: true,
@@ -21,6 +21,20 @@ const createFakeDb = ({ items = {}, reports = {} } = {}) => {
     }
     return new Date(0).toISOString();
   };
+
+  const buildEqualsQuery = (entries, field) => ({
+    where: (queryField, operator, value) => {
+      assert.equal(queryField, field);
+      assert.equal(operator, '==');
+      const docs = entries
+        .filter(([, source]) => source[field] === value)
+        .map(([id, source]) => normalizeDoc(id, source));
+
+      return {
+        get: async () => ({ docs }),
+      };
+    },
+  });
 
   return {
     collection: (collectionName) => {
@@ -144,6 +158,22 @@ const createFakeDb = ({ items = {}, reports = {} } = {}) => {
         };
       }
 
+      if (collectionName === 'claims') {
+        return buildEqualsQuery(Object.entries(claims), 'itemId');
+      }
+
+      if (collectionName === 'itemHistory') {
+        return {
+          ...buildEqualsQuery(Object.entries(itemHistory), 'itemId'),
+          doc: (id) => ({
+            id,
+            set: async (data) => {
+              itemHistory[id] = data;
+            },
+          }),
+        };
+      }
+
       throw new Error(`Unexpected collection: ${collectionName}`);
     },
   };
@@ -163,10 +193,12 @@ const createFakeBucket = () => ({
   },
 });
 
-const buildTestApp = ({ items = {}, reports = {} } = {}) => {
+const buildTestApp = ({ items = {}, reports = {}, claims = {}, itemHistory = {} } = {}) => {
   const app = express();
   app.use(express.json());
-  app.use(createItemsRouter(createFakeDb({ items, reports }), createFakeBucket()));
+  app.use(createItemsRouter(createFakeDb({ items, reports, claims, itemHistory }), createFakeBucket(), null, {
+    requireStaffUser: (_req, _res, next) => next(),
+  }));
   app.use(notFoundHandler);
   app.use(errorHandler);
   return app;
@@ -536,4 +568,81 @@ test('GET /api/v1/items/:id returns 422 for malformed item payload', async () =>
     response.body.error.message,
     /incorrectly reported|contact Campus Security/i,
   );
+});
+
+test('GET /api/v1/admin/items/:id/history returns persisted and legacy events in reverse chronological order', async () => {
+  const app = buildTestApp({
+    items: {
+      'item-1': {
+        reportId: 'report-1',
+        title: 'Blue backpack',
+        status: 'CLAIMED',
+        referenceCode: 'FND-20260317-HIST0001',
+      },
+    },
+    reports: {
+      'report-1': {
+        kind: 'FOUND',
+        title: 'Blue backpack',
+        status: 'CLAIMED',
+        referenceCode: 'FND-20260317-HIST0001',
+        dateReported: '2026-03-17T10:00:00.000Z',
+        contactEmail: 'finder@example.com',
+      },
+    },
+    claims: {
+      'claim-1': {
+        itemId: 'report-1',
+        referenceCode: 'FND-20260317-HIST0001',
+        claimantUid: 'student-1',
+        claimantEmail: 'student@example.com',
+        claimantName: 'Jane Student',
+        itemName: 'Blue backpack',
+        claimReason: 'Has my books',
+        proofDetails: 'Contains student ID',
+        status: 'APPROVED',
+        createdAt: '2026-03-18T09:00:00.000Z',
+        reviewedAt: '2026-03-18T11:00:00.000Z',
+      },
+    },
+    itemHistory: {
+      'history-1': {
+        itemId: 'report-1',
+        entityType: 'REPORT',
+        entityId: 'report-1',
+        actionType: 'REPORT_UPDATED',
+        timestamp: '2026-03-17T12:00:00.000Z',
+        summary: 'Report details updated.',
+        changes: [{
+          field: 'location',
+          previousValue: 'Library',
+          newValue: 'Student Center',
+        }],
+      },
+    },
+  });
+
+  const response = await request(app).get('/api/v1/admin/items/item-1/history');
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.itemId, 'report-1');
+  assert.equal(response.body.resolvedFrom, 'item-1');
+  assert.equal(response.body.referenceCode, 'FND-20260317-HIST0001');
+  assert.equal(response.body.currentStatus, 'CLAIMED');
+  assert.equal(response.body.total, 4);
+  assert.deepEqual(
+    response.body.events.map((event) => event.actionType),
+    ['CLAIM_APPROVED', 'CLAIM_CREATED', 'REPORT_UPDATED', 'REPORT_CREATED'],
+  );
+  assert.equal(response.body.events[0].entityId, 'claim-1');
+  assert.equal(response.body.events[3].entityId, 'report-1');
+});
+
+test('GET /api/v1/admin/items/:id/history returns 404 when no item can be resolved', async () => {
+  const app = buildTestApp();
+
+  const response = await request(app).get('/api/v1/admin/items/missing-item/history');
+
+  assert.equal(response.status, 404);
+  assert.equal(response.body.error.code, 'NOT_FOUND');
 });

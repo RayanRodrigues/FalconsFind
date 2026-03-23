@@ -21,6 +21,7 @@ import type {
   UpdateClaimRequest,
   UserClaimsListResponse,
 } from '../contracts/index.js';
+import { createChangesFromPatch, recordItemHistoryEvent } from './item-history.service.js';
 
 type StoredClaim = {
   itemId?: string;
@@ -40,6 +41,7 @@ type StoredClaim = {
   proofResponseMessage?: string;
   proofResponsePhotoUrls?: string[];
   proofRespondedAt?: string;
+  cancelledAt?: string;
   message?: string;
 };
 
@@ -461,6 +463,24 @@ export const createClaim = async (
 
   const docRef = db.collection('claims').doc();
   await docRef.set(claimToSave);
+  await recordItemHistoryEvent(db, {
+    itemId: targetItem.id,
+    entityType: 'CLAIM',
+    entityId: docRef.id,
+    actionType: 'CLAIM_CREATED',
+    timestamp: createdAt,
+    summary: 'Claim request submitted.',
+    actor: {
+      type: 'USER',
+      uid: actor.uid,
+      email: payload.claimantEmail,
+    },
+    metadata: {
+      referenceCode: payload.referenceCode,
+      claimStatus: ClaimStatus.PENDING,
+      itemStatus: targetItem.status,
+    },
+  });
 
   return {
     id: docRef.id,
@@ -512,6 +532,36 @@ export const updateClaimStatus = async (
       claimStatus: targetStatus,
       updatedAt: reviewedAt,
     } satisfies StoredItemReviewPatch);
+    await recordItemHistoryEvent(db, {
+      itemId,
+      entityType: 'CLAIM',
+      entityId: claimId,
+      actionType: targetStatus === ClaimStatus.APPROVED ? 'CLAIM_APPROVED' : 'CLAIM_REJECTED',
+      timestamp: reviewedAt,
+      summary: targetStatus === ClaimStatus.APPROVED ? 'Claim approved by staff.' : 'Claim rejected by staff.',
+      actor: {
+        type: 'SECURITY',
+      },
+      metadata: {
+        claimStatus: targetStatus,
+        itemStatus: nextItemStatus,
+        referenceCode: claim.referenceCode,
+      },
+      changes: [
+        {
+          field: 'claim.status',
+          previousValue: claim.status,
+          newValue: targetStatus,
+        },
+        {
+          field: 'item.status',
+          previousValue: itemRef.id === itemId ? undefined : undefined,
+          newValue: nextItemStatus,
+        },
+      ],
+    }, {
+      transaction,
+    });
 
     return {
       id: claimId,
@@ -562,6 +612,28 @@ export const requestAdditionalProof = async (
       claimStatus: ClaimStatus.NEEDS_PROOF,
       updatedAt: proofRequestedAt,
     } satisfies StoredItemProofRequestPatch);
+    await recordItemHistoryEvent(db, {
+      itemId,
+      entityType: 'CLAIM',
+      entityId: claimId,
+      actionType: 'CLAIM_PROOF_REQUESTED',
+      timestamp: proofRequestedAt,
+      summary: 'Additional proof requested for claim.',
+      actor: {
+        type: 'SECURITY',
+      },
+      metadata: {
+        claimStatus: ClaimStatus.NEEDS_PROOF,
+        referenceCode: claim.referenceCode,
+      },
+      changes: [{
+        field: 'claim.status',
+        previousValue: claim.status,
+        newValue: ClaimStatus.NEEDS_PROOF,
+      }],
+    }, {
+      transaction,
+    });
 
     return {
       id: claimId,
@@ -612,13 +684,39 @@ export const cancelClaim = async (
 
     transaction.update(claimRef, {
       status: ClaimStatus.CANCELLED,
-    } satisfies StoredClaimCancellationPatch);
+      cancelledAt,
+    } satisfies StoredClaimCancellationPatch & { cancelledAt: string });
 
     transaction.update(itemRef, {
       status: nextItemStatus,
       claimStatus: ClaimStatus.CANCELLED,
       updatedAt: cancelledAt,
     } satisfies StoredItemCancellationPatch);
+    await recordItemHistoryEvent(db, {
+      itemId,
+      entityType: 'CLAIM',
+      entityId: claimId,
+      actionType: 'CLAIM_CANCELLED',
+      timestamp: cancelledAt,
+      summary: actor.role === UserRole.STUDENT ? 'Claim cancelled by claimant.' : 'Claim cancelled by staff.',
+      actor: {
+        type: actor.role === UserRole.ADMIN ? 'ADMIN' : actor.role === UserRole.SECURITY ? 'SECURITY' : 'USER',
+        uid: actor.uid,
+        role: actor.role,
+      },
+      metadata: {
+        claimStatus: ClaimStatus.CANCELLED,
+        itemStatus: nextItemStatus,
+        referenceCode: claim.referenceCode,
+      },
+      changes: [{
+        field: 'claim.status',
+        previousValue: claim.status,
+        newValue: ClaimStatus.CANCELLED,
+      }],
+    }, {
+      transaction,
+    });
 
     return {
       id: claimId,
@@ -653,6 +751,11 @@ export const updateClaim = async (
       throw new ClaimForbiddenError('You can only edit your own claim requests.');
     }
 
+    const itemId = claim.itemId?.trim();
+    if (!itemId) {
+      throw new ClaimItemNotFoundError();
+    }
+
     if (!isClaimAwaitingReview(claim.status)) {
       throw new ClaimConflictError('Only pending or proof-requested claims can be edited.');
     }
@@ -671,6 +774,28 @@ export const updateClaim = async (
     }
 
     transaction.update(claimRef, patch);
+    const changes = createChangesFromPatch(claim as Record<string, unknown>, patch as Record<string, unknown>);
+    if (changes.length > 0) {
+      await recordItemHistoryEvent(db, {
+        itemId,
+        entityType: 'CLAIM',
+        entityId: claimId,
+        actionType: 'CLAIM_UPDATED',
+        timestamp: new Date().toISOString(),
+        summary: 'Claim details updated.',
+        actor: {
+          type: 'USER',
+          uid: actor.uid,
+        },
+        metadata: {
+          claimStatus: claim.status,
+          referenceCode: claim.referenceCode,
+        },
+        changes,
+      }, {
+        transaction,
+      });
+    }
 
     return {
       id: claimId,
@@ -741,6 +866,29 @@ export const submitClaimProof = async (
       claimStatus: ClaimStatus.PENDING,
       updatedAt: proofRespondedAt,
     } satisfies StoredItemProofResponsePatch);
+    await recordItemHistoryEvent(db, {
+      itemId,
+      entityType: 'CLAIM',
+      entityId: claimId,
+      actionType: 'CLAIM_PROOF_SUBMITTED',
+      timestamp: proofRespondedAt,
+      summary: 'Additional proof submitted for claim.',
+      actor: {
+        type: 'USER',
+        uid: actor.uid,
+      },
+      metadata: {
+        claimStatus: ClaimStatus.PENDING,
+        referenceCode: claim.referenceCode,
+      },
+      changes: [{
+        field: 'claim.status',
+        previousValue: claim.status,
+        newValue: ClaimStatus.PENDING,
+      }],
+    }, {
+      transaction,
+    });
 
     return {
       id: claimId,

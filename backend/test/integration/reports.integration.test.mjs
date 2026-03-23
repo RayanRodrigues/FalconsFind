@@ -7,6 +7,7 @@ import { errorHandler, notFoundHandler } from '../../dist/src/middleware/error-h
 
 const createFakeDb = (initialReports = {}) => {
   const savedReports = [];
+  const itemHistory = {};
   let counter = 0;
   const reports = { ...initialReports };
 
@@ -27,6 +28,21 @@ const createFakeDb = (initialReports = {}) => {
   return {
     db: {
       collection: (collectionName) => {
+        if (collectionName === 'itemHistory') {
+          return {
+            doc: () => {
+              counter += 1;
+              const generatedId = `history-${counter}`;
+              return {
+                id: generatedId,
+                set: async (data) => {
+                  itemHistory[generatedId] = data;
+                },
+              };
+            },
+          };
+        }
+
         assert.equal(collectionName, 'reports');
 
         const buildQuery = (filters = []) => ({
@@ -91,6 +107,7 @@ const createFakeDb = (initialReports = {}) => {
         const transaction = {
           get: async (target) => target.get(),
           update: (target, patch) => target.update(patch),
+          set: (target, data) => target.set(data),
         };
 
         return handler(transaction);

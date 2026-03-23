@@ -12,12 +12,40 @@ const createDocSnapshot = (ref, source) => ({
   data: () => source,
 });
 
-const createFakeDb = ({ claims = {}, items = {}, reports = {} } = {}) => {
+const createFakeDb = ({ claims = {}, items = {}, reports = {}, itemHistory = {} } = {}) => {
   const savedClaims = [];
   let counter = 0;
 
   const db = {
     collection: (collectionName) => {
+      if (collectionName === 'itemHistory') {
+        return {
+          where: (field, operator, value) => {
+            assert.equal(field, 'itemId');
+            assert.equal(operator, '==');
+
+            return {
+              get: async () => ({
+                docs: Object.entries(itemHistory)
+                  .filter(([, event]) => event[field] === value)
+                  .map(([id, event]) => createDocSnapshot({ id, collectionName }, event)),
+              }),
+            };
+          },
+          doc: () => {
+            counter += 1;
+            const generatedId = `history-${counter}`;
+            return {
+              id: generatedId,
+              collectionName,
+              set: async (data) => {
+                itemHistory[generatedId] = data;
+              },
+            };
+          },
+        };
+      }
+
       if (collectionName === 'claims') {
         return {
           get: async () => ({
@@ -135,6 +163,14 @@ const createFakeDb = ({ claims = {}, items = {}, reports = {} } = {}) => {
             ...store[ref.id],
             ...patch,
           };
+        },
+        set: (ref, data) => {
+          if (ref.collectionName === 'itemHistory') {
+            itemHistory[ref.id] = data;
+            return;
+          }
+
+          throw new Error(`Cannot set unexpected collection ${ref.collectionName}`);
         },
       };
 
