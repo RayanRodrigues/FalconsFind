@@ -2,7 +2,7 @@ import type { DocumentData, Firestore, Query, QueryDocumentSnapshot } from 'fire
 import type { Bucket } from '@google-cloud/storage';
 import type { RedisClient } from '../bootstrap/redis.js';
 import { ItemStatus } from '../contracts/index.js';
-import type { ItemDetailsResponse, ItemPublicResponse, Report } from '../contracts/index.js';
+import type { ItemDetailsResponse, ItemPublicResponse, ItemStatusResponse, Report } from '../contracts/index.js';
 import { isProductionApp } from '../utils/app-env.js';
 import { normalizeDateReported } from '../utils/date-normalization.js';
 
@@ -34,6 +34,16 @@ const isVisibleInCurrentEnvironment = (sourceEnv: Report['sourceEnv'] | undefine
 
   return sourceEnv === undefined || sourceEnv === 'production';
 };
+
+const isPublicItemStatus = (status: ItemStatus | undefined): status is ItemStatus.VALIDATED | ItemStatus.CLAIMED => (
+  status === ItemStatus.VALIDATED || status === ItemStatus.CLAIMED
+);
+
+const toItemAvailability = (
+  status: ItemStatus.VALIDATED | ItemStatus.CLAIMED,
+): ItemStatusResponse['availability'] => (
+  status === ItemStatus.CLAIMED ? 'CLAIMED' : 'AVAILABLE'
+);
 
 type ListValidatedItemsParams = {
   page: number;
@@ -169,6 +179,7 @@ const mapItemDetails = async (
     category: source.category,
     description: source.description,
     status: source.status,
+    availability: isPublicItemStatus(source.status) ? toItemAvailability(source.status) : 'AVAILABLE',
     location: source.location,
     referenceCode: source.referenceCode,
     dateReported,
@@ -221,8 +232,15 @@ export const getItemById = async (
 };
 
 export const isItemPubliclyVisible = (item: ItemDetailsResponse): boolean => {
-  return item.status === 'VALIDATED';
+  return isPublicItemStatus(item.status);
 };
+
+export const getPublicItemStatus = (item: ItemDetailsResponse): ItemStatusResponse => ({
+  id: item.id,
+  status: item.status,
+  availability: item.availability,
+  claimStatus: item.claimStatus,
+});
 
 export const listValidatedItems = async (
   db: Firestore,
@@ -237,7 +255,7 @@ export const listValidatedItems = async (
   let baseQuery = db
     .collection('reports')
     .where('kind', '==', 'FOUND')
-    .where('status', '==', 'VALIDATED');
+    .where('status', 'in', [ItemStatus.VALIDATED, ItemStatus.CLAIMED]);
 
   if (params.category) {
     baseQuery = baseQuery.where('category', '==', params.category);
@@ -321,8 +339,7 @@ export const listValidatedItems = async (
       || typeof data.referenceCode !== 'string'
       || data.referenceCode.trim().length === 0
       || !dateReported
-      || !data.status
-      || !Object.values(ItemStatus).includes(data.status)
+      || !isPublicItemStatus(data.status)
     ) {
       return null;
     }
@@ -339,6 +356,7 @@ export const listValidatedItems = async (
       title: data.title,
       category: data.category,
       status: data.status,
+      availability: toItemAvailability(data.status),
       referenceCode: data.referenceCode,
       location: data.location,
       dateReported,

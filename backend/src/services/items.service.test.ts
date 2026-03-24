@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { listValidatedItems } from './items.service.js';
+import { getPublicItemStatus, listValidatedItems } from './items.service.js';
+import { ClaimStatus, ItemStatus } from '../contracts/index.js';
 
 type FakeDoc = { id: string; data: () => unknown };
 type FakeSnap = { docs: FakeDoc[] };
@@ -89,7 +90,7 @@ describe('listValidatedItems', () => {
     };
   });
 
-  it('filters FOUND + VALIDATED, returns total + paged items', async () => {
+  it('filters FOUND items that are available or claimed, returns total + paged items', async () => {
     const result = await listValidatedItems(db as never, bucket as never, null, { page: 1, limit: 10 });
 
     expect(result.total).toBe(2);
@@ -98,12 +99,13 @@ describe('listValidatedItems', () => {
     expect(result.items[0].title).toBe('B');
     expect(result.items[0].category).toBe('Accessories');
     expect(result.items[0].dateReported).toBe('2026-02-01T10:00:00.000Z');
+    expect(result.items[0].availability).toBe('AVAILABLE');
     expect(result.items[0].thumbnailUrl).toBeUndefined();
 
     expect(collectionFn).toHaveBeenCalledWith('reports');
     expect(whereCalls).toEqual([
       ['kind', '==', 'FOUND'],
-      ['status', '==', 'VALIDATED'],
+      ['status', 'in', ['VALIDATED', 'CLAIMED']],
     ]);
 
     expect(countFn).toHaveBeenCalledTimes(1);
@@ -142,7 +144,7 @@ describe('listValidatedItems', () => {
 
     expect(whereCalls).toEqual([
       ['kind', '==', 'FOUND'],
-      ['status', '==', 'VALIDATED'],
+      ['status', 'in', ['VALIDATED', 'CLAIMED']],
       ['category', '==', 'Accessories'],
       ['location', '==', 'Library'],
       ['dateReported', '>=', '2026-02-01T00:00:00.000Z'],
@@ -203,5 +205,24 @@ describe('listValidatedItems', () => {
     expect(orderedLimitFn).toHaveBeenCalledWith(10);
     expect(startAfterFn).not.toHaveBeenCalled();
     expect(countFn).not.toHaveBeenCalled();
+  });
+
+  it('maps public item status into an availability response', () => {
+    const result = getPublicItemStatus({
+      id: 'item-claimed',
+      title: 'Headphones',
+      status: ItemStatus.CLAIMED,
+      availability: 'CLAIMED' as const,
+      referenceCode: 'FND-20260201-CLAIMED1',
+      dateReported: '2026-02-01T10:00:00.000Z',
+      claimStatus: ClaimStatus.APPROVED,
+    });
+
+    expect(result).toEqual({
+      id: 'item-claimed',
+      status: 'CLAIMED',
+      availability: 'CLAIMED',
+      claimStatus: 'APPROVED',
+    });
   });
 });
