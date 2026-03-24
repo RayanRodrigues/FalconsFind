@@ -154,7 +154,7 @@ export const itemsOpenApi: OpenApiModule = {
     },
     ItemPublicResponse: {
       type: 'object',
-      required: ['id', 'title', 'status', 'referenceCode', 'dateReported'],
+      required: ['id', 'title', 'status', 'referenceCode', 'dateReported', 'listedDurationMs'],
       properties: {
         id: { type: 'string', example: 'item-abc123' },
         title: { type: 'string', example: 'Black Backpack' },
@@ -168,6 +168,13 @@ export const itemsOpenApi: OpenApiModule = {
         },
         location: { type: 'string', example: 'Library' },
         dateReported: { type: 'string', format: 'date-time' },
+        listedDurationMs: {
+          type: 'integer',
+          format: 'int64',
+          minimum: 0,
+          example: 172800000,
+          description: 'How long the item has been listed, in milliseconds.',
+        },
         thumbnailUrl: { type: 'string', format: 'uri' },
       },
     },
@@ -201,7 +208,7 @@ export const itemsOpenApi: OpenApiModule = {
     },
     ItemDetailsResponse: {
       type: 'object',
-      required: ['id', 'title', 'status', 'referenceCode', 'dateReported'],
+      required: ['id', 'title', 'status', 'referenceCode', 'dateReported', 'listedDurationMs'],
       properties: {
         id: { type: 'string', example: 'item-abc123' },
         title: { type: 'string', example: 'Black Backpack' },
@@ -216,6 +223,13 @@ export const itemsOpenApi: OpenApiModule = {
         },
         location: { type: 'string', example: 'Library' },
         dateReported: { type: 'string', format: 'date-time' },
+        listedDurationMs: {
+          type: 'integer',
+          format: 'int64',
+          minimum: 0,
+          example: 172800000,
+          description: 'How long the item has been listed, in milliseconds.',
+        },
         imageUrls: {
           type: 'array',
           items: { type: 'string' },
