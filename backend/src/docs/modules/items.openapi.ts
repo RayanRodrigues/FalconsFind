@@ -103,6 +103,9 @@ export const itemsOpenApi: OpenApiModule = {
               },
             },
           },
+          400: {
+            ...errorResponseRefs.badRequest,
+          },
           500: {
             ...errorResponseRefs.internalServerError,
           },

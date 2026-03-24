@@ -156,6 +156,7 @@ const mapItemDetails = async (
   id: string,
   source: StoredItem,
   redis: RedisClient | null,
+  nowMs: number = Date.now(),
 ): Promise<ItemDetailsResponse> => {
   const dateReported = normalizeDateReported(source.dateReported);
 
@@ -182,7 +183,7 @@ const mapItemDetails = async (
     location: source.location,
     referenceCode: source.referenceCode,
     dateReported,
-    listedDurationMs: calculateListedDurationMs(dateReported),
+    listedDurationMs: calculateListedDurationMs(dateReported, nowMs),
     imageUrls,
     claimStatus: source.claimStatus,
   };
@@ -194,6 +195,7 @@ export const getItemById = async (
   redis: RedisClient | null,
   itemId: string,
 ): Promise<ItemDetailsResponse | null> => {
+  const nowMs = Date.now();
   const itemsCollection = db.collection('items');
   const reportsCollection = db.collection('reports');
 
@@ -208,7 +210,7 @@ export const getItemById = async (
     if (!isVisibleInCurrentEnvironment((data as StoredItem).sourceEnv)) {
       return null;
     }
-    return mapItemDetails(bucket, itemSnapshot.id, data, redis);
+    return mapItemDetails(bucket, itemSnapshot.id, data, redis, nowMs);
   }
 
   if (!itemsByReportIdSnapshot.empty) {
@@ -217,7 +219,7 @@ export const getItemById = async (
     if (!isVisibleInCurrentEnvironment((data as StoredItem).sourceEnv)) {
       return null;
     }
-    return mapItemDetails(bucket, snapshot.id, data, redis);
+    return mapItemDetails(bucket, snapshot.id, data, redis, nowMs);
   }
 
   if (reportSnapshot.exists) {
@@ -225,7 +227,7 @@ export const getItemById = async (
     if (!isVisibleInCurrentEnvironment((data as StoredItem).sourceEnv)) {
       return null;
     }
-    return mapItemDetails(bucket, reportSnapshot.id, data, redis);
+    return mapItemDetails(bucket, reportSnapshot.id, data, redis, nowMs);
   }
 
   return null;
@@ -245,6 +247,7 @@ export const listValidatedItems = async (
   const limit = Math.max(1, Math.floor(params.limit));
   const keyword = typeof params.keyword === 'string' ? params.keyword.trim().toLowerCase() : '';
   const sort = params.sort === 'oldest' ? 'oldest' : 'most_recent';
+  const nowMs = Date.now();
 
   let baseQuery = db
     .collection('reports')
@@ -354,8 +357,8 @@ export const listValidatedItems = async (
       referenceCode: data.referenceCode,
       location: data.location,
       dateReported,
-      listedDurationMs: calculateListedDurationMs(dateReported),
-      thumbnailUrl: thumbnailSource,
+      listedDurationMs: calculateListedDurationMs(dateReported, nowMs),
+      thumbnailUrl,
     } as ItemPublicResponse;
   }));
 
@@ -369,24 +372,5 @@ export const listValidatedItems = async (
     total = items.length;
   }
 
-  const itemsWithSignedThumbnails = await Promise.all(pagedItems.map(async (item) => {
-    const source = item.thumbnailUrl;
-    if (typeof source !== 'string' || source.trim().length === 0) {
-      return item;
-    }
-
-    let signedUrl = source;
-    try {
-      signedUrl = await toPublicImageUrl(bucket, source, redis);
-    } catch {
-      signedUrl = source;
-    }
-
-    return {
-      ...item,
-      thumbnailUrl: signedUrl,
-    };
-  }));
-
-  return { items: itemsWithSignedThumbnails, total };
+  return { items: pagedItems, total };
 };
