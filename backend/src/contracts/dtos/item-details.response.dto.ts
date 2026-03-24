@@ -10,6 +10,7 @@ export type ItemDetailsResponse = {
   referenceCode: string;
   location?: string;
   dateReported: string;
+  listedDurationMs: number;
   imageUrls?: string[];
   claimStatus?: ClaimStatus;
 };

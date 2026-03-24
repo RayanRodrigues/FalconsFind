@@ -223,6 +223,7 @@ test('GET /api/v1/items returns paginated validated found items with thumbnailUr
   assert.equal(response.body.hasPrevPage, false);
   assert.equal(response.body.items.length, 2);
   assert.equal(response.body.items[0].id, 'report-2');
+  assert.equal(typeof response.body.items[0].listedDurationMs, 'number');
   assert.match(response.body.items[0].thumbnailUrl, /^https:\/\/signed\.local\//);
   assert.equal(response.body.items[1].id, 'report-1');
   assert.equal(response.body.items[1].thumbnailUrl, 'https://cdn.example.com/report-1.jpg');
@@ -488,6 +489,7 @@ test('GET /api/v1/items/:id returns 200 for validated item id', async () => {
   assert.equal(response.body.id, 'item-1');
   assert.equal(response.body.status, 'VALIDATED');
   assert.equal(response.body.referenceCode, 'FND-20260225-ABC12345');
+  assert.equal(typeof response.body.listedDurationMs, 'number');
   assert.ok(Array.isArray(response.body.imageUrls));
   assert.match(response.body.imageUrls[0], /^https:\/\/signed\.local\//);
 });

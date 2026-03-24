@@ -142,6 +142,15 @@ const resolveImageUrls = async (
   return urls.length > 0 ? urls : undefined;
 };
 
+const calculateListedDurationMs = (dateReported: string, nowMs: number = Date.now()): number => {
+  const reportedAtMs = Date.parse(dateReported);
+  if (Number.isNaN(reportedAtMs)) {
+    return 0;
+  }
+
+  return Math.max(0, nowMs - reportedAtMs);
+};
+
 const mapItemDetails = async (
   bucket: Bucket,
   id: string,
@@ -173,6 +182,7 @@ const mapItemDetails = async (
     location: source.location,
     referenceCode: source.referenceCode,
     dateReported,
+    listedDurationMs: calculateListedDurationMs(dateReported),
     imageUrls,
     claimStatus: source.claimStatus,
   };
@@ -344,6 +354,7 @@ export const listValidatedItems = async (
       referenceCode: data.referenceCode,
       location: data.location,
       dateReported,
+      listedDurationMs: calculateListedDurationMs(dateReported),
       thumbnailUrl: thumbnailSource,
     } as ItemPublicResponse;
   }));

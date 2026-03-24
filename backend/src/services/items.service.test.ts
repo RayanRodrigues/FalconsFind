@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { listValidatedItems } from './items.service.js';
 
 type FakeDoc = { id: string; data: () => unknown };
@@ -20,8 +20,10 @@ describe('listValidatedItems', () => {
   let getPageFn: ReturnType<typeof vi.fn>;
   let getOrderedFn: ReturnType<typeof vi.fn>;
   let whereCalls: Array<[string, string, unknown]>;
+  let dateNowSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
+    dateNowSpy = vi.spyOn(Date, 'now').mockReturnValue(new Date('2026-02-02T10:00:00.000Z').getTime());
     const pageSnap: FakeSnap = {
       docs: [
         {
@@ -89,6 +91,10 @@ describe('listValidatedItems', () => {
     };
   });
 
+  afterEach(() => {
+    dateNowSpy.mockRestore();
+  });
+
   it('filters FOUND + VALIDATED, returns total + paged items', async () => {
     const result = await listValidatedItems(db as never, bucket as never, null, { page: 1, limit: 10 });
 
@@ -98,6 +104,7 @@ describe('listValidatedItems', () => {
     expect(result.items[0].title).toBe('B');
     expect(result.items[0].category).toBe('Accessories');
     expect(result.items[0].dateReported).toBe('2026-02-01T10:00:00.000Z');
+    expect(result.items[0].listedDurationMs).toBe(24 * 60 * 60 * 1000);
     expect(result.items[0].thumbnailUrl).toBeUndefined();
 
     expect(collectionFn).toHaveBeenCalledWith('reports');
