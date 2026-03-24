@@ -211,4 +211,26 @@ describe('listValidatedItems', () => {
     expect(startAfterFn).not.toHaveBeenCalled();
     expect(countFn).not.toHaveBeenCalled();
   });
+
+  it('skips items when dateReported is not parseable', async () => {
+    getOrderedFn.mockResolvedValue({
+      docs: [
+        {
+          id: 'invalid-date',
+          data: () => ({
+            kind: 'FOUND',
+            status: 'VALIDATED',
+            title: 'Broken item',
+            referenceCode: 'REF-BAD',
+            dateReported: 'not-a-real-date',
+          }),
+        },
+      ],
+    });
+
+    const result = await listValidatedItems(db as never, bucket as never, null, { page: 1, limit: 10 });
+
+    expect(result.total).toBe(2);
+    expect(result.items).toHaveLength(0);
+  });
 });

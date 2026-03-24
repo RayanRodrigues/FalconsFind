@@ -222,8 +222,13 @@ test('GET /api/v1/items returns paginated validated found items with thumbnailUr
   assert.equal(response.body.items.length, 2);
   assert.equal(response.body.items[0].id, 'report-2');
   assert.equal(typeof response.body.items[0].listedDurationMs, 'number');
+  assert.ok(Number.isFinite(response.body.items[0].listedDurationMs));
+  assert.ok(response.body.items[0].listedDurationMs >= 0);
   assert.match(response.body.items[0].thumbnailUrl, /^https:\/\/signed\.local\//);
   assert.equal(response.body.items[1].id, 'report-1');
+  assert.equal(typeof response.body.items[1].listedDurationMs, 'number');
+  assert.ok(Number.isFinite(response.body.items[1].listedDurationMs));
+  assert.ok(response.body.items[1].listedDurationMs >= 0);
   assert.equal(response.body.items[1].thumbnailUrl, 'https://cdn.example.com/report-1.jpg');
   assert.deepEqual(response.body.filters, {
     keyword: null,
@@ -446,6 +451,8 @@ test('GET /api/v1/items/:id returns 200 for validated item id', async () => {
   assert.equal(response.body.status, 'VALIDATED');
   assert.equal(response.body.referenceCode, 'FND-20260225-ABC12345');
   assert.equal(typeof response.body.listedDurationMs, 'number');
+  assert.ok(Number.isFinite(response.body.listedDurationMs));
+  assert.ok(response.body.listedDurationMs >= 0);
   assert.ok(Array.isArray(response.body.imageUrls));
   assert.match(response.body.imageUrls[0], /^https:\/\/signed\.local\//);
 });
@@ -538,4 +545,49 @@ test('GET /api/v1/items/:id returns 422 for malformed item payload', async () =>
     response.body.error.message,
     /incorrectly reported|contact Campus Security/i,
   );
+});
+
+test('GET /api/v1/items skips reports with unparseable dateReported values', async () => {
+  const app = buildTestApp({
+    reports: {
+      'invalid-date-item': {
+        kind: 'FOUND',
+        title: 'Wallet',
+        status: 'VALIDATED',
+        referenceCode: 'FND-20260225-BADDATE1',
+        dateReported: 'not-a-real-date',
+      },
+      'valid-date-item': {
+        kind: 'FOUND',
+        title: 'Bottle',
+        status: 'VALIDATED',
+        referenceCode: 'FND-20260225-VALID001',
+        dateReported: '2026-02-25T12:00:00.000Z',
+      },
+    },
+  });
+
+  const response = await request(app).get('/api/v1/items');
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.items.length, 1);
+  assert.equal(response.body.items[0].id, 'valid-date-item');
+});
+
+test('GET /api/v1/items/:id returns 422 when dateReported is not parseable', async () => {
+  const app = buildTestApp({
+    items: {
+      'item-invalid-date': {
+        title: 'Black backpack',
+        status: 'VALIDATED',
+        referenceCode: 'FND-20260225-INVALID1',
+        dateReported: 'not-a-real-date',
+      },
+    },
+  });
+
+  const response = await request(app).get('/api/v1/items/item-invalid-date');
+
+  assert.equal(response.status, 422);
+  assert.equal(response.body.error.code, 'INVALID_ITEM_DATA');
 });

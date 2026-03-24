@@ -150,13 +150,25 @@ const calculateListedDurationMs = (dateReported: string, nowMs: number = Date.no
   return Math.max(0, nowMs - reportedAtMs);
 };
 
+const parseListedDurationMs = (dateReported: string, nowMs: number): number | null => {
+  const durationMs = calculateListedDurationMs(dateReported, nowMs);
+  if (!Number.isFinite(durationMs)) {
+    return null;
+  }
+
+  const reportedAtMs = Date.parse(dateReported);
+  return Number.isNaN(reportedAtMs) ? null : durationMs;
+};
+
 const mapItemDetails = async (
   bucket: Bucket,
   id: string,
   source: StoredItem,
   redis: RedisClient | null,
+  nowMs: number = Date.now(),
 ): Promise<ItemDetailsResponse> => {
   const dateReported = normalizeDateReported(source.dateReported);
+  const listedDurationMs = dateReported ? parseListedDurationMs(dateReported, nowMs) : null;
 
   if (
     typeof source.title !== 'string'
@@ -164,6 +176,7 @@ const mapItemDetails = async (
     || typeof source.referenceCode !== 'string'
     || source.referenceCode.trim().length === 0
     || !dateReported
+    || listedDurationMs === null
     || !source.status
     || !Object.values(ItemStatus).includes(source.status)
   ) {
@@ -181,7 +194,7 @@ const mapItemDetails = async (
     location: source.location,
     referenceCode: source.referenceCode,
     dateReported,
-    listedDurationMs: calculateListedDurationMs(dateReported),
+    listedDurationMs,
     imageUrls,
     claimStatus: source.claimStatus,
   };
@@ -193,6 +206,7 @@ export const getItemById = async (
   redis: RedisClient | null,
   itemId: string,
 ): Promise<ItemDetailsResponse | null> => {
+  const nowMs = Date.now();
   const itemsCollection = db.collection('items');
   const reportsCollection = db.collection('reports');
 
@@ -207,7 +221,7 @@ export const getItemById = async (
     if (!isVisibleInCurrentEnvironment((data as StoredItem).sourceEnv)) {
       return null;
     }
-    return mapItemDetails(bucket, itemSnapshot.id, data, redis);
+    return mapItemDetails(bucket, itemSnapshot.id, data, redis, nowMs);
   }
 
   if (!itemsByReportIdSnapshot.empty) {
@@ -216,7 +230,7 @@ export const getItemById = async (
     if (!isVisibleInCurrentEnvironment((data as StoredItem).sourceEnv)) {
       return null;
     }
-    return mapItemDetails(bucket, snapshot.id, data, redis);
+    return mapItemDetails(bucket, snapshot.id, data, redis, nowMs);
   }
 
   if (reportSnapshot.exists) {
@@ -224,7 +238,7 @@ export const getItemById = async (
     if (!isVisibleInCurrentEnvironment((data as StoredItem).sourceEnv)) {
       return null;
     }
-    return mapItemDetails(bucket, reportSnapshot.id, data, redis);
+    return mapItemDetails(bucket, reportSnapshot.id, data, redis, nowMs);
   }
 
   return null;
@@ -243,6 +257,7 @@ export const listValidatedItems = async (
   const page = Math.max(1, Math.floor(params.page));
   const limit = Math.max(1, Math.floor(params.limit));
   const keyword = typeof params.keyword === 'string' ? params.keyword.trim().toLowerCase() : '';
+  const nowMs = Date.now();
 
   let baseQuery = db
     .collection('reports')
@@ -312,6 +327,7 @@ export const listValidatedItems = async (
     }
 
     const dateReported = normalizeDateReported(data.dateReported);
+    const listedDurationMs = dateReported ? parseListedDurationMs(dateReported, nowMs) : null;
     const thumbnailSource =
       (Array.isArray(data.imageUrls) && data.imageUrls.length > 0 ? data.imageUrls[0] : undefined)
       ?? data.photoUrl;
@@ -331,6 +347,7 @@ export const listValidatedItems = async (
       || typeof data.referenceCode !== 'string'
       || data.referenceCode.trim().length === 0
       || !dateReported
+      || listedDurationMs === null
       || !data.status
       || !Object.values(ItemStatus).includes(data.status)
     ) {
@@ -352,7 +369,7 @@ export const listValidatedItems = async (
       referenceCode: data.referenceCode,
       location: data.location,
       dateReported,
-      listedDurationMs: calculateListedDurationMs(dateReported),
+      listedDurationMs,
       thumbnailUrl: thumbnailSource,
     } as ItemPublicResponse;
   }));
