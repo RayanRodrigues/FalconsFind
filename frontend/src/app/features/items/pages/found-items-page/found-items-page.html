@@ -1,16 +1,13 @@
 <section class="min-h-screen bg-neutral-base py-10">
   <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
 
-    <!-- Page header -->
     <div class="mb-6">
       <h1 class="text-2xl font-semibold text-text-primary mb-1">Found Items</h1>
       <p class="text-text-secondary text-sm mb-0">Browse items that have been found and reported on campus.</p>
     </div>
 
-    <!-- Search + filters toolbar -->
     <div class="mb-6 bg-white rounded-xl border border-border/60 shadow-sm p-4">
 
-      <!-- Search row -->
       <div class="relative mb-3">
         <svg class="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" style="width:16px;height:16px;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
@@ -31,7 +28,6 @@
         }
       </div>
 
-      <!-- Filters row -->
       <div class="flex flex-wrap items-center gap-2">
 
         <select
@@ -75,7 +71,16 @@
           />
         </div>
 
-        <!-- Results count + clear -->
+        <select
+          [(ngModel)]="sortOption"
+          (ngModelChange)="onSortChange()"
+          class="rounded-lg border border-border px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary transition bg-white"
+          aria-label="Sort found items"
+        >
+          <option value="most-recent">Newest first</option>
+          <option value="oldest">Oldest first</option>
+        </select>
+
         <div class="ml-auto flex items-center gap-3">
           @if (loading) {
             <svg class="h-3.5 w-3.5 animate-spin text-primary" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -97,7 +102,6 @@
       </div>
     </div>
 
-    <!-- Loading state -->
     <div *ngIf="loading" class="rounded-xl border border-border/60 bg-white p-10 shadow-sm">
       <div class="flex flex-col items-center text-center gap-4 py-2">
         <svg class="h-9 w-9 animate-spin text-primary" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -111,7 +115,6 @@
       </div>
     </div>
 
-    <!-- Error state -->
     <div *ngIf="!loading && error" class="rounded-xl border border-error/30 bg-white p-8 shadow-sm">
       <div class="flex flex-col items-center text-center gap-4">
         <div class="rounded-full bg-error/10 p-3">
@@ -129,8 +132,7 @@
       </div>
     </div>
 
-    <!-- Empty state -->
-    <div *ngIf="!loading && !error && items.length === 0" class="rounded-xl border border-border/60 bg-white p-10 shadow-sm text-center">
+    <div *ngIf="!loading && !error && items.length === 0 && !hasActiveFilters" class="rounded-xl border border-border/60 bg-white p-10 shadow-sm text-center">
       <div class="flex flex-col items-center gap-3">
         <div class="rounded-full bg-neutral-base p-4">
           <svg class="h-8 w-8 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -142,7 +144,6 @@
       </div>
     </div>
 
-    <!-- No search results -->
     <div *ngIf="!loading && !error && items.length === 0 && hasActiveFilters" class="rounded-xl border border-border/60 bg-white p-10 shadow-sm text-center">
       <div class="flex flex-col items-center gap-3">
         <p class="text-text-primary font-medium mb-0">No matching items found</p>
@@ -150,8 +151,16 @@
       </div>
     </div>
 
-    <!-- Items grid + pagination -->
     <div *ngIf="!loading && !error && items.length > 0">
+
+      <div class="mb-4 flex items-center justify-between">
+        <p class="text-sm text-text-secondary mb-0">
+          Sorted by
+          <span class="font-semibold text-text-primary">
+            {{ sortOption === 'most-recent' ? 'newest first' : 'oldest first' }}
+          </span>
+        </p>
+      </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
         <a
