@@ -21,6 +21,7 @@ import type {
 import { randomUUID } from 'node:crypto';
 import { isProductionApp } from '../utils/app-env.js';
 import { normalizeDateReported } from '../utils/date-normalization.js';
+export { ItemHistoryNotFoundError, getItemHistory } from './item-history.service.js';
 
 // Cache signed URLs for 50 min; the URL itself is valid for 60 min (10 min buffer)
 const SIGNED_URL_CACHE_TTL_SECONDS = 3000;
@@ -85,6 +86,7 @@ type ListValidatedItemsParams = {
   location?: string;
   dateFrom?: string;
   dateTo?: string;
+  sort?: 'most_recent' | 'oldest';
 };
 
 export class InvalidItemDataError extends Error {
@@ -242,13 +244,34 @@ const resolveImageUrls = async (
   return urls.length > 0 ? urls : undefined;
 };
 
+const calculateListedDurationMs = (dateReported: string, nowMs: number = Date.now()): number => {
+  const reportedAtMs = Date.parse(dateReported);
+  if (Number.isNaN(reportedAtMs)) {
+    return 0;
+  }
+
+  return Math.max(0, nowMs - reportedAtMs);
+};
+
+const parseListedDurationMs = (dateReported: string, nowMs: number): number | null => {
+  const durationMs = calculateListedDurationMs(dateReported, nowMs);
+  if (!Number.isFinite(durationMs)) {
+    return null;
+  }
+
+  const reportedAtMs = Date.parse(dateReported);
+  return Number.isNaN(reportedAtMs) ? null : durationMs;
+};
+
 const mapItemDetails = async (
   bucket: Bucket,
   id: string,
   source: StoredItem,
   redis: RedisClient | null,
+  nowMs: number = Date.now(),
 ): Promise<ItemDetailsResponse> => {
   const dateReported = normalizeDateReported(source.dateReported);
+  const listedDurationMs = dateReported ? parseListedDurationMs(dateReported, nowMs) : null;
 
   if (
     typeof source.title !== 'string'
@@ -256,6 +279,7 @@ const mapItemDetails = async (
     || typeof source.referenceCode !== 'string'
     || source.referenceCode.trim().length === 0
     || !dateReported
+    || listedDurationMs === null
     || !source.status
     || !Object.values(ItemStatus).includes(source.status)
   ) {
@@ -273,6 +297,7 @@ const mapItemDetails = async (
     location: source.location,
     referenceCode: source.referenceCode,
     dateReported,
+    listedDurationMs,
     imageUrls,
     claimStatus: source.claimStatus,
   };
@@ -284,6 +309,7 @@ export const getItemById = async (
   redis: RedisClient | null,
   itemId: string,
 ): Promise<ItemDetailsResponse | null> => {
+  const nowMs = Date.now();
   const itemsCollection = db.collection('items');
   const reportsCollection = db.collection('reports');
 
@@ -298,7 +324,7 @@ export const getItemById = async (
     if (!isVisibleInCurrentEnvironment((data as StoredItem).sourceEnv)) {
       return null;
     }
-    return mapItemDetails(bucket, itemSnapshot.id, data, redis);
+    return mapItemDetails(bucket, itemSnapshot.id, data, redis, nowMs);
   }
 
   if (!itemsByReportIdSnapshot.empty) {
@@ -307,7 +333,7 @@ export const getItemById = async (
     if (!isVisibleInCurrentEnvironment((data as StoredItem).sourceEnv)) {
       return null;
     }
-    return mapItemDetails(bucket, snapshot.id, data, redis);
+    return mapItemDetails(bucket, snapshot.id, data, redis, nowMs);
   }
 
   if (reportSnapshot.exists) {
@@ -315,14 +341,14 @@ export const getItemById = async (
     if (!isVisibleInCurrentEnvironment((data as StoredItem).sourceEnv)) {
       return null;
     }
-    return mapItemDetails(bucket, reportSnapshot.id, data, redis);
+    return mapItemDetails(bucket, reportSnapshot.id, data, redis, nowMs);
   }
 
   return null;
 };
 
 export const isItemPubliclyVisible = (item: ItemDetailsResponse): boolean => {
-  return item.status === 'VALIDATED';
+  return item.status === ItemStatus.VALIDATED;
 };
 
 export const updateItemStatus = async (
@@ -391,6 +417,8 @@ export const listValidatedItems = async (
   const page = Math.max(1, Math.floor(params.page));
   const limit = Math.max(1, Math.floor(params.limit));
   const keyword = typeof params.keyword === 'string' ? params.keyword.trim().toLowerCase() : '';
+  const sort = params.sort === 'oldest' ? 'oldest' : 'most_recent';
+  const nowMs = Date.now();
 
   let baseQuery = db
     .collection('reports')
@@ -413,7 +441,7 @@ export const listValidatedItems = async (
     baseQuery = baseQuery.where('dateReported', '<=', params.dateTo);
   }
 
-  const orderedQuery = baseQuery.orderBy('dateReported', 'desc');
+  const orderedQuery = baseQuery.orderBy('dateReported', sort === 'oldest' ? 'asc' : 'desc');
 
   const getCursorPage = async (
     query: Query,
@@ -460,6 +488,7 @@ export const listValidatedItems = async (
     }
 
     const dateReported = normalizeDateReported(data.dateReported);
+    const listedDurationMs = dateReported ? parseListedDurationMs(dateReported, nowMs) : null;
     const thumbnailSource =
       (Array.isArray(data.imageUrls) && data.imageUrls.length > 0 ? data.imageUrls[0] : undefined)
       ?? data.photoUrl;
@@ -479,6 +508,7 @@ export const listValidatedItems = async (
       || typeof data.referenceCode !== 'string'
       || data.referenceCode.trim().length === 0
       || !dateReported
+      || listedDurationMs === null
       || !data.status
       || !Object.values(ItemStatus).includes(data.status)
     ) {
@@ -500,7 +530,8 @@ export const listValidatedItems = async (
       referenceCode: data.referenceCode,
       location: data.location,
       dateReported,
-      thumbnailUrl: thumbnailSource,
+      listedDurationMs,
+      thumbnailUrl,
     } as ItemPublicResponse;
   }));
 
@@ -514,24 +545,5 @@ export const listValidatedItems = async (
     total = items.length;
   }
 
-  const itemsWithSignedThumbnails = await Promise.all(pagedItems.map(async (item) => {
-    const source = item.thumbnailUrl;
-    if (typeof source !== 'string' || source.trim().length === 0) {
-      return item;
-    }
-
-    let signedUrl = source;
-    try {
-      signedUrl = await toPublicImageUrl(bucket, source, redis);
-    } catch {
-      signedUrl = source;
-    }
-
-    return {
-      ...item,
-      thumbnailUrl: signedUrl,
-    };
-  }));
-
-  return { items: itemsWithSignedThumbnails, total };
+  return { items: pagedItems, total };
 };

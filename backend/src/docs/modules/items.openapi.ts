@@ -2,7 +2,7 @@ import type { OpenApiModule } from '../openapi.types.js';
 import { errorResponseRefs } from './common.openapi.js';
 
 export const itemsOpenApi: OpenApiModule = {
-  tags: [{ name: 'Items', description: 'Public item details operations' }],
+  tags: [{ name: 'Items', description: 'Public and admin item operations' }],
   paths: {
     '/api/v1/items': {
       get: {
@@ -80,6 +80,17 @@ export const itemsOpenApi: OpenApiModule = {
             },
             description: 'Inclusive end of the reported date range. Also accepts YYYY-MM-DD.',
           },
+          {
+            name: 'sort',
+            in: 'query',
+            required: false,
+            schema: {
+              type: 'string',
+              enum: ['most_recent', 'oldest'],
+              default: 'most_recent',
+            },
+            description: 'Sort found items by reported date. Defaults to newest first.',
+          },
         ],
         responses: {
           200: {
@@ -91,6 +102,9 @@ export const itemsOpenApi: OpenApiModule = {
                 },
               },
             },
+          },
+          400: {
+            ...errorResponseRefs.badRequest,
           },
           500: {
             ...errorResponseRefs.internalServerError,
@@ -142,10 +156,56 @@ export const itemsOpenApi: OpenApiModule = {
         },
       },
     },
+    '/api/v1/admin/items/{id}/history': {
+      get: {
+        tags: ['Items'],
+        summary: 'Get the full administrative history for an item',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: {
+              type: 'string',
+            },
+            description: 'Item id or related report id',
+          },
+        ],
+        responses: {
+          200: {
+            description: 'Item history retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ItemHistoryResponse',
+                },
+              },
+            },
+          },
+          400: {
+            ...errorResponseRefs.badRequest,
+          },
+          401: {
+            ...errorResponseRefs.unauthorized,
+          },
+          403: {
+            ...errorResponseRefs.forbidden,
+          },
+          404: {
+            ...errorResponseRefs.notFound,
+          },
+          500: {
+            ...errorResponseRefs.internalServerError,
+          },
+        },
+      },
+    },
     '/api/v1/admin/items/{id}/status': {
       patch: {
         tags: ['Items'],
         summary: 'Update an item status for operational reality',
+        security: [{ bearerAuth: [] }],
         parameters: [
           {
             name: 'id',
@@ -180,6 +240,9 @@ export const itemsOpenApi: OpenApiModule = {
           },
           400: {
             ...errorResponseRefs.badRequest,
+          },
+          401: {
+            ...errorResponseRefs.unauthorized,
           },
           403: {
             ...errorResponseRefs.forbidden,
@@ -235,7 +298,7 @@ export const itemsOpenApi: OpenApiModule = {
     },
     ItemPublicResponse: {
       type: 'object',
-      required: ['id', 'title', 'status', 'referenceCode', 'dateReported'],
+      required: ['id', 'title', 'status', 'referenceCode', 'dateReported', 'listedDurationMs'],
       properties: {
         id: { type: 'string', example: 'item-abc123' },
         title: { type: 'string', example: 'Black Backpack' },
@@ -249,6 +312,13 @@ export const itemsOpenApi: OpenApiModule = {
         },
         location: { type: 'string', example: 'Library' },
         dateReported: { type: 'string', format: 'date-time' },
+        listedDurationMs: {
+          type: 'integer',
+          format: 'int64',
+          minimum: 0,
+          example: 172800000,
+          description: 'How long the item has been listed, in milliseconds.',
+        },
         thumbnailUrl: { type: 'string', format: 'uri' },
       },
     },
@@ -270,6 +340,11 @@ export const itemsOpenApi: OpenApiModule = {
             location: { type: 'string', example: 'Library' },
             dateFrom: { type: 'string', format: 'date-time' },
             dateTo: { type: 'string', format: 'date-time' },
+            sort: {
+              type: 'string',
+              enum: ['most_recent', 'oldest'],
+              example: 'most_recent',
+            },
           },
         },
         items: {
@@ -282,7 +357,7 @@ export const itemsOpenApi: OpenApiModule = {
     },
     ItemDetailsResponse: {
       type: 'object',
-      required: ['id', 'title', 'status', 'referenceCode', 'dateReported'],
+      required: ['id', 'title', 'status', 'referenceCode', 'dateReported', 'listedDurationMs'],
       properties: {
         id: { type: 'string', example: 'item-abc123' },
         title: { type: 'string', example: 'Black Backpack' },
@@ -297,12 +372,121 @@ export const itemsOpenApi: OpenApiModule = {
         },
         location: { type: 'string', example: 'Library' },
         dateReported: { type: 'string', format: 'date-time' },
+        listedDurationMs: {
+          type: 'integer',
+          format: 'int64',
+          minimum: 0,
+          example: 172800000,
+          description: 'How long the item has been listed, in milliseconds.',
+        },
         imageUrls: {
           type: 'array',
           items: { type: 'string' },
           example: ['https://storage.googleapis.com/.../image.jpg'],
         },
         claimStatus: { $ref: '#/components/schemas/ClaimStatus' },
+      },
+    },
+    ItemHistoryActor: {
+      type: 'object',
+      required: ['type'],
+      properties: {
+        type: {
+          type: 'string',
+          enum: ['SYSTEM', 'USER', 'SECURITY', 'ADMIN'],
+        },
+        uid: { type: 'string' },
+        role: { type: 'string' },
+        email: { type: 'string', format: 'email' },
+      },
+    },
+    ItemHistoryChange: {
+      type: 'object',
+      required: ['field'],
+      properties: {
+        field: { type: 'string', example: 'status' },
+        previousValue: {
+          oneOf: [
+            { type: 'string' },
+            { type: 'number' },
+            { type: 'boolean' },
+            { type: 'null' },
+          ],
+        },
+        newValue: {
+          oneOf: [
+            { type: 'string' },
+            { type: 'number' },
+            { type: 'boolean' },
+            { type: 'null' },
+          ],
+        },
+      },
+    },
+    ItemHistoryEventResponse: {
+      type: 'object',
+      required: ['id', 'itemId', 'entityType', 'entityId', 'actionType', 'timestamp', 'summary'],
+      properties: {
+        id: { type: 'string', example: 'history-1' },
+        itemId: { type: 'string', example: 'report-1' },
+        entityType: {
+          type: 'string',
+          enum: ['REPORT', 'ITEM', 'CLAIM'],
+        },
+        entityId: { type: 'string', example: 'claim-1' },
+        actionType: {
+          type: 'string',
+          enum: [
+            'REPORT_CREATED',
+            'REPORT_UPDATED',
+            'REPORT_VALIDATED',
+            'CLAIM_CREATED',
+            'CLAIM_UPDATED',
+            'CLAIM_PROOF_REQUESTED',
+            'CLAIM_PROOF_SUBMITTED',
+            'CLAIM_APPROVED',
+            'CLAIM_REJECTED',
+            'CLAIM_CANCELLED',
+          ],
+        },
+        timestamp: { type: 'string', format: 'date-time' },
+        summary: { type: 'string', example: 'Claim approved by staff.' },
+        actor: { $ref: '#/components/schemas/ItemHistoryActor' },
+        metadata: {
+          type: 'object',
+          additionalProperties: {
+            oneOf: [
+              { type: 'string' },
+              { type: 'number' },
+              { type: 'boolean' },
+              { type: 'null' },
+            ],
+          },
+        },
+        changes: {
+          type: 'array',
+          items: {
+            $ref: '#/components/schemas/ItemHistoryChange',
+          },
+        },
+      },
+    },
+    ItemHistoryResponse: {
+      type: 'object',
+      required: ['itemId', 'resolvedFrom', 'total', 'events'],
+      properties: {
+        itemId: { type: 'string', example: 'report-1' },
+        resolvedFrom: { type: 'string', example: 'item-1' },
+        title: { type: 'string', example: 'Black backpack' },
+        referenceCode: { type: 'string', example: 'FND-20260225-ABC12345' },
+        currentStatus: { $ref: '#/components/schemas/ItemStatus' },
+        total: { type: 'integer', minimum: 0, example: 4 },
+        events: {
+          type: 'array',
+          items: {
+            $ref: '#/components/schemas/ItemHistoryEventResponse',
+          },
+        },
       },
     },
   },

@@ -8,6 +8,7 @@ import type {
   CreateFoundReportRequest,
   CreateLostReportRequest,
   EditableReportResponse,
+  FlagReportRequest,
   UpdateReportByReferenceRequest,
 } from '../contracts/index.js';
 import fs from 'node:fs';
@@ -40,6 +41,11 @@ const schemaModule = (await import(pathToFileURL(schemaPath).href)) as {
     safeParse: (
       input: unknown,
     ) => { success: true; data: CreateFoundReportRequest } | { success: false; error: { issues: Array<{ message?: string }> } };
+  };
+  flagReportSchema: {
+    safeParse: (
+      input: unknown,
+    ) => { success: true; data: FlagReportRequest } | { success: false; error: { issues: Array<{ message?: string }> } };
   };
   updateReportByReferenceSchema: {
     safeParse: (
@@ -81,6 +87,22 @@ const reportsServiceModule = (await import(pathToFileURL(servicePath).href)) as 
     db: Firestore,
     reportId: string,
   ) => Promise<{ id: string; report: { status: string; referenceCode: string } }>;
+  flagReport: (
+    db: Firestore,
+    reportId: string,
+    payload: FlagReportRequest,
+    actor: { uid: string; email?: string | null; role: Extract<UserRole, UserRole.ADMIN | UserRole.SECURITY> },
+  ) => Promise<{
+    id: string;
+    report: {
+      isSuspicious: boolean;
+      suspiciousReason?: string | null;
+      suspiciousFlaggedAt?: string | null;
+      suspiciousFlaggedByUid?: string | null;
+      suspiciousFlaggedByEmail?: string | null;
+      suspiciousFlaggedByRole?: string | null;
+    };
+  }>;
   listAdminReports: (
     db: Firestore,
     bucket: Bucket,
@@ -90,6 +112,7 @@ const reportsServiceModule = (await import(pathToFileURL(servicePath).href)) as 
       kind?: 'LOST' | 'FOUND';
       status?: ItemStatus;
       search?: string;
+      flagged?: boolean;
     },
   ) => Promise<{
     reports: unknown[];
@@ -276,6 +299,7 @@ export const createReportsRouter = (
     const kindRaw = parseOptionalString(req.query.kind);
     const statusRaw = parseOptionalString(req.query.status);
     const search = parseOptionalString(req.query.search);
+    const flaggedRaw = parseOptionalString(req.query.flagged);
 
     const kind = kindRaw === 'LOST' || kindRaw === 'FOUND' ? kindRaw : undefined;
     if (kindRaw && !kind) {
@@ -288,12 +312,18 @@ export const createReportsRouter = (
       throw new HttpError(400, 'BAD_REQUEST', `status must be one of: ${Object.values(ItemStatus).join(', ')}`);
     }
 
+    const flagged = flaggedRaw === 'true' ? true : flaggedRaw === 'false' ? false : undefined;
+    if (flaggedRaw && flagged === undefined) {
+      throw new HttpError(400, 'BAD_REQUEST', 'flagged must be true or false');
+    }
+
     const result = await reportsServiceModule.listAdminReports(db, bucket, {
       page,
       limit,
       kind,
       status,
       search,
+      flagged,
     });
 
     const totalPages = Math.max(1, Math.ceil(result.total / limit));
@@ -309,10 +339,47 @@ export const createReportsRouter = (
         kind: kind ?? null,
         status: status ?? null,
         search: search ?? null,
+        flagged: flagged ?? null,
       },
       summary: result.summary,
       reports: result.reports,
     });
+  });
+
+  router.patch(`${API_PREFIX}/admin/reports/:id/flag`, requireStaffUser, async (req, res) => {
+    const reportId = getSingleRouteParam(req.params.id);
+    if (!reportId) {
+      throw new HttpError(400, 'BAD_REQUEST', 'id is required');
+    }
+
+    const payload = parseBodyOrThrow(schemaModule.flagReportSchema, req.body);
+    const actor = res.locals.authUser as {
+      uid: string;
+      email?: string | null;
+      role: Extract<UserRole, UserRole.ADMIN | UserRole.SECURITY>;
+    } | undefined;
+    if (!actor?.uid || (actor.role !== 'ADMIN' && actor.role !== 'SECURITY')) {
+      throw new HttpError(403, 'FORBIDDEN', 'You do not have permission to perform this action.');
+    }
+
+    try {
+      const result = await reportsServiceModule.flagReport(db, reportId, payload, actor);
+      res.status(200).json({
+        id: result.id,
+        isSuspicious: result.report.isSuspicious,
+        suspiciousReason: result.report.suspiciousReason ?? null,
+        suspiciousFlaggedAt: result.report.suspiciousFlaggedAt ?? null,
+        suspiciousFlaggedByUid: result.report.suspiciousFlaggedByUid ?? null,
+        suspiciousFlaggedByEmail: result.report.suspiciousFlaggedByEmail ?? null,
+        suspiciousFlaggedByRole: result.report.suspiciousFlaggedByRole ?? null,
+      });
+    } catch (error) {
+      if (error instanceof reportsServiceModule.ReportNotFoundError) {
+        throw new HttpError(404, 'NOT_FOUND', error.message);
+      }
+
+      throw error;
+    }
   });
 
   return router;

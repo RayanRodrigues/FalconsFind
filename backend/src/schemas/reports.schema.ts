@@ -34,3 +34,18 @@ export const updateReportByReferenceSchema = z.object({
 export type CreateLostReportInput = z.infer<typeof createLostReportSchema>;
 export type CreateFoundReportInput = z.infer<typeof createFoundReportSchema>;
 export type UpdateReportByReferenceInput = z.infer<typeof updateReportByReferenceSchema>;
+
+export const flagReportSchema = z.object({
+  flagged: z.boolean(),
+  reason: z.string().trim().min(1, 'reason cannot be empty').optional(),
+}).superRefine((payload, ctx) => {
+  if (!payload.flagged && payload.reason !== undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'reason can only be provided when flagged is true',
+      path: ['reason'],
+    });
+  }
+});
+
+export type FlagReportInput = z.infer<typeof flagReportSchema>;

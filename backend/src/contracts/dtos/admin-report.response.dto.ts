@@ -14,4 +14,10 @@ export type AdminReportResponse = {
   contactEmail?: string;
   photoUrl?: string;
   photoUrls?: string[];
+  isSuspicious: boolean;
+  suspiciousReason?: string | null;
+  suspiciousFlaggedByUid?: string | null;
+  suspiciousFlaggedByEmail?: string | null;
+  suspiciousFlaggedByRole?: string | null;
+  suspiciousFlaggedAt?: string | null;
 };

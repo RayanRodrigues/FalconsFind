@@ -2,16 +2,18 @@ import type { Firestore, Query, Transaction } from 'firebase-admin/firestore';
 import type { Bucket } from '@google-cloud/storage';
 import type {
   AdminReportResponse,
+  FlagReportRequest,
   CreateFoundReportRequest,
   CreateLostReportRequest,
   EditableReportResponse,
   Report,
   UpdateReportByReferenceRequest,
 } from '../contracts/index.js';
-import { ItemStatus } from '../contracts/index.js';
+import { ItemStatus, UserRole } from '../contracts/index.js';
 import { randomUUID } from 'node:crypto';
 import { resolveSourceEnv } from '../utils/app-env.js';
 import { normalizeDateReported } from '../utils/date-normalization.js';
+import { createChangesFromPatch, recordItemHistoryEvent } from './item-history.service.js';
 
 export class ReportPhotoUploadError extends Error {
   constructor(
@@ -44,12 +46,19 @@ export class ReportValidationConflictError extends Error {
   }
 }
 
+type ReportFlagActor = {
+  uid: string;
+  email?: string | null;
+  role: Extract<UserRole, UserRole.ADMIN | UserRole.SECURITY>;
+};
+
 type ListAdminReportsParams = {
   page: number;
   limit: number;
   kind?: Report['kind'];
   status?: Report['status'];
   search?: string;
+  flagged?: boolean;
 };
 
 const currentSourceEnv: NonNullable<Report['sourceEnv']> = resolveSourceEnv();
@@ -213,6 +222,12 @@ const mapAdminReport = async (
     contactEmail: source.contactEmail,
     photoUrl: photoUrls?.[0],
     photoUrls,
+    isSuspicious: source.isSuspicious === true,
+    suspiciousReason: source.suspiciousReason,
+    suspiciousFlaggedByUid: source.suspiciousFlaggedByUid,
+    suspiciousFlaggedByEmail: source.suspiciousFlaggedByEmail,
+    suspiciousFlaggedByRole: source.suspiciousFlaggedByRole,
+    suspiciousFlaggedAt: source.suspiciousFlaggedAt,
   };
 };
 
@@ -257,6 +272,35 @@ export const createLostReport = async (
   }
 
   await docRef.set(reportToSave);
+  try {
+    await recordItemHistoryEvent(db, {
+      itemId: docRef.id,
+      entityType: 'REPORT',
+      entityId: docRef.id,
+      actionType: 'REPORT_CREATED',
+      timestamp: createdAt.toISOString(),
+      summary: 'Lost-item report created.',
+      actor: {
+        type: 'USER',
+        email: payload.contactEmail,
+      },
+      metadata: {
+        referenceCode: reportToSave.referenceCode,
+        reportKind: reportToSave.kind,
+        itemStatus: reportToSave.status,
+      },
+      changes: [{
+        field: 'status',
+        newValue: reportToSave.status,
+      }],
+    });
+  } catch (error) {
+    console.error('Failed to record item history event for lost report', {
+      reportId: docRef.id,
+      referenceCode: reportToSave.referenceCode,
+      error,
+    });
+  }
   return {
     id: docRef.id,
     report: {
@@ -298,6 +342,35 @@ export const createFoundReport = async (
   }
 
   await docRef.set(reportToSave);
+  try {
+    await recordItemHistoryEvent(db, {
+      itemId: docRef.id,
+      entityType: 'REPORT',
+      entityId: docRef.id,
+      actionType: 'REPORT_CREATED',
+      timestamp: createdAt.toISOString(),
+      summary: 'Found-item report created.',
+      actor: {
+        type: 'USER',
+        email: payload.contactEmail,
+      },
+      metadata: {
+        referenceCode: reportToSave.referenceCode,
+        reportKind: reportToSave.kind,
+        itemStatus: reportToSave.status,
+      },
+      changes: [{
+        field: 'status',
+        newValue: reportToSave.status,
+      }],
+    });
+  } catch (error) {
+    console.error('Failed to record item history event for found report', {
+      reportId: docRef.id,
+      referenceCode: reportToSave.referenceCode,
+      error,
+    });
+  }
   return {
     id: docRef.id,
     report: {
@@ -373,6 +446,30 @@ export const updateReportByReferenceCode = async (
 
     transaction.update(doc.ref, updatePatch);
 
+    const changes = createChangesFromPatch(report as Record<string, unknown>, updatePatch as Record<string, unknown>);
+    if (changes.length > 0) {
+      await recordItemHistoryEvent(db, {
+        itemId: doc.id,
+        entityType: 'REPORT',
+        entityId: doc.id,
+        actionType: 'REPORT_UPDATED',
+        timestamp: new Date().toISOString(),
+        summary: 'Report details updated.',
+        actor: {
+          type: 'USER',
+          email: payload.contactEmail ?? report.contactEmail,
+        },
+        metadata: {
+          referenceCode: report.referenceCode,
+          reportKind: report.kind,
+          itemStatus: report.status,
+        },
+        changes,
+      }, {
+        transaction,
+      });
+    }
+
     return mapEditableReport(doc.id, {
       ...report,
       ...updatePatch,
@@ -406,12 +503,99 @@ export const validateFoundReport = async (
     }
 
     transaction.update(reportRef, { status: ItemStatus.VALIDATED });
+    await recordItemHistoryEvent(db, {
+      itemId: reportId,
+      entityType: 'REPORT',
+      entityId: reportId,
+      actionType: 'REPORT_VALIDATED',
+      timestamp: new Date().toISOString(),
+      summary: 'Found-item report validated by staff.',
+      actor: {
+        type: 'SECURITY',
+      },
+      metadata: {
+        referenceCode: report.referenceCode,
+        reportKind: report.kind,
+        itemStatus: ItemStatus.VALIDATED,
+      },
+      changes: [{
+        field: 'status',
+        previousValue: report.status,
+        newValue: ItemStatus.VALIDATED,
+      }],
+    }, {
+      transaction,
+    });
 
     return {
       id: reportId,
       report: {
         status: ItemStatus.VALIDATED,
         referenceCode: report.referenceCode,
+      },
+    };
+  });
+};
+
+export const flagReport = async (
+  db: Firestore,
+  reportId: string,
+  payload: FlagReportRequest,
+  actor: ReportFlagActor,
+): Promise<{
+  id: string;
+  report: Pick<
+    AdminReportResponse,
+    | 'isSuspicious'
+    | 'suspiciousReason'
+    | 'suspiciousFlaggedAt'
+    | 'suspiciousFlaggedByUid'
+    | 'suspiciousFlaggedByEmail'
+    | 'suspiciousFlaggedByRole'
+  >;
+}> => {
+  return db.runTransaction(async (transaction: Transaction) => {
+    const reportRef = db.collection('reports').doc(reportId);
+    const reportSnap = await transaction.get(reportRef);
+
+    if (!reportSnap.exists) {
+      throw new ReportNotFoundError();
+    }
+
+    const report = reportSnap.data() as Report | undefined;
+    if (!report) {
+      throw new ReportNotFoundError();
+    }
+
+    const patch: Partial<Report> = payload.flagged
+      ? {
+        isSuspicious: true,
+        suspiciousReason: payload.reason?.trim() || null,
+        suspiciousFlaggedAt: new Date().toISOString(),
+        suspiciousFlaggedByUid: actor.uid,
+        suspiciousFlaggedByEmail: actor.email ?? null,
+        suspiciousFlaggedByRole: actor.role,
+      }
+      : {
+        isSuspicious: false,
+        suspiciousReason: null,
+        suspiciousFlaggedAt: null,
+        suspiciousFlaggedByUid: null,
+        suspiciousFlaggedByEmail: null,
+        suspiciousFlaggedByRole: null,
+      };
+
+    transaction.update(reportRef, patch);
+
+    return {
+      id: reportId,
+      report: {
+        isSuspicious: payload.flagged,
+        suspiciousReason: patch.suspiciousReason,
+        suspiciousFlaggedAt: patch.suspiciousFlaggedAt,
+        suspiciousFlaggedByUid: patch.suspiciousFlaggedByUid,
+        suspiciousFlaggedByEmail: patch.suspiciousFlaggedByEmail,
+        suspiciousFlaggedByRole: patch.suspiciousFlaggedByRole,
       },
     };
   });
@@ -452,6 +636,10 @@ export const listAdminReports = async (
     .sort((a, b) => b.dateReported.localeCompare(a.dateReported));
 
   const filteredReports = allReports.filter((report) => {
+    if (typeof params.flagged === 'boolean' && report.isSuspicious !== params.flagged) {
+      return false;
+    }
+
     if (search.length > 0) {
       const searchableText = [
         report.title,

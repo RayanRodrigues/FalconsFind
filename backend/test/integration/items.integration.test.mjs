@@ -5,8 +5,9 @@ import request from './request-helper.mjs';
 import { createItemsRouter } from '../../dist/src/routes/items.routes.js';
 import { errorHandler, notFoundHandler } from '../../dist/src/middleware/error-handler.js';
 
-const createFakeDb = ({ items = {}, reports = {}, itemStatusHistory = {} } = {}) => {
+const createFakeDb = ({ items = {}, reports = {}, claims = {}, itemHistory = {}, itemStatusHistory = {} } = {}) => {
   let historyCounter = 0;
+
   const normalizeDoc = (id, source) => ({
     id,
     exists: true,
@@ -22,6 +23,20 @@ const createFakeDb = ({ items = {}, reports = {}, itemStatusHistory = {} } = {})
     }
     return new Date(0).toISOString();
   };
+
+  const buildEqualsQuery = (entries, field) => ({
+    where: (queryField, operator, value) => {
+      assert.equal(queryField, field);
+      assert.equal(operator, '==');
+      const docs = entries
+        .filter(([, source]) => source[field] === value)
+        .map(([id, source]) => normalizeDoc(id, source));
+
+      return {
+        get: async () => ({ docs }),
+      };
+    },
+  });
 
   return {
     collection: (collectionName) => {
@@ -78,6 +93,9 @@ const createFakeDb = ({ items = {}, reports = {}, itemStatusHistory = {} } = {})
                 if (operator === '==') {
                   return fieldValue === value;
                 }
+                if (operator === 'in') {
+                  return Array.isArray(value) && value.includes(fieldValue);
+                }
                 if (operator === '>=') {
                   return normalizedFieldValue >= normalizedFilterValue;
                 }
@@ -97,12 +115,14 @@ const createFakeDb = ({ items = {}, reports = {}, itemStatusHistory = {} } = {})
             }),
             orderBy: (orderField, direction) => {
               assert.equal(orderField, 'dateReported');
-              assert.equal(direction, 'desc');
+              assert.ok(direction === 'desc' || direction === 'asc');
 
               const sorted = [...entries].sort((a, b) => {
                 const aDate = normalizeDate(a[1].dateReported);
                 const bDate = normalizeDate(b[1].dateReported);
-                return bDate.localeCompare(aDate);
+                return direction === 'asc'
+                  ? aDate.localeCompare(bDate)
+                  : bDate.localeCompare(aDate);
               });
 
               return {
@@ -152,6 +172,23 @@ const createFakeDb = ({ items = {}, reports = {}, itemStatusHistory = {} } = {})
         };
       }
 
+      if (collectionName === 'claims') {
+        return buildEqualsQuery(Object.entries(claims), 'itemId');
+      }
+
+      if (collectionName === 'itemHistory') {
+        return {
+          ...buildEqualsQuery(Object.entries(itemHistory), 'itemId'),
+          doc: (id) => ({
+            id,
+            collectionName,
+            set: async (data) => {
+              itemHistory[id] = data;
+            },
+          }),
+        };
+      }
+
       if (collectionName === 'itemStatusHistory') {
         return {
           doc: (id) => {
@@ -188,11 +225,17 @@ const createFakeDb = ({ items = {}, reports = {}, itemStatusHistory = {} } = {})
           };
         },
         set: (ref, data) => {
-          if (ref.collectionName !== 'itemStatusHistory') {
-            throw new Error(`Unexpected set target ${ref.collectionName}/${ref.id}`);
+          if (ref.collectionName === 'itemStatusHistory') {
+            itemStatusHistory[ref.id] = data;
+            return;
           }
 
-          itemStatusHistory[ref.id] = data;
+          if (ref.collectionName === 'itemHistory') {
+            itemHistory[ref.id] = data;
+            return;
+          }
+
+          throw new Error(`Unexpected set target ${ref.collectionName}/${ref.id}`);
         },
       };
 
@@ -215,10 +258,10 @@ const createFakeBucket = () => ({
   },
 });
 
-const buildTestApp = ({ items = {}, reports = {}, itemStatusHistory = {} } = {}) => {
+const buildTestApp = ({ items = {}, reports = {}, claims = {}, itemHistory = {}, itemStatusHistory = {} } = {}) => {
   const app = express();
   app.use(express.json());
-  app.use(createItemsRouter(createFakeDb({ items, reports, itemStatusHistory }), createFakeBucket(), null, {
+  app.use(createItemsRouter(createFakeDb({ items, reports, claims, itemHistory, itemStatusHistory }), createFakeBucket(), null, {
     requireStaffUser: (_req, res, next) => {
       res.locals.authUser = {
         uid: 'security-1',
@@ -282,8 +325,14 @@ test('GET /api/v1/items returns paginated validated found items with thumbnailUr
   assert.equal(response.body.hasPrevPage, false);
   assert.equal(response.body.items.length, 2);
   assert.equal(response.body.items[0].id, 'report-2');
+  assert.equal(typeof response.body.items[0].listedDurationMs, 'number');
+  assert.ok(Number.isFinite(response.body.items[0].listedDurationMs));
+  assert.ok(response.body.items[0].listedDurationMs >= 0);
   assert.match(response.body.items[0].thumbnailUrl, /^https:\/\/signed\.local\//);
   assert.equal(response.body.items[1].id, 'report-1');
+  assert.equal(typeof response.body.items[1].listedDurationMs, 'number');
+  assert.ok(Number.isFinite(response.body.items[1].listedDurationMs));
+  assert.ok(response.body.items[1].listedDurationMs >= 0);
   assert.equal(response.body.items[1].thumbnailUrl, 'https://cdn.example.com/report-1.jpg');
   assert.deepEqual(response.body.filters, {
     keyword: null,
@@ -291,6 +340,7 @@ test('GET /api/v1/items returns paginated validated found items with thumbnailUr
     location: null,
     dateFrom: null,
     dateTo: null,
+    sort: 'most_recent',
   });
 });
 
@@ -350,6 +400,7 @@ test('GET /api/v1/items filters validated found items by category, location, and
     location: 'Library',
     dateFrom: '2026-02-24T00:00:00.000Z',
     dateTo: '2026-02-26T23:59:59.999Z',
+    sort: 'most_recent',
   });
 });
 
@@ -444,7 +495,47 @@ test('GET /api/v1/items filters validated found items by keyword in title or des
     location: null,
     dateFrom: null,
     dateTo: null,
+    sort: 'most_recent',
   });
+});
+
+test('GET /api/v1/items sorts validated found items by oldest first when requested', async () => {
+  const app = buildTestApp({
+    reports: {
+      'report-newest': {
+        kind: 'FOUND',
+        title: 'Newest item',
+        status: 'VALIDATED',
+        referenceCode: 'FND-20260320-NEWEST01',
+        dateReported: '2026-03-20T10:00:00.000Z',
+      },
+      'report-oldest': {
+        kind: 'FOUND',
+        title: 'Oldest item',
+        status: 'VALIDATED',
+        referenceCode: 'FND-20260318-OLDEST01',
+        dateReported: '2026-03-18T10:00:00.000Z',
+      },
+    },
+  });
+
+  const response = await request(app).get('/api/v1/items?sort=oldest');
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(
+    response.body.items.map((item) => item.id),
+    ['report-oldest', 'report-newest'],
+  );
+  assert.equal(response.body.filters.sort, 'oldest');
+});
+
+test('GET /api/v1/items returns 400 for invalid sort option', async () => {
+  const app = buildTestApp();
+
+  const response = await request(app).get('/api/v1/items?sort=invalid');
+
+  assert.equal(response.status, 400);
+  assert.equal(response.body.error.code, 'BAD_REQUEST');
 });
 
 test('GET /api/v1/items paginates keyword search results after filtering', async () => {
@@ -505,6 +596,9 @@ test('GET /api/v1/items/:id returns 200 for validated item id', async () => {
   assert.equal(response.body.id, 'item-1');
   assert.equal(response.body.status, 'VALIDATED');
   assert.equal(response.body.referenceCode, 'FND-20260225-ABC12345');
+  assert.equal(typeof response.body.listedDurationMs, 'number');
+  assert.ok(Number.isFinite(response.body.listedDurationMs));
+  assert.ok(response.body.listedDurationMs >= 0);
   assert.ok(Array.isArray(response.body.imageUrls));
   assert.match(response.body.imageUrls[0], /^https:\/\/signed\.local\//);
 });
@@ -584,7 +678,6 @@ test('GET /api/v1/items/:id returns 422 for malformed item payload', async () =>
       'item-bad-data': {
         title: 'Unstructured item',
         status: 'VALIDATED',
-        // Missing required fields: referenceCode/dateReported
       },
     },
   });
@@ -597,6 +690,129 @@ test('GET /api/v1/items/:id returns 422 for malformed item payload', async () =>
     response.body.error.message,
     /incorrectly reported|contact Campus Security/i,
   );
+});
+
+test('GET /api/v1/items skips reports with unparseable dateReported values', async () => {
+  const app = buildTestApp({
+    reports: {
+      'invalid-date-item': {
+        kind: 'FOUND',
+        title: 'Wallet',
+        status: 'VALIDATED',
+        referenceCode: 'FND-20260225-BADDATE1',
+        dateReported: 'not-a-real-date',
+      },
+      'valid-date-item': {
+        kind: 'FOUND',
+        title: 'Bottle',
+        status: 'VALIDATED',
+        referenceCode: 'FND-20260225-VALID001',
+        dateReported: '2026-02-25T12:00:00.000Z',
+      },
+    },
+  });
+
+  const response = await request(app).get('/api/v1/items');
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.items.length, 1);
+  assert.equal(response.body.items[0].id, 'valid-date-item');
+});
+
+test('GET /api/v1/items/:id returns 422 when dateReported is not parseable', async () => {
+  const app = buildTestApp({
+    items: {
+      'item-invalid-date': {
+        title: 'Black backpack',
+        status: 'VALIDATED',
+        referenceCode: 'FND-20260225-INVALID1',
+        dateReported: 'not-a-real-date',
+      },
+    },
+  });
+
+  const response = await request(app).get('/api/v1/items/item-invalid-date');
+
+  assert.equal(response.status, 422);
+  assert.equal(response.body.error.code, 'INVALID_ITEM_DATA');
+});
+
+test('GET /api/v1/admin/items/:id/history returns persisted and legacy events in reverse chronological order', async () => {
+  const app = buildTestApp({
+    items: {
+      'item-1': {
+        reportId: 'report-1',
+        title: 'Blue backpack',
+        status: 'CLAIMED',
+        referenceCode: 'FND-20260317-HIST0001',
+      },
+    },
+    reports: {
+      'report-1': {
+        kind: 'FOUND',
+        title: 'Blue backpack',
+        status: 'CLAIMED',
+        referenceCode: 'FND-20260317-HIST0001',
+        dateReported: '2026-03-17T10:00:00.000Z',
+        contactEmail: 'finder@example.com',
+      },
+    },
+    claims: {
+      'claim-1': {
+        itemId: 'report-1',
+        referenceCode: 'FND-20260317-HIST0001',
+        claimantUid: 'student-1',
+        claimantEmail: 'student@example.com',
+        claimantName: 'Jane Student',
+        itemName: 'Blue backpack',
+        claimReason: 'Has my books',
+        proofDetails: 'Contains student ID',
+        status: 'APPROVED',
+        createdAt: '2026-03-18T09:00:00.000Z',
+        reviewedAt: '2026-03-18T11:00:00.000Z',
+      },
+    },
+    itemHistory: {
+      'history-1': {
+        itemId: 'report-1',
+        entityType: 'REPORT',
+        entityId: 'report-1',
+        actionType: 'REPORT_UPDATED',
+        timestamp: '2026-03-17T12:00:00.000Z',
+        summary: 'Report details updated.',
+        changes: [{
+          field: 'location',
+          previousValue: 'Library',
+          newValue: 'Student Center',
+        }],
+      },
+    },
+  });
+
+  const response = await request(app).get('/api/v1/admin/items/item-1/history');
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.itemId, 'report-1');
+  assert.equal(response.body.resolvedFrom, 'item-1');
+  assert.equal(response.body.referenceCode, 'FND-20260317-HIST0001');
+  assert.equal(response.body.currentStatus, 'CLAIMED');
+  assert.equal(response.body.total, 4);
+  assert.deepEqual(
+    response.body.events.map((event) => event.actionType),
+    ['CLAIM_APPROVED', 'CLAIM_CREATED', 'REPORT_UPDATED', 'REPORT_CREATED'],
+  );
+  assert.ok(response.body.events.every((event) => event.itemId === 'report-1'));
+  assert.equal(response.body.events[0].entityId, 'claim-1');
+  assert.equal(response.body.events[3].entityId, 'report-1');
+});
+
+test('GET /api/v1/admin/items/:id/history returns 404 when no item can be resolved', async () => {
+  const app = buildTestApp();
+
+  const response = await request(app).get('/api/v1/admin/items/missing-item/history');
+
+  assert.equal(response.status, 404);
+  assert.equal(response.body.error.code, 'NOT_FOUND');
 });
 
 test('PATCH /api/v1/admin/items/:id/status updates a validated item to returned and writes audit metadata', async () => {
