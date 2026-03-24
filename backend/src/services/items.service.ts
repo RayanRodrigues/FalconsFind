@@ -43,6 +43,7 @@ type ListValidatedItemsParams = {
   location?: string;
   dateFrom?: string;
   dateTo?: string;
+  sort?: 'most_recent' | 'oldest';
 };
 
 export class InvalidItemDataError extends Error {
@@ -233,6 +234,7 @@ export const listValidatedItems = async (
   const page = Math.max(1, Math.floor(params.page));
   const limit = Math.max(1, Math.floor(params.limit));
   const keyword = typeof params.keyword === 'string' ? params.keyword.trim().toLowerCase() : '';
+  const sort = params.sort === 'oldest' ? 'oldest' : 'most_recent';
 
   let baseQuery = db
     .collection('reports')
@@ -255,7 +257,7 @@ export const listValidatedItems = async (
     baseQuery = baseQuery.where('dateReported', '<=', params.dateTo);
   }
 
-  const orderedQuery = baseQuery.orderBy('dateReported', 'desc');
+  const orderedQuery = baseQuery.orderBy('dateReported', sort === 'oldest' ? 'asc' : 'desc');
 
   const getCursorPage = async (
     query: Query,

@@ -80,6 +80,17 @@ export const itemsOpenApi: OpenApiModule = {
             },
             description: 'Inclusive end of the reported date range. Also accepts YYYY-MM-DD.',
           },
+          {
+            name: 'sort',
+            in: 'query',
+            required: false,
+            schema: {
+              type: 'string',
+              enum: ['most_recent', 'oldest'],
+              default: 'most_recent',
+            },
+            description: 'Sort found items by reported date. Defaults to newest first.',
+          },
         ],
         responses: {
           200: {
@@ -189,6 +200,11 @@ export const itemsOpenApi: OpenApiModule = {
             location: { type: 'string', example: 'Library' },
             dateFrom: { type: 'string', format: 'date-time' },
             dateTo: { type: 'string', format: 'date-time' },
+            sort: {
+              type: 'string',
+              enum: ['most_recent', 'oldest'],
+              example: 'most_recent',
+            },
           },
         },
         items: {

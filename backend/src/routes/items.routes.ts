@@ -37,6 +37,7 @@ const itemsServiceModule = (await import(pathToFileURL(servicePath).href)) as {
       location?: string;
       dateFrom?: string;
       dateTo?: string;
+      sort?: 'most_recent' | 'oldest';
     },
   ) => Promise<{
     items: unknown[];
@@ -56,6 +57,12 @@ export const createItemsRouter = (db: Firestore, bucket: Bucket, redis: RedisCli
     const location = parseOptionalString(req.query.location);
     const dateFrom = parseDateFilter(req.query.dateFrom, 'dateFrom');
     const dateTo = parseDateFilter(req.query.dateTo, 'dateTo');
+    const sortRaw = parseOptionalString(req.query.sort);
+    const sort = sortRaw === 'most_recent' || sortRaw === 'oldest' ? sortRaw : undefined;
+
+    if (sortRaw && !sort) {
+      throw new HttpError(400, 'BAD_REQUEST', 'sort must be one of: most_recent, oldest');
+    }
 
     assertValidDateRange(dateFrom, dateTo);
 
@@ -67,6 +74,7 @@ export const createItemsRouter = (db: Firestore, bucket: Bucket, redis: RedisCli
       location,
       dateFrom,
       dateTo,
+      sort,
     });
     const totalPages = Math.max(1, Math.ceil(result.total / limit));
 
@@ -83,6 +91,7 @@ export const createItemsRouter = (db: Firestore, bucket: Bucket, redis: RedisCli
         location: location ?? null,
         dateFrom: dateFrom ?? null,
         dateTo: dateTo ?? null,
+        sort: sort ?? 'most_recent',
       },
       items: result.items,
     });

@@ -91,12 +91,14 @@ const createFakeDb = ({ items = {}, reports = {} } = {}) => {
             }),
             orderBy: (orderField, direction) => {
               assert.equal(orderField, 'dateReported');
-              assert.equal(direction, 'desc');
+              assert.ok(direction === 'desc' || direction === 'asc');
 
               const sorted = [...entries].sort((a, b) => {
                 const aDate = normalizeDate(a[1].dateReported);
                 const bDate = normalizeDate(b[1].dateReported);
-                return bDate.localeCompare(aDate);
+                return direction === 'asc'
+                  ? aDate.localeCompare(bDate)
+                  : bDate.localeCompare(aDate);
               });
 
               return {
@@ -230,6 +232,7 @@ test('GET /api/v1/items returns paginated validated found items with thumbnailUr
     location: null,
     dateFrom: null,
     dateTo: null,
+    sort: 'most_recent',
   });
 });
 
@@ -289,6 +292,7 @@ test('GET /api/v1/items filters validated found items by category, location, and
     location: 'Library',
     dateFrom: '2026-02-24T00:00:00.000Z',
     dateTo: '2026-02-26T23:59:59.999Z',
+    sort: 'most_recent',
   });
 });
 
@@ -383,7 +387,47 @@ test('GET /api/v1/items filters validated found items by keyword in title or des
     location: null,
     dateFrom: null,
     dateTo: null,
+    sort: 'most_recent',
   });
+});
+
+test('GET /api/v1/items sorts validated found items by oldest first when requested', async () => {
+  const app = buildTestApp({
+    reports: {
+      'report-newest': {
+        kind: 'FOUND',
+        title: 'Newest item',
+        status: 'VALIDATED',
+        referenceCode: 'FND-20260320-NEWEST01',
+        dateReported: '2026-03-20T10:00:00.000Z',
+      },
+      'report-oldest': {
+        kind: 'FOUND',
+        title: 'Oldest item',
+        status: 'VALIDATED',
+        referenceCode: 'FND-20260318-OLDEST01',
+        dateReported: '2026-03-18T10:00:00.000Z',
+      },
+    },
+  });
+
+  const response = await request(app).get('/api/v1/items?sort=oldest');
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(
+    response.body.items.map((item) => item.id),
+    ['report-oldest', 'report-newest'],
+  );
+  assert.equal(response.body.filters.sort, 'oldest');
+});
+
+test('GET /api/v1/items returns 400 for invalid sort option', async () => {
+  const app = buildTestApp();
+
+  const response = await request(app).get('/api/v1/items?sort=invalid');
+
+  assert.equal(response.status, 400);
+  assert.equal(response.body.error.code, 'BAD_REQUEST');
 });
 
 test('GET /api/v1/items paginates keyword search results after filtering', async () => {
