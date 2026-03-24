@@ -162,6 +162,16 @@ const calculateListedDurationMs = (dateReported: string, nowMs: number = Date.no
   return Math.max(0, nowMs - reportedAtMs);
 };
 
+const parseListedDurationMs = (dateReported: string, nowMs: number): number | null => {
+  const durationMs = calculateListedDurationMs(dateReported, nowMs);
+  if (!Number.isFinite(durationMs)) {
+    return null;
+  }
+
+  const reportedAtMs = Date.parse(dateReported);
+  return Number.isNaN(reportedAtMs) ? null : durationMs;
+};
+
 const mapItemDetails = async (
   bucket: Bucket,
   id: string,
@@ -170,6 +180,7 @@ const mapItemDetails = async (
   nowMs: number = Date.now(),
 ): Promise<ItemDetailsResponse> => {
   const dateReported = normalizeDateReported(source.dateReported);
+  const listedDurationMs = dateReported ? parseListedDurationMs(dateReported, nowMs) : null;
 
   if (
     typeof source.title !== 'string'
@@ -177,6 +188,7 @@ const mapItemDetails = async (
     || typeof source.referenceCode !== 'string'
     || source.referenceCode.trim().length === 0
     || !dateReported
+    || listedDurationMs === null
     || !source.status
     || !Object.values(ItemStatus).includes(source.status)
   ) {
@@ -195,7 +207,7 @@ const mapItemDetails = async (
     location: source.location,
     referenceCode: source.referenceCode,
     dateReported,
-    listedDurationMs: calculateListedDurationMs(dateReported, nowMs),
+    listedDurationMs,
     imageUrls,
     claimStatus: source.claimStatus,
   };
@@ -337,6 +349,7 @@ export const listValidatedItems = async (
     }
 
     const dateReported = normalizeDateReported(data.dateReported);
+    const listedDurationMs = dateReported ? parseListedDurationMs(dateReported, nowMs) : null;
     const thumbnailSource =
       (Array.isArray(data.imageUrls) && data.imageUrls.length > 0 ? data.imageUrls[0] : undefined)
       ?? data.photoUrl;
@@ -356,6 +369,7 @@ export const listValidatedItems = async (
       || typeof data.referenceCode !== 'string'
       || data.referenceCode.trim().length === 0
       || !dateReported
+      || listedDurationMs === null
       || !isPublicItemStatus(data.status)
     ) {
       return null;
@@ -377,7 +391,7 @@ export const listValidatedItems = async (
       referenceCode: data.referenceCode,
       location: data.location,
       dateReported,
-      listedDurationMs: calculateListedDurationMs(dateReported, nowMs),
+      listedDurationMs,
       thumbnailUrl,
     } as ItemPublicResponse;
   }));
