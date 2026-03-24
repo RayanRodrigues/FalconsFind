@@ -27,6 +27,7 @@ export * from './dtos/request-additional-proof.request.dto.js';
 export * from './dtos/update-claim-status.request.dto.js';
 export * from './dtos/item-public.response.dto.js';
 export * from './dtos/item-details.response.dto.js';
+export * from './dtos/item-history.response.dto.js';
 
 export * from './responses/error-response.js';
 export * from './responses/pagination.js';

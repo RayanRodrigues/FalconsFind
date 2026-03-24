@@ -2,7 +2,9 @@ import { Router } from 'express';
 import type { Firestore } from 'firebase-admin/firestore';
 import type { Bucket } from '@google-cloud/storage';
 import type { RedisClient } from '../bootstrap/redis.js';
-import type { ItemDetailsResponse } from '../contracts/index.js';
+import { UserRole } from '../contracts/index.js';
+import type { ItemDetailsResponse, ItemHistoryResponse } from '../contracts/index.js';
+import type { RequestHandler } from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -13,6 +15,7 @@ import {
   parseOptionalString,
   parsePositiveInt,
 } from './request-parsers.js';
+import { createRequireStaffRoles } from '../middleware/require-staff-user.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -20,10 +23,15 @@ const __dirname = path.dirname(__filename);
 const serviceTsPath = path.resolve(__dirname, '../services/items.service.ts');
 const serviceJsPath = path.resolve(__dirname, '../services/items.service.js');
 const servicePath = fs.existsSync(serviceTsPath) ? serviceTsPath : serviceJsPath;
+const getSingleRouteParam = (value: string | string[] | undefined): string => (
+  typeof value === 'string' ? value.trim() : ''
+);
 
 const itemsServiceModule = (await import(pathToFileURL(servicePath).href)) as {
   InvalidItemDataError: new () => Error;
+  ItemHistoryNotFoundError: new () => Error;
   getItemById: (db: Firestore, bucket: Bucket, redis: RedisClient | null, itemId: string) => Promise<ItemDetailsResponse | null>;
+  getItemHistory: (db: Firestore, itemId: string) => Promise<ItemHistoryResponse>;
   isItemPubliclyVisible: (item: ItemDetailsResponse) => boolean;
   listValidatedItems: (
     db: Firestore,
@@ -37,6 +45,7 @@ const itemsServiceModule = (await import(pathToFileURL(servicePath).href)) as {
       location?: string;
       dateFrom?: string;
       dateTo?: string;
+      sort?: 'most_recent' | 'oldest';
     },
   ) => Promise<{
     items: unknown[];
@@ -44,8 +53,19 @@ const itemsServiceModule = (await import(pathToFileURL(servicePath).href)) as {
   }>;
 };
 
-export const createItemsRouter = (db: Firestore, bucket: Bucket, redis: RedisClient | null): Router => {
+type ItemsRouterOptions = {
+  requireStaffUser?: RequestHandler;
+};
+
+export const createItemsRouter = (
+  db: Firestore,
+  bucket: Bucket,
+  redis: RedisClient | null,
+  options: ItemsRouterOptions = {},
+): Router => {
   const router = Router();
+  const requireStaffUser = options.requireStaffUser
+    ?? createRequireStaffRoles(db, [UserRole.ADMIN, UserRole.SECURITY]);
 
   router.get(`${API_PREFIX}/items`, async (req, res) => {
     const page = parsePositiveInt(req.query.page, 1);
@@ -56,6 +76,12 @@ export const createItemsRouter = (db: Firestore, bucket: Bucket, redis: RedisCli
     const location = parseOptionalString(req.query.location);
     const dateFrom = parseDateFilter(req.query.dateFrom, 'dateFrom');
     const dateTo = parseDateFilter(req.query.dateTo, 'dateTo');
+    const sortRaw = parseOptionalString(req.query.sort);
+    const sort = sortRaw === 'most_recent' || sortRaw === 'oldest' ? sortRaw : undefined;
+
+    if (sortRaw && !sort) {
+      throw new HttpError(400, 'BAD_REQUEST', 'sort must be one of: most_recent, oldest');
+    }
 
     assertValidDateRange(dateFrom, dateTo);
 
@@ -67,6 +93,7 @@ export const createItemsRouter = (db: Firestore, bucket: Bucket, redis: RedisCli
       location,
       dateFrom,
       dateTo,
+      sort,
     });
     const totalPages = Math.max(1, Math.ceil(result.total / limit));
 
@@ -83,6 +110,7 @@ export const createItemsRouter = (db: Firestore, bucket: Bucket, redis: RedisCli
         location: location ?? null,
         dateFrom: dateFrom ?? null,
         dateTo: dateTo ?? null,
+        sort: sort ?? 'most_recent',
       },
       items: result.items,
     });
@@ -118,6 +146,24 @@ export const createItemsRouter = (db: Firestore, bucket: Bucket, redis: RedisCli
     }
 
     res.json(item);
+  });
+
+  router.get(`${API_PREFIX}/admin/items/:id/history`, requireStaffUser, async (req, res) => {
+    const itemId = getSingleRouteParam(req.params.id);
+    if (!itemId) {
+      throw new HttpError(400, 'BAD_REQUEST', 'id is required');
+    }
+
+    try {
+      const history = await itemsServiceModule.getItemHistory(db, itemId);
+      res.status(200).json(history);
+    } catch (error) {
+      if (error instanceof itemsServiceModule.ItemHistoryNotFoundError) {
+        throw new HttpError(404, 'NOT_FOUND', error.message);
+      }
+
+      throw error;
+    }
   });
 
   return router;

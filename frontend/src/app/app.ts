@@ -6,6 +6,7 @@ import type { ErrorResponse } from './models';
 import { NavbarComponent } from './shared/components/layout/navbar.component';
 import { FooterComponent } from './shared/components/layout/footer.component';
 import { publicEnv } from './config/public-env.generated';
+import { ThemeService } from './core/services/theme.service';
 
 type FirebaseStatus = 'idle' | 'ok' | 'error';
 
@@ -24,6 +25,7 @@ export class App implements OnInit {
   private readonly platformId = inject(PLATFORM_ID);
   private readonly router = inject(Router);
   private readonly doc = inject(DOCUMENT);
+  private readonly themeService = inject(ThemeService);
 
   readonly showShell = signal(!isShellless(this.doc.location?.pathname ?? '/'));
   protected readonly title = signal('frontend');
@@ -38,10 +40,13 @@ export class App implements OnInit {
       this.showShell.set(!isShellless(url));
     });
 
-    // Skip Firebase initialization during SSR
+    // Skip browser-only logic during SSR
     if (!isPlatformBrowser(this.platformId)) {
       return;
     }
+
+    // Initialize saved theme
+    this.themeService.initTheme();
 
     const healthTestEnabled = publicEnv.enableFirebaseHealthTest;
     this.showFirebaseHealthTest.set(healthTestEnabled);
@@ -61,6 +66,7 @@ export class App implements OnInit {
       const payload = contentType.includes('application/json')
         ? await response.json()
         : { error: { message: await response.text() } };
+
       if (!response.ok || !payload?.ok) {
         this.firebaseStatus.set('error');
         const errorMessage =

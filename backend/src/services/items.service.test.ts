@@ -157,6 +157,16 @@ describe('listValidatedItems', () => {
     ]);
   });
 
+  it('sorts by oldest first when requested', async () => {
+    await listValidatedItems(db as never, bucket as never, null, {
+      page: 1,
+      limit: 10,
+      sort: 'oldest',
+    });
+
+    expect(orderByFn).toHaveBeenCalledWith('dateReported', 'asc');
+  });
+
   it('filters validated items by keyword across title and description', async () => {
     getOrderedFn.mockResolvedValue({
       docs: [

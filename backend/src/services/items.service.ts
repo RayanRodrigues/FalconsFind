@@ -2,9 +2,10 @@ import type { DocumentData, Firestore, Query, QueryDocumentSnapshot } from 'fire
 import type { Bucket } from '@google-cloud/storage';
 import type { RedisClient } from '../bootstrap/redis.js';
 import { ItemStatus } from '../contracts/index.js';
-import type { ItemDetailsResponse, ItemPublicResponse, Report } from '../contracts/index.js';
+import type { ItemDetailsResponse, ItemHistoryResponse, ItemPublicResponse, Report } from '../contracts/index.js';
 import { isProductionApp } from '../utils/app-env.js';
 import { normalizeDateReported } from '../utils/date-normalization.js';
+export { ItemHistoryNotFoundError, getItemHistory } from './item-history.service.js';
 
 // Cache signed URLs for 50 min; the URL itself is valid for 60 min (10 min buffer)
 const SIGNED_URL_CACHE_TTL_SECONDS = 3000;
@@ -43,6 +44,7 @@ type ListValidatedItemsParams = {
   location?: string;
   dateFrom?: string;
   dateTo?: string;
+  sort?: 'most_recent' | 'oldest';
 };
 
 export class InvalidItemDataError extends Error {
@@ -257,6 +259,7 @@ export const listValidatedItems = async (
   const page = Math.max(1, Math.floor(params.page));
   const limit = Math.max(1, Math.floor(params.limit));
   const keyword = typeof params.keyword === 'string' ? params.keyword.trim().toLowerCase() : '';
+  const sort = params.sort === 'oldest' ? 'oldest' : 'most_recent';
   const nowMs = Date.now();
 
   let baseQuery = db
@@ -280,7 +283,7 @@ export const listValidatedItems = async (
     baseQuery = baseQuery.where('dateReported', '<=', params.dateTo);
   }
 
-  const orderedQuery = baseQuery.orderBy('dateReported', 'desc');
+  const orderedQuery = baseQuery.orderBy('dateReported', sort === 'oldest' ? 'asc' : 'desc');
 
   const getCursorPage = async (
     query: Query,
@@ -370,7 +373,7 @@ export const listValidatedItems = async (
       location: data.location,
       dateReported,
       listedDurationMs,
-      thumbnailUrl: thumbnailSource,
+      thumbnailUrl,
     } as ItemPublicResponse;
   }));
 
@@ -384,24 +387,5 @@ export const listValidatedItems = async (
     total = items.length;
   }
 
-  const itemsWithSignedThumbnails = await Promise.all(pagedItems.map(async (item) => {
-    const source = item.thumbnailUrl;
-    if (typeof source !== 'string' || source.trim().length === 0) {
-      return item;
-    }
-
-    let signedUrl = source;
-    try {
-      signedUrl = await toPublicImageUrl(bucket, source, redis);
-    } catch {
-      signedUrl = source;
-    }
-
-    return {
-      ...item,
-      thumbnailUrl: signedUrl,
-    };
-  }));
-
-  return { items: itemsWithSignedThumbnails, total };
+  return { items: pagedItems, total };
 };

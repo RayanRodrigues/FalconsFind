@@ -12,6 +12,7 @@ import { ItemStatus } from '../contracts/index.js';
 import { randomUUID } from 'node:crypto';
 import { resolveSourceEnv } from '../utils/app-env.js';
 import { normalizeDateReported } from '../utils/date-normalization.js';
+import { createChangesFromPatch, recordItemHistoryEvent } from './item-history.service.js';
 
 export class ReportPhotoUploadError extends Error {
   constructor(
@@ -257,6 +258,35 @@ export const createLostReport = async (
   }
 
   await docRef.set(reportToSave);
+  try {
+    await recordItemHistoryEvent(db, {
+      itemId: docRef.id,
+      entityType: 'REPORT',
+      entityId: docRef.id,
+      actionType: 'REPORT_CREATED',
+      timestamp: createdAt.toISOString(),
+      summary: 'Lost-item report created.',
+      actor: {
+        type: 'USER',
+        email: payload.contactEmail,
+      },
+      metadata: {
+        referenceCode: reportToSave.referenceCode,
+        reportKind: reportToSave.kind,
+        itemStatus: reportToSave.status,
+      },
+      changes: [{
+        field: 'status',
+        newValue: reportToSave.status,
+      }],
+    });
+  } catch (error) {
+    console.error('Failed to record item history event for lost report', {
+      reportId: docRef.id,
+      referenceCode: reportToSave.referenceCode,
+      error,
+    });
+  }
   return {
     id: docRef.id,
     report: {
@@ -298,6 +328,35 @@ export const createFoundReport = async (
   }
 
   await docRef.set(reportToSave);
+  try {
+    await recordItemHistoryEvent(db, {
+      itemId: docRef.id,
+      entityType: 'REPORT',
+      entityId: docRef.id,
+      actionType: 'REPORT_CREATED',
+      timestamp: createdAt.toISOString(),
+      summary: 'Found-item report created.',
+      actor: {
+        type: 'USER',
+        email: payload.contactEmail,
+      },
+      metadata: {
+        referenceCode: reportToSave.referenceCode,
+        reportKind: reportToSave.kind,
+        itemStatus: reportToSave.status,
+      },
+      changes: [{
+        field: 'status',
+        newValue: reportToSave.status,
+      }],
+    });
+  } catch (error) {
+    console.error('Failed to record item history event for found report', {
+      reportId: docRef.id,
+      referenceCode: reportToSave.referenceCode,
+      error,
+    });
+  }
   return {
     id: docRef.id,
     report: {
@@ -373,6 +432,30 @@ export const updateReportByReferenceCode = async (
 
     transaction.update(doc.ref, updatePatch);
 
+    const changes = createChangesFromPatch(report as Record<string, unknown>, updatePatch as Record<string, unknown>);
+    if (changes.length > 0) {
+      await recordItemHistoryEvent(db, {
+        itemId: doc.id,
+        entityType: 'REPORT',
+        entityId: doc.id,
+        actionType: 'REPORT_UPDATED',
+        timestamp: new Date().toISOString(),
+        summary: 'Report details updated.',
+        actor: {
+          type: 'USER',
+          email: payload.contactEmail ?? report.contactEmail,
+        },
+        metadata: {
+          referenceCode: report.referenceCode,
+          reportKind: report.kind,
+          itemStatus: report.status,
+        },
+        changes,
+      }, {
+        transaction,
+      });
+    }
+
     return mapEditableReport(doc.id, {
       ...report,
       ...updatePatch,
@@ -406,6 +489,29 @@ export const validateFoundReport = async (
     }
 
     transaction.update(reportRef, { status: ItemStatus.VALIDATED });
+    await recordItemHistoryEvent(db, {
+      itemId: reportId,
+      entityType: 'REPORT',
+      entityId: reportId,
+      actionType: 'REPORT_VALIDATED',
+      timestamp: new Date().toISOString(),
+      summary: 'Found-item report validated by staff.',
+      actor: {
+        type: 'SECURITY',
+      },
+      metadata: {
+        referenceCode: report.referenceCode,
+        reportKind: report.kind,
+        itemStatus: ItemStatus.VALIDATED,
+      },
+      changes: [{
+        field: 'status',
+        previousValue: report.status,
+        newValue: ItemStatus.VALIDATED,
+      }],
+    }, {
+      transaction,
+    });
 
     return {
       id: reportId,

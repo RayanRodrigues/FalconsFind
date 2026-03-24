@@ -187,6 +187,73 @@ export class ItemDetailsComponent implements OnInit, OnDestroy {
     return 'UNKNOWN_ERROR';
   }
 
+  isClaimed(): boolean {
+    return (this.item?.status ?? '').toUpperCase() === 'CLAIMED';
+  }
+
+  get availabilityLabel(): string {
+    return this.isClaimed() ? 'Claimed' : 'Available';
+  }
+
+  get availabilityClass(): string {
+    return this.isClaimed()
+      ? 'bg-red-100 text-red-700 border-red-200'
+      : 'bg-green-100 text-green-700 border-green-200';
+  }
+
+  getTimeSinceListed(date: string | null | undefined): string {
+    if (!date) return 'Listing date unavailable';
+
+    const listedTime = new Date(date).getTime();
+
+    if (Number.isNaN(listedTime)) {
+      return 'Listing date unavailable';
+    }
+
+    const now = Date.now();
+    const diffMs = Math.max(0, now - listedTime);
+
+    const minute = 60 * 1000;
+    const hour = 60 * minute;
+    const day = 24 * hour;
+    const week = 7 * day;
+    const month = 30 * day;
+
+    if (diffMs < minute) {
+      return 'Just now';
+    }
+
+    if (diffMs < hour) {
+      const minutes = Math.floor(diffMs / minute);
+      return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
+    }
+
+    if (diffMs < day) {
+      const hours = Math.floor(diffMs / hour);
+      return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+    }
+
+    if (diffMs < week) {
+      const days = Math.floor(diffMs / day);
+      return `${days} day${days === 1 ? '' : 's'} ago`;
+    }
+
+    if (diffMs < month) {
+      const weeks = Math.floor(diffMs / week);
+      return `${weeks} week${weeks === 1 ? '' : 's'} ago`;
+    }
+
+    const months = Math.floor(diffMs / month);
+    return `${months} month${months === 1 ? '' : 's'} ago`;
+  }
+
+  getMapLink(location: string | null | undefined): string | null {
+    const trimmedLocation = location?.trim();
+    if (!trimmedLocation) return null;
+
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(trimmedLocation)}`;
+  }
+
   get statusLabel(): string {
     return this.item?.status?.replace(/_/g, ' ') ?? '';
   }
