@@ -105,12 +105,14 @@ const createFakeDb = ({ items = {}, reports = {}, claims = {}, itemHistory = {} 
             }),
             orderBy: (orderField, direction) => {
               assert.equal(orderField, 'dateReported');
-              assert.equal(direction, 'desc');
+              assert.ok(direction === 'desc' || direction === 'asc');
 
               const sorted = [...entries].sort((a, b) => {
                 const aDate = normalizeDate(a[1].dateReported);
                 const bDate = normalizeDate(b[1].dateReported);
-                return bDate.localeCompare(aDate);
+                return direction === 'asc'
+                  ? aDate.localeCompare(bDate)
+                  : bDate.localeCompare(aDate);
               });
 
               return {
@@ -253,6 +255,7 @@ test('GET /api/v1/items returns paginated validated found items with thumbnailUr
   assert.equal(response.body.hasPrevPage, false);
   assert.equal(response.body.items.length, 2);
   assert.equal(response.body.items[0].id, 'report-2');
+  assert.equal(typeof response.body.items[0].listedDurationMs, 'number');
   assert.match(response.body.items[0].thumbnailUrl, /^https:\/\/signed\.local\//);
   assert.equal(response.body.items[1].id, 'report-1');
   assert.equal(response.body.items[1].thumbnailUrl, 'https://cdn.example.com/report-1.jpg');
@@ -262,6 +265,7 @@ test('GET /api/v1/items returns paginated validated found items with thumbnailUr
     location: null,
     dateFrom: null,
     dateTo: null,
+    sort: 'most_recent',
   });
 });
 
@@ -321,6 +325,7 @@ test('GET /api/v1/items filters validated found items by category, location, and
     location: 'Library',
     dateFrom: '2026-02-24T00:00:00.000Z',
     dateTo: '2026-02-26T23:59:59.999Z',
+    sort: 'most_recent',
   });
 });
 
@@ -415,7 +420,47 @@ test('GET /api/v1/items filters validated found items by keyword in title or des
     location: null,
     dateFrom: null,
     dateTo: null,
+    sort: 'most_recent',
   });
+});
+
+test('GET /api/v1/items sorts validated found items by oldest first when requested', async () => {
+  const app = buildTestApp({
+    reports: {
+      'report-newest': {
+        kind: 'FOUND',
+        title: 'Newest item',
+        status: 'VALIDATED',
+        referenceCode: 'FND-20260320-NEWEST01',
+        dateReported: '2026-03-20T10:00:00.000Z',
+      },
+      'report-oldest': {
+        kind: 'FOUND',
+        title: 'Oldest item',
+        status: 'VALIDATED',
+        referenceCode: 'FND-20260318-OLDEST01',
+        dateReported: '2026-03-18T10:00:00.000Z',
+      },
+    },
+  });
+
+  const response = await request(app).get('/api/v1/items?sort=oldest');
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(
+    response.body.items.map((item) => item.id),
+    ['report-oldest', 'report-newest'],
+  );
+  assert.equal(response.body.filters.sort, 'oldest');
+});
+
+test('GET /api/v1/items returns 400 for invalid sort option', async () => {
+  const app = buildTestApp();
+
+  const response = await request(app).get('/api/v1/items?sort=invalid');
+
+  assert.equal(response.status, 400);
+  assert.equal(response.body.error.code, 'BAD_REQUEST');
 });
 
 test('GET /api/v1/items paginates keyword search results after filtering', async () => {
@@ -476,6 +521,7 @@ test('GET /api/v1/items/:id returns 200 for validated item id', async () => {
   assert.equal(response.body.id, 'item-1');
   assert.equal(response.body.status, 'VALIDATED');
   assert.equal(response.body.referenceCode, 'FND-20260225-ABC12345');
+  assert.equal(typeof response.body.listedDurationMs, 'number');
   assert.ok(Array.isArray(response.body.imageUrls));
   assert.match(response.body.imageUrls[0], /^https:\/\/signed\.local\//);
 });
