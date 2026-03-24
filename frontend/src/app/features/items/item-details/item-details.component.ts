@@ -187,6 +187,20 @@ export class ItemDetailsComponent implements OnInit, OnDestroy {
     return 'UNKNOWN_ERROR';
   }
 
+  isClaimed(): boolean {
+    return (this.item?.status ?? '').toUpperCase() === 'CLAIMED';
+  }
+
+  get availabilityLabel(): string {
+    return this.isClaimed() ? 'Claimed' : 'Available';
+  }
+
+  get availabilityClass(): string {
+    return this.isClaimed()
+      ? 'bg-red-100 text-red-700 border-red-200'
+      : 'bg-green-100 text-green-700 border-green-200';
+  }
+
   get statusLabel(): string {
     return this.item?.status?.replace(/_/g, ' ') ?? '';
   }

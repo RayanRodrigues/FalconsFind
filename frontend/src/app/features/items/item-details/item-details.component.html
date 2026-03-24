@@ -81,14 +81,23 @@
             </div>
             <span
               class="inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide"
-              [class]="statusClass"
+              [ngClass]="availabilityClass"
             >
-              {{ statusLabel }}
+              {{ availabilityLabel }}
             </span>
           </div>
         </header>
 
         <div class="p-6 space-y-6">
+          @if (isClaimed()) {
+            <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+              <p class="text-sm font-medium text-red-700 mb-1">This item has already been claimed.</p>
+              <p class="text-sm text-red-600 mb-0">
+                It is no longer available for new claim requests.
+              </p>
+            </div>
+          }
+
           <div>
             <p class="text-sm text-text-secondary mb-1">Title</p>
             <h2 class="text-xl font-semibold text-text-primary mb-0">{{ item.title }}</h2>
