@@ -91,16 +91,16 @@ const reportsServiceModule = (await import(pathToFileURL(servicePath).href)) as 
     db: Firestore,
     reportId: string,
     payload: FlagReportRequest,
-    actor: { uid: string; email?: string | null; role: 'ADMIN' | 'SECURITY' },
+    actor: { uid: string; email?: string | null; role: Extract<UserRole, UserRole.ADMIN | UserRole.SECURITY> },
   ) => Promise<{
     id: string;
     report: {
       isSuspicious: boolean;
-      suspiciousReason?: string;
-      suspiciousFlaggedAt?: string;
-      suspiciousFlaggedByUid?: string;
-      suspiciousFlaggedByEmail?: string;
-      suspiciousFlaggedByRole?: string;
+      suspiciousReason?: string | null;
+      suspiciousFlaggedAt?: string | null;
+      suspiciousFlaggedByUid?: string | null;
+      suspiciousFlaggedByEmail?: string | null;
+      suspiciousFlaggedByRole?: string | null;
     };
   }>;
   listAdminReports: (
@@ -353,7 +353,11 @@ export const createReportsRouter = (
     }
 
     const payload = parseBodyOrThrow(schemaModule.flagReportSchema, req.body);
-    const actor = res.locals.authUser as { uid: string; email?: string | null; role: 'ADMIN' | 'SECURITY' } | undefined;
+    const actor = res.locals.authUser as {
+      uid: string;
+      email?: string | null;
+      role: Extract<UserRole, UserRole.ADMIN | UserRole.SECURITY>;
+    } | undefined;
     if (!actor?.uid || (actor.role !== 'ADMIN' && actor.role !== 'SECURITY')) {
       throw new HttpError(403, 'FORBIDDEN', 'You do not have permission to perform this action.');
     }

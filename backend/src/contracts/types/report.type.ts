@@ -1,4 +1,5 @@
 import type { ItemStatus } from '../enums/item-status.enum.js';
+import type { UserRole } from '../enums/user-role.enum.js';
 
 type ReportKind = 'LOST' | 'FOUND';
 type ReportSourceEnv = 'development' | 'production';
@@ -21,6 +22,6 @@ export type Report = {
   suspiciousReason?: string | null;
   suspiciousFlaggedByUid?: string | null;
   suspiciousFlaggedByEmail?: string | null;
-  suspiciousFlaggedByRole?: string | null;
+  suspiciousFlaggedByRole?: Extract<UserRole, 'ADMIN' | 'SECURITY'> | null;
   suspiciousFlaggedAt?: string | null;
 };

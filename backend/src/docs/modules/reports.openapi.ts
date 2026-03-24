@@ -213,6 +213,12 @@ export const reportsOpenApi: OpenApiModule = {
               },
             },
           },
+          401: {
+            ...errorResponseRefs.unauthorized,
+          },
+          403: {
+            ...errorResponseRefs.forbidden,
+          },
           400: {
             ...errorResponseRefs.badRequest,
           },

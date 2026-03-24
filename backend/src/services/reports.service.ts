@@ -9,7 +9,7 @@ import type {
   Report,
   UpdateReportByReferenceRequest,
 } from '../contracts/index.js';
-import { ItemStatus } from '../contracts/index.js';
+import { ItemStatus, UserRole } from '../contracts/index.js';
 import { randomUUID } from 'node:crypto';
 import { resolveSourceEnv } from '../utils/app-env.js';
 import { normalizeDateReported } from '../utils/date-normalization.js';
@@ -49,7 +49,7 @@ export class ReportValidationConflictError extends Error {
 type ReportFlagActor = {
   uid: string;
   email?: string | null;
-  role: 'ADMIN' | 'SECURITY';
+  role: Extract<UserRole, UserRole.ADMIN | UserRole.SECURITY>;
 };
 
 type ListAdminReportsParams = {
