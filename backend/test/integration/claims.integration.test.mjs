@@ -178,7 +178,7 @@ const createFakeDb = ({ claims = {}, items = {}, reports = {}, itemHistory = {} 
     },
   };
 
-  return { db, savedClaims, claims, items, reports };
+  return { db, itemHistory, savedClaims, claims, items, reports };
 };
 
 const createFakeBucket = () => {
@@ -237,7 +237,7 @@ const buildTestApp = (db) => {
 };
 
 test('POST /api/v1/claims creates a pending claim for a validated item found by referenceCode', async () => {
-  const { db, savedClaims } = createFakeDb({
+  const { db, itemHistory, savedClaims } = createFakeDb({
     reports: {
       'report-1': {
         kind: 'FOUND',
@@ -274,6 +274,14 @@ test('POST /api/v1/claims creates a pending claim for a validated item found by 
   assert.equal(savedClaims[0].data.claimReason, 'I left this backpack after class and returned shortly after to find it missing.');
   assert.equal(savedClaims[0].data.proofDetails, 'It has a Falcon sticker and my initials on the inside pocket.');
   assert.equal(savedClaims[0].data.phone, '519-555-0100');
+  const [historyEvent] = Object.values(itemHistory);
+  assert.ok(historyEvent);
+  assert.equal(historyEvent.actionType, 'CLAIM_CREATED');
+  assert.equal(historyEvent.entityId, 'claim-1');
+  assert.equal(historyEvent.itemId, 'report-1');
+  assert.equal(historyEvent.metadata.referenceCode, 'FF-2024-00001');
+  assert.equal(historyEvent.metadata.claimStatus, 'PENDING');
+  assert.match(historyEvent.timestamp, /^\d{4}-\d{2}-\d{2}T/);
 });
 
 test('POST /api/v1/claims creates a pending claim when item is in the items collection', async () => {

@@ -114,6 +114,7 @@ const createFakeDb = (initialReports = {}) => {
       },
     },
     savedReports,
+    itemHistory,
     reports,
   };
 };
@@ -143,7 +144,7 @@ const createFakeBucket = () => {
 };
 
 const buildTestApp = (initialReports = {}) => {
-  const { db, savedReports, reports } = createFakeDb(initialReports);
+  const { db, savedReports, itemHistory, reports } = createFakeDb(initialReports);
   const { bucket, uploads } = createFakeBucket();
 
   const app = express();
@@ -154,11 +155,11 @@ const buildTestApp = (initialReports = {}) => {
   app.use(notFoundHandler);
   app.use(errorHandler);
 
-  return { app, savedReports, uploads, reports };
+  return { app, savedReports, uploads, itemHistory, reports };
 };
 
 test('POST /api/v1/reports/lost creates a report', async () => {
-  const { app, savedReports } = buildTestApp();
+  const { app, itemHistory, savedReports } = buildTestApp();
 
   const response = await request(app)
     .post('/api/v1/reports/lost')
@@ -180,6 +181,13 @@ test('POST /api/v1/reports/lost creates a report', async () => {
   assert.equal(savedReports[0].data.category, 'Backpacks & Bags');
   assert.equal(savedReports[0].data.description, 'Black backpack');
   assert.equal(savedReports[0].data.additionalInfo, 'Has course stickers');
+  const [historyEvent] = Object.values(itemHistory);
+  assert.ok(historyEvent);
+  assert.equal(historyEvent.actionType, 'REPORT_CREATED');
+  assert.equal(historyEvent.entityId, response.body.id);
+  assert.equal(historyEvent.itemId, response.body.id);
+  assert.equal(historyEvent.metadata.referenceCode, response.body.referenceCode);
+  assert.match(historyEvent.timestamp, /^\d{4}-\d{2}-\d{2}T/);
 });
 
 test('POST /api/v1/reports/found returns 400 when photo is missing', async () => {
@@ -196,7 +204,7 @@ test('POST /api/v1/reports/found returns 400 when photo is missing', async () =>
 });
 
 test('POST /api/v1/reports/found creates a report with photo upload', async () => {
-  const { app, savedReports, uploads } = buildTestApp();
+  const { app, itemHistory, savedReports, uploads } = buildTestApp();
   const jpegBuffer = Buffer.from([0xff, 0xd8, 0xff, 0xdb, 0x00, 0x43, 0x00]);
 
   const response = await request(app)
@@ -219,6 +227,13 @@ test('POST /api/v1/reports/found creates a report with photo upload', async () =
   assert.equal(savedReports[0].data.category, 'Wallets & Purses');
   assert.equal(savedReports[0].data.status, 'PENDING_VALIDATION');
   assert.equal(uploads.length, 1);
+  const [historyEvent] = Object.values(itemHistory);
+  assert.ok(historyEvent);
+  assert.equal(historyEvent.actionType, 'REPORT_CREATED');
+  assert.equal(historyEvent.entityId, response.body.id);
+  assert.equal(historyEvent.itemId, response.body.id);
+  assert.equal(historyEvent.metadata.referenceCode, response.body.referenceCode);
+  assert.equal(historyEvent.metadata.itemStatus, 'PENDING_VALIDATION');
 });
 
 test('GET /api/v1/reports/reference/:referenceCode returns a report by reference code', async () => {

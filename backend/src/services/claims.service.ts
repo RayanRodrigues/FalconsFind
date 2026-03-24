@@ -83,6 +83,7 @@ type StoredItemProofResponsePatch = Partial<StoredItem> & {
 
 type StoredClaimCancellationPatch = Partial<StoredClaim> & {
   status: Extract<ClaimStatus, 'CANCELLED'>;
+  cancelledAt: string;
 };
 
 type StoredClaimEditPatch = Partial<StoredClaim> & {
@@ -463,24 +464,32 @@ export const createClaim = async (
 
   const docRef = db.collection('claims').doc();
   await docRef.set(claimToSave);
-  await recordItemHistoryEvent(db, {
-    itemId: targetItem.id,
-    entityType: 'CLAIM',
-    entityId: docRef.id,
-    actionType: 'CLAIM_CREATED',
-    timestamp: createdAt,
-    summary: 'Claim request submitted.',
-    actor: {
-      type: 'USER',
-      uid: actor.uid,
-      email: payload.claimantEmail,
-    },
-    metadata: {
-      referenceCode: payload.referenceCode,
-      claimStatus: ClaimStatus.PENDING,
-      itemStatus: targetItem.status,
-    },
-  });
+  try {
+    await recordItemHistoryEvent(db, {
+      itemId: targetItem.id,
+      entityType: 'CLAIM',
+      entityId: docRef.id,
+      actionType: 'CLAIM_CREATED',
+      timestamp: createdAt,
+      summary: 'Claim request submitted.',
+      actor: {
+        type: 'USER',
+        uid: actor.uid,
+        email: payload.claimantEmail,
+      },
+      metadata: {
+        referenceCode: payload.referenceCode,
+        claimStatus: ClaimStatus.PENDING,
+        itemStatus: targetItem.status,
+      },
+    });
+  } catch (error) {
+    console.error('Failed to record item history for claim creation', {
+      error,
+      itemId: targetItem.id,
+      claimId: docRef.id,
+    });
+  }
 
   return {
     id: docRef.id,
@@ -518,7 +527,7 @@ export const updateClaimStatus = async (
       throw new ClaimConflictError('Only pending or proof-requested claims can be reviewed.');
     }
 
-    const itemRef = await getFirstExistingItemRef(transaction, db, itemId);
+    const { ref: itemRef, data: item } = await getFirstExistingItem(transaction, db, itemId);
     const nextItemStatus = resolveTargetItemStatus(targetStatus);
     const reviewedAt = new Date().toISOString();
 
@@ -555,7 +564,7 @@ export const updateClaimStatus = async (
         },
         {
           field: 'item.status',
-          previousValue: itemRef.id === itemId ? undefined : undefined,
+          previousValue: item.status,
           newValue: nextItemStatus,
         },
       ],
@@ -685,7 +694,7 @@ export const cancelClaim = async (
     transaction.update(claimRef, {
       status: ClaimStatus.CANCELLED,
       cancelledAt,
-    } satisfies StoredClaimCancellationPatch & { cancelledAt: string });
+    } satisfies StoredClaimCancellationPatch);
 
     transaction.update(itemRef, {
       status: nextItemStatus,

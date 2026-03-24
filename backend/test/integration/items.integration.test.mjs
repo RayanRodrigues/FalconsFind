@@ -634,6 +634,7 @@ test('GET /api/v1/admin/items/:id/history returns persisted and legacy events in
     response.body.events.map((event) => event.actionType),
     ['CLAIM_APPROVED', 'CLAIM_CREATED', 'REPORT_UPDATED', 'REPORT_CREATED'],
   );
+  assert.ok(response.body.events.every((event) => event.itemId === 'report-1'));
   assert.equal(response.body.events[0].entityId, 'claim-1');
   assert.equal(response.body.events[3].entityId, 'report-1');
 });

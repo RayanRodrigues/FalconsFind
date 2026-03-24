@@ -258,27 +258,35 @@ export const createLostReport = async (
   }
 
   await docRef.set(reportToSave);
-  await recordItemHistoryEvent(db, {
-    itemId: docRef.id,
-    entityType: 'REPORT',
-    entityId: docRef.id,
-    actionType: 'REPORT_CREATED',
-    timestamp: createdAt.toISOString(),
-    summary: 'Lost-item report created.',
-    actor: {
-      type: 'USER',
-      email: payload.contactEmail,
-    },
-    metadata: {
+  try {
+    await recordItemHistoryEvent(db, {
+      itemId: docRef.id,
+      entityType: 'REPORT',
+      entityId: docRef.id,
+      actionType: 'REPORT_CREATED',
+      timestamp: createdAt.toISOString(),
+      summary: 'Lost-item report created.',
+      actor: {
+        type: 'USER',
+        email: payload.contactEmail,
+      },
+      metadata: {
+        referenceCode: reportToSave.referenceCode,
+        reportKind: reportToSave.kind,
+        itemStatus: reportToSave.status,
+      },
+      changes: [{
+        field: 'status',
+        newValue: reportToSave.status,
+      }],
+    });
+  } catch (error) {
+    console.error('Failed to record item history event for lost report', {
+      reportId: docRef.id,
       referenceCode: reportToSave.referenceCode,
-      reportKind: reportToSave.kind,
-      itemStatus: reportToSave.status,
-    },
-    changes: [{
-      field: 'status',
-      newValue: reportToSave.status,
-    }],
-  });
+      error,
+    });
+  }
   return {
     id: docRef.id,
     report: {
@@ -320,27 +328,35 @@ export const createFoundReport = async (
   }
 
   await docRef.set(reportToSave);
-  await recordItemHistoryEvent(db, {
-    itemId: docRef.id,
-    entityType: 'REPORT',
-    entityId: docRef.id,
-    actionType: 'REPORT_CREATED',
-    timestamp: createdAt.toISOString(),
-    summary: 'Found-item report created.',
-    actor: {
-      type: 'USER',
-      email: payload.contactEmail,
-    },
-    metadata: {
+  try {
+    await recordItemHistoryEvent(db, {
+      itemId: docRef.id,
+      entityType: 'REPORT',
+      entityId: docRef.id,
+      actionType: 'REPORT_CREATED',
+      timestamp: createdAt.toISOString(),
+      summary: 'Found-item report created.',
+      actor: {
+        type: 'USER',
+        email: payload.contactEmail,
+      },
+      metadata: {
+        referenceCode: reportToSave.referenceCode,
+        reportKind: reportToSave.kind,
+        itemStatus: reportToSave.status,
+      },
+      changes: [{
+        field: 'status',
+        newValue: reportToSave.status,
+      }],
+    });
+  } catch (error) {
+    console.error('Failed to record item history event for found report', {
+      reportId: docRef.id,
       referenceCode: reportToSave.referenceCode,
-      reportKind: reportToSave.kind,
-      itemStatus: reportToSave.status,
-    },
-    changes: [{
-      field: 'status',
-      newValue: reportToSave.status,
-    }],
-  });
+      error,
+    });
+  }
   return {
     id: docRef.id,
     report: {

@@ -113,6 +113,7 @@ const sortEventsDescending = (left: ItemHistoryEventResponse, right: ItemHistory
 const toHistoryEventResponse = (
   id: string,
   data: Partial<StoredHistoryEvent> | undefined,
+  canonicalItemId?: string,
 ): ItemHistoryEventResponse | null => {
   if (
     !data
@@ -128,7 +129,7 @@ const toHistoryEventResponse = (
 
   return {
     id,
-    itemId: data.itemId,
+    itemId: canonicalItemId ?? data.itemId,
     entityType: data.entityType as HistoryEntityType,
     entityId: data.entityId,
     actionType: data.actionType as HistoryActionType,
@@ -439,7 +440,7 @@ export const getItemHistory = async (
   ]);
 
   const persistedEvents = storedHistoryDocs
-    .map((doc) => toHistoryEventResponse(doc.id, doc.data))
+    .map((doc) => toHistoryEventResponse(doc.id, doc.data, aggregate.canonicalItemId))
     .filter((event): event is ItemHistoryEventResponse => event !== null);
 
   const existingKeys = new Set(
