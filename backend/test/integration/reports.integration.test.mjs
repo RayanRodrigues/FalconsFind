@@ -132,7 +132,14 @@ const buildTestApp = (initialReports = {}) => {
   const app = express();
   app.use(express.json());
   app.use(createReportsRouter(db, bucket, {
-    requireStaffUser: (_req, _res, next) => next(),
+    requireStaffUser: (_req, res, next) => {
+      res.locals.authUser = {
+        uid: 'security-1',
+        email: 'security@example.com',
+        role: 'SECURITY',
+      };
+      next();
+    },
   }));
   app.use(notFoundHandler);
   app.use(errorHandler);
@@ -428,8 +435,10 @@ test('GET /api/v1/admin/reports lists all reports with aggregated summary', asyn
   assert.equal(response.body.reports.length, 2);
   assert.equal(response.body.reports[0].id, 'report-1');
   assert.equal(response.body.reports[1].id, 'report-2');
+  assert.equal(response.body.filters.flagged, null);
   assert.equal(response.body.reports[0].photoUrl, 'https://signed.example/test-bucket/reports/wallet.jpg');
   assert.deepEqual(response.body.reports[0].photoUrls, ['https://signed.example/test-bucket/reports/wallet.jpg']);
+  assert.equal(response.body.reports[0].isSuspicious, false);
 });
 
 test('GET /api/v1/admin/reports filters by kind, status, and search', async () => {
@@ -471,8 +480,154 @@ test('GET /api/v1/admin/reports filters by kind, status, and search', async () =
   assert.equal(response.body.filters.kind, 'FOUND');
   assert.equal(response.body.filters.status, 'VALIDATED');
   assert.equal(response.body.filters.search, 'backpack');
+  assert.equal(response.body.filters.flagged, null);
   assert.equal(response.body.reports.length, 1);
   assert.equal(response.body.reports[0].id, 'report-2');
+});
+
+test('PATCH /api/v1/admin/reports/:id/flag flags a report as suspicious with actor metadata', async () => {
+  const { app, reports } = buildTestApp({
+    'report-flag-1': {
+      kind: 'FOUND',
+      title: 'Found wallet',
+      status: 'VALIDATED',
+      referenceCode: 'FND-20260317-FLAG0001',
+      location: 'Gym',
+      dateReported: '2026-03-17T10:00:00.000Z',
+    },
+  });
+
+  const response = await request(app)
+    .patch('/api/v1/admin/reports/report-flag-1/flag')
+    .send({
+      flagged: true,
+      reason: 'Suspicious duplicate report',
+    });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.id, 'report-flag-1');
+  assert.equal(response.body.isSuspicious, true);
+  assert.equal(response.body.suspiciousReason, 'Suspicious duplicate report');
+  assert.equal(response.body.suspiciousFlaggedByUid, 'security-1');
+  assert.equal(response.body.suspiciousFlaggedByEmail, 'security@example.com');
+  assert.equal(response.body.suspiciousFlaggedByRole, 'SECURITY');
+  assert.match(response.body.suspiciousFlaggedAt, /^\d{4}-\d{2}-\d{2}T/);
+  assert.equal(reports['report-flag-1'].isSuspicious, true);
+  assert.equal(reports['report-flag-1'].suspiciousReason, 'Suspicious duplicate report');
+});
+
+test('PATCH /api/v1/admin/reports/:id/flag clears suspicious metadata when unflagging', async () => {
+  const { app, reports } = buildTestApp({
+    'report-flag-2': {
+      kind: 'FOUND',
+      title: 'Found keys',
+      status: 'VALIDATED',
+      referenceCode: 'FND-20260317-FLAG0002',
+      location: 'Hallway',
+      dateReported: '2026-03-17T10:00:00.000Z',
+      isSuspicious: true,
+      suspiciousReason: 'Looks fabricated',
+      suspiciousFlaggedByUid: 'security-old',
+      suspiciousFlaggedByEmail: 'old@example.com',
+      suspiciousFlaggedByRole: 'SECURITY',
+      suspiciousFlaggedAt: '2026-03-17T11:00:00.000Z',
+    },
+  });
+
+  const response = await request(app)
+    .patch('/api/v1/admin/reports/report-flag-2/flag')
+    .send({ flagged: false });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.isSuspicious, false);
+  assert.equal(response.body.suspiciousReason, null);
+  assert.equal(response.body.suspiciousFlaggedAt, null);
+  assert.equal(response.body.suspiciousFlaggedByUid, null);
+  assert.equal(response.body.suspiciousFlaggedByEmail, null);
+  assert.equal(response.body.suspiciousFlaggedByRole, null);
+  assert.equal(reports['report-flag-2'].isSuspicious, false);
+  assert.equal(reports['report-flag-2'].suspiciousReason, null);
+  assert.equal(reports['report-flag-2'].suspiciousFlaggedByUid, null);
+});
+
+test('PATCH /api/v1/admin/reports/:id/flag returns 404 when report does not exist', async () => {
+  const { app } = buildTestApp();
+
+  const response = await request(app)
+    .patch('/api/v1/admin/reports/missing-report/flag')
+    .send({ flagged: true });
+
+  assert.equal(response.status, 404);
+  assert.equal(response.body.error.code, 'NOT_FOUND');
+});
+
+test('PATCH /api/v1/admin/reports/:id/flag returns 400 when reason is sent while unflagging', async () => {
+  const { app } = buildTestApp({
+    'report-flag-3': {
+      kind: 'LOST',
+      title: 'Lost ID card',
+      status: 'REPORTED',
+      referenceCode: 'LST-20260317-FLAG0003',
+      location: 'Library',
+      dateReported: '2026-03-17T10:00:00.000Z',
+    },
+  });
+
+  const response = await request(app)
+    .patch('/api/v1/admin/reports/report-flag-3/flag')
+    .send({
+      flagged: false,
+      reason: 'should fail',
+    });
+
+  assert.equal(response.status, 400);
+  assert.equal(response.body.error.code, 'BAD_REQUEST');
+});
+
+test('GET /api/v1/admin/reports filters by suspicious flag status', async () => {
+  const { app } = buildTestApp({
+    'report-flagged': {
+      kind: 'FOUND',
+      title: 'Found wallet',
+      status: 'VALIDATED',
+      referenceCode: 'FND-20260317-FLAG1001',
+      location: 'Gym',
+      dateReported: '2026-03-17T10:00:00.000Z',
+      isSuspicious: true,
+      suspiciousReason: 'Duplicate report',
+      suspiciousFlaggedByUid: 'security-1',
+      suspiciousFlaggedByEmail: 'security@example.com',
+      suspiciousFlaggedByRole: 'SECURITY',
+      suspiciousFlaggedAt: '2026-03-17T12:00:00.000Z',
+    },
+    'report-clean': {
+      kind: 'LOST',
+      title: 'Lost notebook',
+      status: 'REPORTED',
+      referenceCode: 'LST-20260317-FLAG1002',
+      location: 'Lab',
+      dateReported: '2026-03-17T09:00:00.000Z',
+    },
+  });
+
+  const response = await request(app).get('/api/v1/admin/reports?flagged=true');
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.total, 1);
+  assert.equal(response.body.filters.flagged, true);
+  assert.equal(response.body.reports.length, 1);
+  assert.equal(response.body.reports[0].id, 'report-flagged');
+  assert.equal(response.body.reports[0].isSuspicious, true);
+  assert.equal(response.body.reports[0].suspiciousReason, 'Duplicate report');
+});
+
+test('GET /api/v1/admin/reports returns 400 for invalid flagged filter', async () => {
+  const { app } = buildTestApp();
+
+  const response = await request(app).get('/api/v1/admin/reports?flagged=maybe');
+
+  assert.equal(response.status, 400);
+  assert.equal(response.body.error.code, 'BAD_REQUEST');
 });
 
 test('GET /api/v1/admin/reports returns 400 for invalid kind filter', async () => {

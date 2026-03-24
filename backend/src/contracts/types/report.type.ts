@@ -17,4 +17,10 @@ export type Report = {
   contactEmail?: string;
   photoUrl?: string;
   sourceEnv?: ReportSourceEnv;
+  isSuspicious?: boolean;
+  suspiciousReason?: string | null;
+  suspiciousFlaggedByUid?: string | null;
+  suspiciousFlaggedByEmail?: string | null;
+  suspiciousFlaggedByRole?: string | null;
+  suspiciousFlaggedAt?: string | null;
 };

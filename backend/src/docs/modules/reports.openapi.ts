@@ -147,6 +147,15 @@ export const reportsOpenApi: OpenApiModule = {
             },
             description: 'Case-insensitive search over title, description, reference code, location, and contact email',
           },
+          {
+            name: 'flagged',
+            in: 'query',
+            required: false,
+            schema: {
+              type: 'boolean',
+            },
+            description: 'Filter reports by suspicious flag status',
+          },
         ],
         responses: {
           200: {
@@ -161,6 +170,54 @@ export const reportsOpenApi: OpenApiModule = {
           },
           400: {
             ...errorResponseRefs.badRequest,
+          },
+          500: {
+            ...errorResponseRefs.internalServerError,
+          },
+        },
+      },
+    },
+    '/api/v1/admin/reports/{id}/flag': {
+      patch: {
+        tags: ['Reports'],
+        summary: 'Flag or unflag a report as suspicious',
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: {
+              type: 'string',
+            },
+            description: 'Report document id',
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                $ref: '#/components/schemas/FlagReportRequest',
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: 'Suspicious flag updated successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/FlagReportResponse',
+                },
+              },
+            },
+          },
+          400: {
+            ...errorResponseRefs.badRequest,
+          },
+          404: {
+            ...errorResponseRefs.notFound,
           },
           500: {
             ...errorResponseRefs.internalServerError,
@@ -328,13 +385,34 @@ export const reportsOpenApi: OpenApiModule = {
       },
       minProperties: 1,
     },
+    FlagReportRequest: {
+      type: 'object',
+      required: ['flagged'],
+      properties: {
+        flagged: { type: 'boolean', example: true },
+        reason: { type: 'string', minLength: 1, example: 'Repeated duplicate submissions from the same reporter' },
+      },
+    },
+    FlagReportResponse: {
+      type: 'object',
+      required: ['id', 'isSuspicious'],
+      properties: {
+        id: { type: 'string', example: 'AbCdEF123456' },
+        isSuspicious: { type: 'boolean', example: true },
+        suspiciousReason: { type: 'string', nullable: true, example: 'Repeated duplicate submissions from the same reporter' },
+        suspiciousFlaggedAt: { type: 'string', format: 'date-time', nullable: true },
+        suspiciousFlaggedByUid: { type: 'string', nullable: true, example: 'security-user-1' },
+        suspiciousFlaggedByEmail: { type: 'string', format: 'email', nullable: true, example: 'security@example.com' },
+        suspiciousFlaggedByRole: { type: 'string', nullable: true, enum: ['ADMIN', 'SECURITY'], example: 'SECURITY' },
+      },
+    },
     ItemStatus: {
       type: 'string',
       enum: ['REPORTED', 'PENDING_VALIDATION', 'VALIDATED', 'CLAIMED', 'RETURNED', 'ARCHIVED'],
     },
     AdminReportResponse: {
       type: 'object',
-      required: ['id', 'kind', 'title', 'status', 'referenceCode', 'dateReported'],
+      required: ['id', 'kind', 'title', 'status', 'referenceCode', 'dateReported', 'isSuspicious'],
       properties: {
         id: { type: 'string', example: 'AbCdEF123456' },
         kind: { type: 'string', enum: ['LOST', 'FOUND'], example: 'FOUND' },
@@ -352,6 +430,16 @@ export const reportsOpenApi: OpenApiModule = {
         dateReported: { type: 'string', format: 'date-time' },
         contactEmail: { type: 'string', format: 'email' },
         photoUrl: { type: 'string' },
+        photoUrls: {
+          type: 'array',
+          items: { type: 'string' },
+        },
+        isSuspicious: { type: 'boolean', example: false },
+        suspiciousReason: { type: 'string', nullable: true },
+        suspiciousFlaggedByUid: { type: 'string', nullable: true },
+        suspiciousFlaggedByEmail: { type: 'string', format: 'email', nullable: true },
+        suspiciousFlaggedByRole: { type: 'string', nullable: true, enum: ['ADMIN', 'SECURITY'] },
+        suspiciousFlaggedAt: { type: 'string', format: 'date-time', nullable: true },
       },
     },
     AdminReportsListResponse: {
@@ -370,6 +458,7 @@ export const reportsOpenApi: OpenApiModule = {
             kind: { type: 'string', enum: ['LOST', 'FOUND'], nullable: true },
             status: { $ref: '#/components/schemas/ItemStatus' },
             search: { type: 'string', nullable: true },
+            flagged: { type: 'boolean', nullable: true },
           },
         },
         summary: {

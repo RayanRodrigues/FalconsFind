@@ -2,6 +2,7 @@ import type { Firestore, Query, Transaction } from 'firebase-admin/firestore';
 import type { Bucket } from '@google-cloud/storage';
 import type {
   AdminReportResponse,
+  FlagReportRequest,
   CreateFoundReportRequest,
   CreateLostReportRequest,
   EditableReportResponse,
@@ -44,12 +45,19 @@ export class ReportValidationConflictError extends Error {
   }
 }
 
+type ReportFlagActor = {
+  uid: string;
+  email?: string | null;
+  role: 'ADMIN' | 'SECURITY';
+};
+
 type ListAdminReportsParams = {
   page: number;
   limit: number;
   kind?: Report['kind'];
   status?: Report['status'];
   search?: string;
+  flagged?: boolean;
 };
 
 const currentSourceEnv: NonNullable<Report['sourceEnv']> = resolveSourceEnv();
@@ -213,6 +221,12 @@ const mapAdminReport = async (
     contactEmail: source.contactEmail,
     photoUrl: photoUrls?.[0],
     photoUrls,
+    isSuspicious: source.isSuspicious === true,
+    suspiciousReason: source.suspiciousReason,
+    suspiciousFlaggedByUid: source.suspiciousFlaggedByUid,
+    suspiciousFlaggedByEmail: source.suspiciousFlaggedByEmail,
+    suspiciousFlaggedByRole: source.suspiciousFlaggedByRole,
+    suspiciousFlaggedAt: source.suspiciousFlaggedAt,
   };
 };
 
@@ -417,6 +431,70 @@ export const validateFoundReport = async (
   });
 };
 
+export const flagReport = async (
+  db: Firestore,
+  reportId: string,
+  payload: FlagReportRequest,
+  actor: ReportFlagActor,
+): Promise<{
+  id: string;
+  report: Pick<
+    AdminReportResponse,
+    | 'isSuspicious'
+    | 'suspiciousReason'
+    | 'suspiciousFlaggedAt'
+    | 'suspiciousFlaggedByUid'
+    | 'suspiciousFlaggedByEmail'
+    | 'suspiciousFlaggedByRole'
+  >;
+}> => {
+  return db.runTransaction(async (transaction: Transaction) => {
+    const reportRef = db.collection('reports').doc(reportId);
+    const reportSnap = await transaction.get(reportRef);
+
+    if (!reportSnap.exists) {
+      throw new ReportNotFoundError();
+    }
+
+    const report = reportSnap.data() as Report | undefined;
+    if (!report) {
+      throw new ReportNotFoundError();
+    }
+
+    const patch: Partial<Report> = payload.flagged
+      ? {
+        isSuspicious: true,
+        suspiciousReason: payload.reason?.trim() || null,
+        suspiciousFlaggedAt: new Date().toISOString(),
+        suspiciousFlaggedByUid: actor.uid,
+        suspiciousFlaggedByEmail: actor.email ?? null,
+        suspiciousFlaggedByRole: actor.role,
+      }
+      : {
+        isSuspicious: false,
+        suspiciousReason: null,
+        suspiciousFlaggedAt: null,
+        suspiciousFlaggedByUid: null,
+        suspiciousFlaggedByEmail: null,
+        suspiciousFlaggedByRole: null,
+      };
+
+    transaction.update(reportRef, patch);
+
+    return {
+      id: reportId,
+      report: {
+        isSuspicious: payload.flagged,
+        suspiciousReason: patch.suspiciousReason,
+        suspiciousFlaggedAt: patch.suspiciousFlaggedAt,
+        suspiciousFlaggedByUid: patch.suspiciousFlaggedByUid,
+        suspiciousFlaggedByEmail: patch.suspiciousFlaggedByEmail,
+        suspiciousFlaggedByRole: patch.suspiciousFlaggedByRole,
+      },
+    };
+  });
+};
+
 export const listAdminReports = async (
   db: Firestore,
   bucket: Bucket,
@@ -452,6 +530,10 @@ export const listAdminReports = async (
     .sort((a, b) => b.dateReported.localeCompare(a.dateReported));
 
   const filteredReports = allReports.filter((report) => {
+    if (typeof params.flagged === 'boolean' && report.isSuspicious !== params.flagged) {
+      return false;
+    }
+
     if (search.length > 0) {
       const searchableText = [
         report.title,
