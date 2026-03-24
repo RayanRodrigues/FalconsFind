@@ -190,21 +190,18 @@ export class FoundItemsPageComponent implements OnInit, OnDestroy {
     }
   }
 
-  getStatusLabel(status: string): string {
-    return status.replace(/_/g, ' ');
+  isClaimed(status: string | null | undefined): boolean {
+    return (status ?? '').toUpperCase() === 'CLAIMED';
   }
 
-  getStatusClass(status: string): string {
-    const statusClasses: Record<string, string> = {
-      REPORTED: 'bg-info/10 text-info border-info/20',
-      PENDING_VALIDATION: 'bg-warning/20 text-text-primary border-warning/30',
-      VALIDATED: 'bg-success/10 text-success border-success/30',
-      CLAIMED: 'bg-primary/10 text-primary border-primary/30',
-      RETURNED: 'bg-secondary/10 text-secondary border-secondary/30',
-      ARCHIVED: 'bg-border/30 text-text-secondary border-border',
-    };
+  getAvailabilityLabel(status: string | null | undefined): string {
+    return this.isClaimed(status) ? 'Claimed' : 'Available';
+  }
 
-    return statusClasses[status] ?? 'bg-border/30 text-text-secondary border-border';
+  getAvailabilityClass(status: string | null | undefined): string {
+    return this.isClaimed(status)
+      ? 'bg-red-100 text-red-700 border-red-200'
+      : 'bg-green-100 text-green-700 border-green-200';
   }
 
   private sortItems(items: ItemPublicResponse[]): ItemPublicResponse[] {
