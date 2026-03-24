@@ -124,7 +124,7 @@ export const itemsOpenApi: OpenApiModule = {
             schema: {
               type: 'string',
             },
-            description: 'Item document id',
+            description: 'Item id or related report id',
           },
         ],
         responses: {
@@ -134,6 +134,50 @@ export const itemsOpenApi: OpenApiModule = {
               'application/json': {
                 schema: {
                   $ref: '#/components/schemas/ItemDetailsResponse',
+                },
+              },
+            },
+          },
+          400: {
+            ...errorResponseRefs.badRequest,
+          },
+          403: {
+            ...errorResponseRefs.forbidden,
+          },
+          404: {
+            ...errorResponseRefs.notFound,
+          },
+          422: {
+            ...errorResponseRefs.unprocessableEntity,
+          },
+          500: {
+            ...errorResponseRefs.internalServerError,
+          },
+        },
+      },
+    },
+    '/api/v1/items/{id}/status': {
+      get: {
+        tags: ['Items'],
+        summary: 'Get public item availability status by id',
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: {
+              type: 'string',
+            },
+            description: 'Item id or related report id',
+          },
+        ],
+        responses: {
+          200: {
+            description: 'Item status retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ItemStatusResponse',
                 },
               },
             },
@@ -207,18 +251,27 @@ export const itemsOpenApi: OpenApiModule = {
       type: 'string',
       enum: ['REPORTED', 'PENDING_VALIDATION', 'VALIDATED', 'CLAIMED', 'RETURNED', 'ARCHIVED'],
     },
+    PublicItemStatus: {
+      type: 'string',
+      enum: ['VALIDATED', 'CLAIMED'],
+    },
     ClaimStatus: {
       type: 'string',
       enum: ['PENDING', 'NEEDS_PROOF', 'APPROVED', 'REJECTED', 'CANCELLED'],
     },
+    ItemAvailability: {
+      type: 'string',
+      enum: ['AVAILABLE', 'CLAIMED'],
+    },
     ItemPublicResponse: {
       type: 'object',
-      required: ['id', 'title', 'status', 'referenceCode', 'dateReported', 'listedDurationMs'],
+      required: ['id', 'title', 'status', 'availability', 'referenceCode', 'dateReported', 'listedDurationMs'],
       properties: {
         id: { type: 'string', example: 'item-abc123' },
         title: { type: 'string', example: 'Black Backpack' },
         category: { type: 'string', example: 'Accessories' },
-        status: { $ref: '#/components/schemas/ItemStatus' },
+        status: { $ref: '#/components/schemas/PublicItemStatus' },
+        availability: { $ref: '#/components/schemas/ItemAvailability' },
         referenceCode: {
           type: 'string',
           pattern: '^(LST|FND)-\\d{8}-[A-Z0-9]+$',
@@ -272,13 +325,14 @@ export const itemsOpenApi: OpenApiModule = {
     },
     ItemDetailsResponse: {
       type: 'object',
-      required: ['id', 'title', 'status', 'referenceCode', 'dateReported', 'listedDurationMs'],
+      required: ['id', 'title', 'status', 'availability', 'referenceCode', 'dateReported', 'listedDurationMs'],
       properties: {
         id: { type: 'string', example: 'item-abc123' },
         title: { type: 'string', example: 'Black Backpack' },
         category: { type: 'string', example: 'Accessories' },
         description: { type: 'string', example: 'Black backpack with laptop sleeve' },
         status: { $ref: '#/components/schemas/ItemStatus' },
+        availability: { $ref: '#/components/schemas/ItemAvailability' },
         referenceCode: {
           type: 'string',
           pattern: '^(LST|FND)-\\d{8}-[A-Z0-9]+$',
@@ -299,6 +353,16 @@ export const itemsOpenApi: OpenApiModule = {
           items: { type: 'string' },
           example: ['https://storage.googleapis.com/.../image.jpg'],
         },
+        claimStatus: { $ref: '#/components/schemas/ClaimStatus' },
+      },
+    },
+    ItemStatusResponse: {
+      type: 'object',
+      required: ['id', 'status', 'availability'],
+      properties: {
+        id: { type: 'string', example: 'item-abc123' },
+        status: { $ref: '#/components/schemas/PublicItemStatus' },
+        availability: { $ref: '#/components/schemas/ItemAvailability' },
         claimStatus: { $ref: '#/components/schemas/ClaimStatus' },
       },
     },
