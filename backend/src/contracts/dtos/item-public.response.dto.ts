@@ -10,5 +10,6 @@ export type ItemPublicResponse = {
   referenceCode: string;
   location?: string;
   dateReported: string;
+  listedDurationMs: number;
   thumbnailUrl?: string;
 };
