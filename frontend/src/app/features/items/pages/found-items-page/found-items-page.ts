@@ -250,6 +250,13 @@ export class FoundItemsPageComponent implements OnInit, OnDestroy {
     return `${months} month${months === 1 ? '' : 's'} ago`;
   }
 
+  getMapLink(location: string | null | undefined): string | null {
+    const trimmedLocation = location?.trim();
+    if (!trimmedLocation) return null;
+
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(trimmedLocation)}`;
+  }
+
   private sortItems(items: ItemPublicResponse[]): ItemPublicResponse[] {
     return [...items].sort((a, b) => {
       const dateA = new Date(a.dateReported ?? 0).getTime();

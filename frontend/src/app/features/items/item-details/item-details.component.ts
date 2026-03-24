@@ -247,6 +247,13 @@ export class ItemDetailsComponent implements OnInit, OnDestroy {
     return `${months} month${months === 1 ? '' : 's'} ago`;
   }
 
+  getMapLink(location: string | null | undefined): string | null {
+    const trimmedLocation = location?.trim();
+    if (!trimmedLocation) return null;
+
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(trimmedLocation)}`;
+  }
+
   get statusLabel(): string {
     return this.item?.status?.replace(/_/g, ' ') ?? '';
   }

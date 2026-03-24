@@ -112,13 +112,25 @@
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div class="rounded-lg border border-border/60 bg-bg-secondary px-4 py-3">
-              <p class="text-xs uppercase tracking-wide text-text-secondary mb-1">Location</p>
-              <p class="text-text-primary mb-0">{{ item.location || 'Not informed' }}</p>
+              <p class="text-xs uppercase tracking-wide text-text-secondary mb-1">Turn-in location</p>
+              <p class="text-text-primary mb-1">{{ item.location || 'Turn-in location unavailable' }}</p>
+              @if (getMapLink(item.location); as mapLink) {
+                <a
+                  [href]="mapLink"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="inline-flex items-center gap-1 text-sm font-medium text-primary hover:text-secondary transition-colors"
+                >
+                  Open in Maps
+                </a>
+              }
             </div>
+
             <div class="rounded-lg border border-border/60 bg-bg-secondary px-4 py-3">
               <p class="text-xs uppercase tracking-wide text-text-secondary mb-1">Reported at</p>
               <p class="text-text-primary mb-0">{{ item.dateReported | date: 'medium' }}</p>
             </div>
+
             <div class="rounded-lg border border-border/60 bg-bg-secondary px-4 py-3 sm:col-span-2">
               <p class="text-xs uppercase tracking-wide text-text-secondary mb-1">Time listed</p>
               <p class="text-text-primary mb-0">{{ getTimeSinceListed(item.dateReported) }}</p>
