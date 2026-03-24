@@ -14,6 +14,7 @@ import { ItemStatus } from '../contracts/index.js';
 import type {
   ItemDetailsResponse,
   ItemPublicResponse,
+  ItemStatusResponse,
   Report,
   UpdateItemStatusRequest,
   UpdateItemStatusResponse,
@@ -77,6 +78,16 @@ const isVisibleInCurrentEnvironment = (sourceEnv: Report['sourceEnv'] | undefine
 
   return sourceEnv === undefined || sourceEnv === 'production';
 };
+
+const isPublicItemStatus = (status: ItemStatus | undefined): status is ItemStatus.VALIDATED | ItemStatus.CLAIMED => (
+  status === ItemStatus.VALIDATED || status === ItemStatus.CLAIMED
+);
+
+const toItemAvailability = (
+  status: ItemStatus.VALIDATED | ItemStatus.CLAIMED,
+): ItemStatusResponse['availability'] => (
+  status === ItemStatus.CLAIMED ? 'CLAIMED' : 'AVAILABLE'
+);
 
 type ListValidatedItemsParams = {
   page: number;
@@ -294,6 +305,7 @@ const mapItemDetails = async (
     category: source.category,
     description: source.description,
     status: source.status,
+    availability: isPublicItemStatus(source.status) ? toItemAvailability(source.status) : 'AVAILABLE',
     location: source.location,
     referenceCode: source.referenceCode,
     dateReported,
@@ -348,8 +360,15 @@ export const getItemById = async (
 };
 
 export const isItemPubliclyVisible = (item: ItemDetailsResponse): boolean => {
-  return item.status === ItemStatus.VALIDATED;
+  return isPublicItemStatus(item.status);
 };
+
+export const getPublicItemStatus = (item: ItemDetailsResponse): ItemStatusResponse => ({
+  id: item.id,
+  status: isPublicItemStatus(item.status) ? item.status : ItemStatus.VALIDATED,
+  availability: item.availability,
+  claimStatus: item.claimStatus,
+});
 
 export const updateItemStatus = async (
   db: Firestore,
@@ -408,6 +427,7 @@ export const updateItemStatus = async (
   });
 };
 
+// Public item listing now intentionally includes both available and claimed items.
 export const listValidatedItems = async (
   db: Firestore,
   bucket: Bucket,
@@ -423,7 +443,7 @@ export const listValidatedItems = async (
   let baseQuery = db
     .collection('reports')
     .where('kind', '==', 'FOUND')
-    .where('status', '==', 'VALIDATED');
+    .where('status', 'in', [ItemStatus.VALIDATED, ItemStatus.CLAIMED]);
 
   if (params.category) {
     baseQuery = baseQuery.where('category', '==', params.category);
@@ -509,8 +529,7 @@ export const listValidatedItems = async (
       || data.referenceCode.trim().length === 0
       || !dateReported
       || listedDurationMs === null
-      || !data.status
-      || !Object.values(ItemStatus).includes(data.status)
+      || !isPublicItemStatus(data.status)
     ) {
       return null;
     }
@@ -527,6 +546,7 @@ export const listValidatedItems = async (
       title: data.title,
       category: data.category,
       status: data.status,
+      availability: toItemAvailability(data.status),
       referenceCode: data.referenceCode,
       location: data.location,
       dateReported,

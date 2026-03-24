@@ -7,6 +7,7 @@ import { UserRole } from '../contracts/index.js';
 import type {
   ItemDetailsResponse,
   ItemHistoryResponse,
+  ItemStatusResponse,
   UpdateItemStatusRequest,
   UpdateItemStatusResponse,
 } from '../contracts/index.js';
@@ -58,6 +59,7 @@ const itemsServiceModule = (await import(pathToFileURL(servicePath).href)) as {
     payload: UpdateItemStatusRequest,
     actor: { uid: string; email?: string | null; role: 'ADMIN' | 'SECURITY' },
   ) => Promise<UpdateItemStatusResponse>;
+  getPublicItemStatus: (item: ItemDetailsResponse) => ItemStatusResponse;
   listValidatedItems: (
     db: Firestore,
     bucket: Bucket,
@@ -171,6 +173,38 @@ export const createItemsRouter = (
     }
 
     res.json(item);
+  });
+
+  router.get(`${API_PREFIX}/items/:id/status`, async (req, res) => {
+    const itemId = req.params.id?.trim();
+    if (!itemId) {
+      throw new HttpError(400, 'BAD_REQUEST', 'id is required');
+    }
+
+    let item: ItemDetailsResponse | null = null;
+    try {
+      item = await itemsServiceModule.getItemById(db, bucket, redis, itemId);
+    } catch (error) {
+      if (error instanceof itemsServiceModule.InvalidItemDataError) {
+        throw new HttpError(422, 'INVALID_ITEM_DATA', error.message);
+      }
+
+      throw error;
+    }
+
+    if (!item) {
+      throw new HttpError(404, 'NOT_FOUND', 'Item not found');
+    }
+
+    if (!itemsServiceModule.isItemPubliclyVisible(item)) {
+      throw new HttpError(
+        403,
+        'FORBIDDEN',
+        'This item is currently under review by Campus Security.',
+      );
+    }
+
+    res.json(itemsServiceModule.getPublicItemStatus(item));
   });
 
   router.get(`${API_PREFIX}/admin/items/:id/history`, requireStaffUser, async (req, res) => {

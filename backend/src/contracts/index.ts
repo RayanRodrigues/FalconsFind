@@ -30,6 +30,7 @@ export * from './dtos/update-item-status.request.dto.js';
 export * from './dtos/update-item-status.response.dto.js';
 export * from './dtos/item-public.response.dto.js';
 export * from './dtos/item-details.response.dto.js';
+export * from './dtos/item-status.response.dto.js';
 export * from './dtos/item-history.response.dto.js';
 
 export * from './responses/error-response.js';
