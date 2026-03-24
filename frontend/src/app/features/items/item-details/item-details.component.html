@@ -119,6 +119,10 @@
               <p class="text-xs uppercase tracking-wide text-text-secondary mb-1">Reported at</p>
               <p class="text-text-primary mb-0">{{ item.dateReported | date: 'medium' }}</p>
             </div>
+            <div class="rounded-lg border border-border/60 bg-bg-secondary px-4 py-3 sm:col-span-2">
+              <p class="text-xs uppercase tracking-wide text-text-secondary mb-1">Time listed</p>
+              <p class="text-text-primary mb-0">{{ getTimeSinceListed(item.dateReported) }}</p>
+            </div>
           </div>
 
           <div>
