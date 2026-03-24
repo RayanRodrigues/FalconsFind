@@ -209,6 +209,12 @@
                 </svg>
                 <span>{{ item.dateReported | date: 'mediumDate' }}</span>
               </div>
+              <div class="flex items-center gap-1.5">
+                <svg class="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3M12 3a9 9 0 1 0 9 9 9 9 0 0 0-9-9z" />
+                </svg>
+                <span>Listed {{ getTimeSinceListed(item.dateReported) }}</span>
+              </div>
             </div>
 
             @if (isClaimed(item.status)) {
