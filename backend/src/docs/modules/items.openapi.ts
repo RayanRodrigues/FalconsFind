@@ -2,7 +2,7 @@ import type { OpenApiModule } from '../openapi.types.js';
 import { errorResponseRefs } from './common.openapi.js';
 
 export const itemsOpenApi: OpenApiModule = {
-  tags: [{ name: 'Items', description: 'Public item details operations' }],
+  tags: [{ name: 'Items', description: 'Public and admin item operations' }],
   paths: {
     '/api/v1/items': {
       get: {
@@ -245,6 +245,67 @@ export const itemsOpenApi: OpenApiModule = {
         },
       },
     },
+    '/api/v1/admin/items/{id}/status': {
+      patch: {
+        tags: ['Items'],
+        summary: 'Update an item status for operational reality',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: {
+              type: 'string',
+            },
+            description: 'Item or report document id',
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                $ref: '#/components/schemas/UpdateItemStatusRequest',
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: 'Item status updated successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/UpdateItemStatusResponse',
+                },
+              },
+            },
+          },
+          400: {
+            ...errorResponseRefs.badRequest,
+          },
+          401: {
+            ...errorResponseRefs.unauthorized,
+          },
+          403: {
+            ...errorResponseRefs.forbidden,
+          },
+          404: {
+            ...errorResponseRefs.notFound,
+          },
+          409: {
+            ...errorResponseRefs.conflict,
+          },
+          422: {
+            ...errorResponseRefs.unprocessableEntity,
+          },
+          500: {
+            ...errorResponseRefs.internalServerError,
+          },
+        },
+      },
+    },
   },
   schemas: {
     ItemStatus: {
@@ -262,6 +323,30 @@ export const itemsOpenApi: OpenApiModule = {
     ItemAvailability: {
       type: 'string',
       enum: ['AVAILABLE', 'CLAIMED'],
+    },
+    UpdateItemStatusRequest: {
+      type: 'object',
+      required: ['status'],
+      properties: {
+        status: {
+          type: 'string',
+          enum: ['VALIDATED', 'CLAIMED', 'RETURNED', 'ARCHIVED'],
+          example: 'RETURNED',
+        },
+      },
+    },
+    UpdateItemStatusResponse: {
+      type: 'object',
+      required: ['id', 'previousStatus', 'status', 'updatedAt', 'updatedByUid', 'updatedByRole'],
+      properties: {
+        id: { type: 'string', example: 'item-abc123' },
+        previousStatus: { $ref: '#/components/schemas/ItemStatus' },
+        status: { $ref: '#/components/schemas/ItemStatus' },
+        updatedAt: { type: 'string', format: 'date-time' },
+        updatedByUid: { type: 'string', example: 'security-1' },
+        updatedByEmail: { type: 'string', format: 'email', nullable: true, example: 'security@example.com' },
+        updatedByRole: { type: 'string', enum: ['ADMIN', 'SECURITY'], example: 'SECURITY' },
+      },
     },
     ItemPublicResponse: {
       type: 'object',

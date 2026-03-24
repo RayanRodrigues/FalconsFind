@@ -5,7 +5,9 @@ import request from './request-helper.mjs';
 import { createItemsRouter } from '../../dist/src/routes/items.routes.js';
 import { errorHandler, notFoundHandler } from '../../dist/src/middleware/error-handler.js';
 
-const createFakeDb = ({ items = {}, reports = {}, claims = {}, itemHistory = {} } = {}) => {
+const createFakeDb = ({ items = {}, reports = {}, claims = {}, itemHistory = {}, itemStatusHistory = {} } = {}) => {
+  let historyCounter = 0;
+
   const normalizeDoc = (id, source) => ({
     id,
     exists: true,
@@ -41,6 +43,8 @@ const createFakeDb = ({ items = {}, reports = {}, claims = {}, itemHistory = {} 
       if (collectionName === 'items') {
         return {
           doc: (id) => ({
+            id,
+            collectionName,
             get: async () => {
               const source = items[id];
               if (!source) {
@@ -54,7 +58,10 @@ const createFakeDb = ({ items = {}, reports = {}, claims = {}, itemHistory = {} 
             assert.equal(operator, '==');
             const matches = Object.entries(items)
               .filter(([, item]) => item.reportId === value)
-              .map(([id, item]) => normalizeDoc(id, item));
+              .map(([id, item]) => ({
+                ...normalizeDoc(id, item),
+                ref: { id, collectionName: 'items' },
+              }));
 
             return {
               limit: (limitValue) => {
@@ -152,6 +159,8 @@ const createFakeDb = ({ items = {}, reports = {}, claims = {}, itemHistory = {} 
         return {
           where: (field, operator, value) => buildReportsQuery(Object.entries(reports)).where(field, operator, value),
           doc: (id) => ({
+            id,
+            collectionName,
             get: async () => {
               const source = reports[id];
               if (!source) {
@@ -172,6 +181,7 @@ const createFakeDb = ({ items = {}, reports = {}, claims = {}, itemHistory = {} 
           ...buildEqualsQuery(Object.entries(itemHistory), 'itemId'),
           doc: (id) => ({
             id,
+            collectionName,
             set: async (data) => {
               itemHistory[id] = data;
             },
@@ -179,7 +189,57 @@ const createFakeDb = ({ items = {}, reports = {}, claims = {}, itemHistory = {} 
         };
       }
 
+      if (collectionName === 'itemStatusHistory') {
+        return {
+          doc: (id) => {
+            const generatedId = id || `history-${++historyCounter}`;
+            return {
+              id: generatedId,
+              collectionName,
+              set: async (data) => {
+                itemStatusHistory[generatedId] = data;
+              },
+            };
+          },
+        };
+      }
+
       throw new Error(`Unexpected collection: ${collectionName}`);
+    },
+    runTransaction: async (handler) => {
+      const transaction = {
+        get: async (target) => target.get(),
+        update: (ref, patch) => {
+          const store =
+            ref.collectionName === 'items' ? items
+            : ref.collectionName === 'reports' ? reports
+            : null;
+
+          if (!store?.[ref.id]) {
+            throw new Error(`Cannot update missing doc ${ref.collectionName}/${ref.id}`);
+          }
+
+          store[ref.id] = {
+            ...store[ref.id],
+            ...patch,
+          };
+        },
+        set: (ref, data) => {
+          if (ref.collectionName === 'itemStatusHistory') {
+            itemStatusHistory[ref.id] = data;
+            return;
+          }
+
+          if (ref.collectionName === 'itemHistory') {
+            itemHistory[ref.id] = data;
+            return;
+          }
+
+          throw new Error(`Unexpected set target ${ref.collectionName}/${ref.id}`);
+        },
+      };
+
+      return handler(transaction);
     },
   };
 };
@@ -198,11 +258,18 @@ const createFakeBucket = () => ({
   },
 });
 
-const buildTestApp = ({ items = {}, reports = {}, claims = {}, itemHistory = {} } = {}) => {
+const buildTestApp = ({ items = {}, reports = {}, claims = {}, itemHistory = {}, itemStatusHistory = {} } = {}) => {
   const app = express();
   app.use(express.json());
-  app.use(createItemsRouter(createFakeDb({ items, reports, claims, itemHistory }), createFakeBucket(), null, {
-    requireStaffUser: (_req, _res, next) => next(),
+  app.use(createItemsRouter(createFakeDb({ items, reports, claims, itemHistory, itemStatusHistory }), createFakeBucket(), null, {
+    requireStaffUser: (_req, res, next) => {
+      res.locals.authUser = {
+        uid: 'security-1',
+        email: 'security@example.com',
+        role: 'SECURITY',
+      };
+      next();
+    },
   }));
   app.use(notFoundHandler);
   app.use(errorHandler);
@@ -718,7 +785,6 @@ test('GET /api/v1/items/:id returns 422 for malformed item payload', async () =>
       'item-bad-data': {
         title: 'Unstructured item',
         status: 'VALIDATED',
-        // Missing required fields: referenceCode/dateReported
       },
     },
   });
@@ -854,4 +920,142 @@ test('GET /api/v1/admin/items/:id/history returns 404 when no item can be resolv
 
   assert.equal(response.status, 404);
   assert.equal(response.body.error.code, 'NOT_FOUND');
+});
+
+test('PATCH /api/v1/admin/items/:id/status updates a validated item to returned and writes audit metadata', async () => {
+  const itemStatusHistory = {};
+  const app = buildTestApp({
+    items: {
+      'item-admin-1': {
+        title: 'Black backpack',
+        status: 'VALIDATED',
+        referenceCode: 'FND-20260225-ADMIN01',
+        dateReported: '2026-02-25T12:00:00.000Z',
+      },
+    },
+    itemStatusHistory,
+  });
+
+  const response = await request(app)
+    .patch('/api/v1/admin/items/item-admin-1/status')
+    .send({ status: 'RETURNED' });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.id, 'item-admin-1');
+  assert.equal(response.body.previousStatus, 'VALIDATED');
+  assert.equal(response.body.status, 'RETURNED');
+  assert.equal(response.body.updatedByUid, 'security-1');
+  assert.equal(response.body.updatedByEmail, 'security@example.com');
+  assert.equal(response.body.updatedByRole, 'SECURITY');
+  assert.match(response.body.updatedAt, /^\d{4}-\d{2}-\d{2}T/);
+
+  const historyEntries = Object.values(itemStatusHistory);
+  assert.equal(historyEntries.length, 1);
+  assert.equal(historyEntries[0].itemId, 'item-admin-1');
+  assert.equal(historyEntries[0].previousStatus, 'VALIDATED');
+  assert.equal(historyEntries[0].nextStatus, 'RETURNED');
+  assert.equal(historyEntries[0].changedByUid, 'security-1');
+});
+
+test('PATCH /api/v1/admin/items/:id/status updates a legacy report document and records history', async () => {
+  const itemStatusHistory = {};
+  const app = buildTestApp({
+    reports: {
+      'report-admin-1': {
+        kind: 'FOUND',
+        title: 'Wallet',
+        status: 'CLAIMED',
+        referenceCode: 'FND-20260225-ADMIN02',
+        dateReported: '2026-02-25T12:00:00.000Z',
+      },
+    },
+    itemStatusHistory,
+  });
+
+  const response = await request(app)
+    .patch('/api/v1/admin/items/report-admin-1/status')
+    .send({ status: 'RETURNED' });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.id, 'report-admin-1');
+  assert.equal(response.body.previousStatus, 'CLAIMED');
+  assert.equal(response.body.status, 'RETURNED');
+
+  const historyEntries = Object.values(itemStatusHistory);
+  assert.equal(historyEntries.length, 1);
+  assert.equal(historyEntries[0].itemId, 'report-admin-1');
+  assert.equal(historyEntries[0].previousStatus, 'CLAIMED');
+  assert.equal(historyEntries[0].nextStatus, 'RETURNED');
+  assert.equal(historyEntries[0].changedByUid, 'security-1');
+});
+
+test('PATCH /api/v1/admin/items/:id/status returns 409 for an invalid status transition', async () => {
+  const app = buildTestApp({
+    items: {
+      'item-admin-conflict': {
+        title: 'Phone',
+        status: 'RETURNED',
+        referenceCode: 'FND-20260225-ADMIN03',
+        dateReported: '2026-02-25T12:00:00.000Z',
+      },
+    },
+  });
+
+  const response = await request(app)
+    .patch('/api/v1/admin/items/item-admin-conflict/status')
+    .send({ status: 'CLAIMED' });
+
+  assert.equal(response.status, 409);
+  assert.equal(response.body.error.code, 'ITEM_STATUS_CONFLICT');
+});
+
+test('PATCH /api/v1/admin/items/:id/status returns 409 when the status is unchanged', async () => {
+  const app = buildTestApp({
+    items: {
+      'item-admin-same': {
+        title: 'Bottle',
+        status: 'ARCHIVED',
+        referenceCode: 'FND-20260225-ADMIN04',
+        dateReported: '2026-02-25T12:00:00.000Z',
+      },
+    },
+  });
+
+  const response = await request(app)
+    .patch('/api/v1/admin/items/item-admin-same/status')
+    .send({ status: 'ARCHIVED' });
+
+  assert.equal(response.status, 409);
+  assert.equal(response.body.error.code, 'ITEM_STATUS_CONFLICT');
+});
+
+test('PATCH /api/v1/admin/items/:id/status returns 404 when item does not exist', async () => {
+  const app = buildTestApp();
+
+  const response = await request(app)
+    .patch('/api/v1/admin/items/missing-item/status')
+    .send({ status: 'ARCHIVED' });
+
+  assert.equal(response.status, 404);
+  assert.equal(response.body.error.code, 'NOT_FOUND');
+});
+
+test('PATCH /api/v1/admin/items/:id/status returns 400 for unsupported target status', async () => {
+  const app = buildTestApp({
+    items: {
+      'item-admin-invalid': {
+        title: 'Laptop',
+        status: 'VALIDATED',
+        referenceCode: 'FND-20260225-ADMIN05',
+        dateReported: '2026-02-25T12:00:00.000Z',
+      },
+    },
+  });
+
+  const response = await request(app)
+    .patch('/api/v1/admin/items/item-admin-invalid/status')
+    .send({ status: 'PENDING_VALIDATION' });
+
+  assert.equal(response.status, 400);
+  assert.equal(response.body.error.code, 'BAD_REQUEST');
 });

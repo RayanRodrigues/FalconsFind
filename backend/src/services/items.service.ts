@@ -1,8 +1,25 @@
-import type { DocumentData, Firestore, Query, QueryDocumentSnapshot } from 'firebase-admin/firestore';
+import type {
+  DocumentData,
+  DocumentReference,
+  DocumentSnapshot,
+  Firestore,
+  Query,
+  QueryDocumentSnapshot,
+  QuerySnapshot,
+  Transaction,
+} from 'firebase-admin/firestore';
 import type { Bucket } from '@google-cloud/storage';
 import type { RedisClient } from '../bootstrap/redis.js';
 import { ItemStatus } from '../contracts/index.js';
-import type { ItemDetailsResponse, ItemPublicResponse, ItemStatusResponse, Report } from '../contracts/index.js';
+import type {
+  ItemDetailsResponse,
+  ItemPublicResponse,
+  ItemStatusResponse,
+  Report,
+  UpdateItemStatusRequest,
+  UpdateItemStatusResponse,
+} from '../contracts/index.js';
+import { randomUUID } from 'node:crypto';
 import { isProductionApp } from '../utils/app-env.js';
 import { normalizeDateReported } from '../utils/date-normalization.js';
 export { ItemHistoryNotFoundError, getItemHistory } from './item-history.service.js';
@@ -26,6 +43,32 @@ type StoredItem = {
   kind?: Report['kind'];
   contactEmail?: string;
   sourceEnv?: Report['sourceEnv'];
+  updatedAt?: string;
+  statusUpdatedAt?: string;
+  statusUpdatedByUid?: string;
+  statusUpdatedByEmail?: string | null;
+  statusUpdatedByRole?: 'ADMIN' | 'SECURITY';
+};
+
+type ItemStatusUpdateActor = {
+  uid: string;
+  email?: string | null;
+  role: 'ADMIN' | 'SECURITY';
+};
+
+type ItemStatusHistoryRecord = {
+  itemId: string;
+  previousStatus: ItemStatus;
+  nextStatus: ItemStatus;
+  changedAt: string;
+  changedByUid: string;
+  changedByEmail?: string | null;
+  changedByRole: 'ADMIN' | 'SECURITY';
+};
+
+type TransactionReader = {
+  get<T>(ref: DocumentReference<T>): Promise<DocumentSnapshot<T>>;
+  get<T>(query: Query<T>): Promise<QuerySnapshot<T>>;
 };
 
 const isVisibleInCurrentEnvironment = (sourceEnv: Report['sourceEnv'] | undefined): boolean => {
@@ -65,6 +108,65 @@ export class InvalidItemDataError extends Error {
     this.name = 'InvalidItemDataError';
   }
 }
+
+export class ItemNotFoundError extends Error {
+  constructor() {
+    super('Item not found');
+    this.name = 'ItemNotFoundError';
+  }
+}
+
+export class ItemStatusConflictError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ItemStatusConflictError';
+  }
+}
+
+const getFirstExistingItem = async (
+  reader: TransactionReader,
+  db: Firestore,
+  itemId: string,
+): Promise<{ ref: DocumentReference<DocumentData>; data: StoredItem }> => {
+  const directItemRef = db.collection('items').doc(itemId);
+  const directItemSnap = await reader.get(directItemRef);
+  if (directItemSnap.exists) {
+    return {
+      ref: directItemRef,
+      data: (directItemSnap.data() as StoredItem | undefined) ?? {},
+    };
+  }
+
+  const byReportIdQuery = db.collection('items').where('reportId', '==', itemId).limit(1);
+  const byReportIdSnap = await reader.get(byReportIdQuery);
+  if (!byReportIdSnap.empty) {
+    const matchedRef = byReportIdSnap.docs[0].ref as DocumentReference<DocumentData>;
+    return {
+      ref: matchedRef,
+      data: (byReportIdSnap.docs[0].data() as StoredItem | undefined) ?? {},
+    };
+  }
+
+  const legacyReportRef = db.collection('reports').doc(itemId);
+  const legacyReportSnap = await reader.get(legacyReportRef);
+  if (legacyReportSnap.exists) {
+    return {
+      ref: legacyReportRef,
+      data: (legacyReportSnap.data() as StoredItem | undefined) ?? {},
+    };
+  }
+
+  throw new ItemNotFoundError();
+};
+
+const allowedStatusTransitions: Record<ItemStatus, ItemStatus[]> = {
+  [ItemStatus.REPORTED]: [ItemStatus.VALIDATED, ItemStatus.ARCHIVED],
+  [ItemStatus.PENDING_VALIDATION]: [ItemStatus.VALIDATED, ItemStatus.ARCHIVED],
+  [ItemStatus.VALIDATED]: [ItemStatus.CLAIMED, ItemStatus.RETURNED, ItemStatus.ARCHIVED],
+  [ItemStatus.CLAIMED]: [ItemStatus.RETURNED, ItemStatus.ARCHIVED],
+  [ItemStatus.RETURNED]: [ItemStatus.ARCHIVED],
+  [ItemStatus.ARCHIVED]: [],
+};
 
 const parseGsUrl = (value: string): { bucketName: string; filePath: string } | null => {
   if (!value.startsWith('gs://')) {
@@ -267,6 +369,63 @@ export const getPublicItemStatus = (item: ItemDetailsResponse): ItemStatusRespon
   availability: item.availability,
   claimStatus: item.claimStatus,
 });
+
+export const updateItemStatus = async (
+  db: Firestore,
+  itemId: string,
+  payload: UpdateItemStatusRequest,
+  actor: ItemStatusUpdateActor,
+): Promise<UpdateItemStatusResponse> => {
+  return db.runTransaction(async (transaction: Transaction) => {
+    const { ref, data } = await getFirstExistingItem(transaction, db, itemId);
+    const currentStatus = data.status;
+
+    if (!currentStatus || !Object.values(ItemStatus).includes(currentStatus)) {
+      throw new InvalidItemDataError();
+    }
+
+    if (currentStatus === payload.status) {
+      throw new ItemStatusConflictError(`Item is already in status ${payload.status}.`);
+    }
+
+    if (!allowedStatusTransitions[currentStatus].includes(payload.status)) {
+      throw new ItemStatusConflictError(`Cannot change item status from ${currentStatus} to ${payload.status}.`);
+    }
+
+    const updatedAt = new Date().toISOString();
+    const patch: Partial<StoredItem> = {
+      status: payload.status,
+      updatedAt,
+      statusUpdatedAt: updatedAt,
+      statusUpdatedByUid: actor.uid,
+      statusUpdatedByEmail: actor.email ?? null,
+      statusUpdatedByRole: actor.role,
+    };
+
+    transaction.update(ref, patch);
+
+    const historyRef = db.collection('itemStatusHistory').doc(randomUUID());
+    transaction.set(historyRef, {
+      itemId: ref.id,
+      previousStatus: currentStatus,
+      nextStatus: payload.status,
+      changedAt: updatedAt,
+      changedByUid: actor.uid,
+      changedByEmail: actor.email ?? null,
+      changedByRole: actor.role,
+    } satisfies ItemStatusHistoryRecord);
+
+    return {
+      id: ref.id,
+      previousStatus: currentStatus,
+      status: payload.status,
+      updatedAt,
+      updatedByUid: actor.uid,
+      updatedByEmail: actor.email ?? null,
+      updatedByRole: actor.role,
+    };
+  });
+};
 
 // Public item listing now intentionally includes both available and claimed items.
 export const listValidatedItems = async (
