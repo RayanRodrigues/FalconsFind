@@ -219,6 +219,7 @@ const mapAdminReport = async (
     referenceCode: source.referenceCode,
     location: source.location,
     dateReported,
+    archivedAt: source.archivedAt ?? null,
     contactEmail: source.contactEmail,
     photoUrl: photoUrls?.[0],
     photoUrls,
