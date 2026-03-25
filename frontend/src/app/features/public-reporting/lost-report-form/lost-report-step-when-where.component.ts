@@ -27,18 +27,39 @@ import { SelectComponent } from '../../../shared/components/forms/select.compone
     <div class="space-y-4">
       <h3 class="text-lg font-semibold text-text-primary">When and Where</h3>
 
-      <app-form-field id="location" label="Location" [required]="true" [error]="getFieldError('location')">
+      <app-form-field
+        id="locationOption"
+        label="Location"
+        [required]="true"
+        [error]="getLocationError()"
+      >
         <app-select
-          id="location"
-          formControlName="location"
+          id="locationOption"
+          formControlName="locationOption"
           placeholder="Select a location"
-          [invalid]="isFieldInvalid('location')"
+          [invalid]="isLocationInvalid()"
         >
           @for (location of locations; track location) {
             <option [value]="location">{{ location }}</option>
           }
         </app-select>
       </app-form-field>
+
+      <div *ngIf="form.get('locationOption')?.value === 'Other'">
+        <app-form-field
+          id="locationCustom"
+          label="Enter Location"
+          [required]="true"
+          [error]="getLocationError()"
+        >
+          <app-input
+            id="locationCustom"
+            formControlName="locationCustom"
+            placeholder="e.g., Building B, Room 204"
+            [invalid]="isLocationInvalid()"
+          />
+        </app-form-field>
+      </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <app-form-field id="date" label="Date Lost" [required]="true" [error]="getFieldError('date')">
@@ -75,6 +96,8 @@ export class LostReportStepWhenWhereComponent {
   @Input({ required: true }) photoPreviewUrls: string[] = [];
   @Input({ required: true }) getFieldError!: (fieldName: string) => string | null;
   @Input({ required: true }) isFieldInvalid!: (fieldName: string) => boolean;
+  @Input({ required: true }) getLocationError!: () => string | null;
+  @Input({ required: true }) isLocationInvalid!: () => boolean;
   @Input({ required: true }) onPhotosSelected!: (files: File[]) => void;
   @Input({ required: true }) onRemovePhoto!: (index: number) => void;
 }

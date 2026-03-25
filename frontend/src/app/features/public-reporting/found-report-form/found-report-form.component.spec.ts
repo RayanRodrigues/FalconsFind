@@ -14,7 +14,7 @@ describe('FoundReportFormComponent', () => {
   beforeEach(async () => {
     reportService = {
       createFoundReport: vi.fn().mockReturnValue(
-      of({ id: 'report-1', referenceCode: 'FND-20260225-ABC12345' }),
+        of({ id: 'report-1', referenceCode: 'FND-20260225-ABC12345' }),
       ),
     };
 
@@ -33,7 +33,7 @@ describe('FoundReportFormComponent', () => {
     fixture.detectChanges();
   });
 
-  it('submits found report with multipart payload', () => {
+  it('submits found report with multipart payload using dropdown location', () => {
     const photo = new File(['photo-bytes'], 'wallet.jpg', {
       type: 'image/jpeg',
       lastModified: 1,
@@ -43,7 +43,7 @@ describe('FoundReportFormComponent', () => {
       title: 'Found wallet',
       category: 'Wallets & Purses',
       description: 'Brown leather wallet with documents',
-      foundLocation: 'Library',
+      foundLocationOption: 'Library',
       foundDate: '2026-02-20',
       foundTime: '10:30',
       contactEmail: 'finder@example.com',
@@ -62,6 +62,35 @@ describe('FoundReportFormComponent', () => {
     expect(payload.get('description')).toBe('Brown leather wallet with documents');
     expect(payload.get('contactEmail')).toBe('finder@example.com');
     expect(payload.get('photo')).toBe(photo);
+    expect(component.submitSuccess).toBe(true);
+    expect(component.referenceCode).toBe('FND-20260225-ABC12345');
+  });
+
+  it('submits found report with multipart payload using manual location', () => {
+    const photo = new File(['photo-bytes'], 'wallet.jpg', {
+      type: 'image/jpeg',
+      lastModified: 1,
+    });
+
+    component.foundForm.patchValue({
+      title: 'Found wallet',
+      category: 'Wallets & Purses',
+      description: 'Brown leather wallet with documents',
+      foundLocationOption: 'Other',
+      foundLocationCustom: 'Building B, Room 204',
+      foundDate: '2026-02-20',
+      foundTime: '10:30',
+      contactEmail: 'finder@example.com',
+      photos: [photo],
+    });
+
+    component.onSubmit();
+
+    const createFoundReportMock = reportService.createFoundReport as ReturnType<typeof vi.fn>;
+    expect(createFoundReportMock).toHaveBeenCalledTimes(1);
+    const payload = createFoundReportMock.mock.calls[0][0] as FormData;
+
+    expect(payload.get('foundLocation')).toBe('Building B, Room 204');
     expect(component.submitSuccess).toBe(true);
     expect(component.referenceCode).toBe('FND-20260225-ABC12345');
   });

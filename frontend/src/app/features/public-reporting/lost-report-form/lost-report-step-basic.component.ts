@@ -37,18 +37,39 @@ import { TextareaComponent } from '../../../shared/components/forms/textarea.com
         <span hint class="text-xs text-text-secondary">Be specific but concise (5-100 characters)</span>
       </app-form-field>
 
-      <app-form-field id="category" label="Category" [required]="true" [error]="getFieldError('category')">
+      <app-form-field
+        id="categoryOption"
+        label="Category"
+        [required]="true"
+        [error]="getCategoryError()"
+      >
         <app-select
-          id="category"
-          formControlName="category"
+          id="categoryOption"
+          formControlName="categoryOption"
           placeholder="Select a category"
-          [invalid]="isFieldInvalid('category')"
+          [invalid]="isCategoryInvalid()"
         >
           @for (category of categories; track category) {
             <option [value]="category">{{ category }}</option>
           }
         </app-select>
       </app-form-field>
+
+      <div *ngIf="form.get('categoryOption')?.value === 'Other'">
+        <app-form-field
+          id="categoryCustom"
+          label="Enter Category"
+          [required]="true"
+          [error]="getCategoryError()"
+        >
+          <app-input
+            id="categoryCustom"
+            formControlName="categoryCustom"
+            placeholder="e.g., Lab equipment"
+            [invalid]="isCategoryInvalid()"
+          />
+        </app-form-field>
+      </div>
 
       <app-form-field id="description" label="Description" [required]="true" [error]="getFieldError('description')">
         <app-textarea
@@ -70,4 +91,6 @@ export class LostReportStepBasicComponent {
   @Input({ required: true }) categories!: string[];
   @Input({ required: true }) getFieldError!: (fieldName: string) => string | null;
   @Input({ required: true }) isFieldInvalid!: (fieldName: string) => boolean;
+  @Input({ required: true }) getCategoryError!: () => string | null;
+  @Input({ required: true }) isCategoryInvalid!: () => boolean;
 }
