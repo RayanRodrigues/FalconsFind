@@ -94,6 +94,7 @@ export class FoundItemsPageComponent implements OnInit, OnDestroy {
         category: this.categoryFilter,
         location: this.locationFilter,
         dateFrom: this.dateFilter,
+        includeArchived: false,
       })
       .pipe(
         timeout(8000),
@@ -104,8 +105,10 @@ export class FoundItemsPageComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: (response: ItemsListResponse) => {
-          this.items = this.sortItems(response.items);
-          this.total = response.total;
+          const activeItems = (response.items ?? []).filter((item) => !this.isArchived(item));
+
+          this.items = this.sortItems(activeItems);
+          this.total = activeItems.length;
           this.page = response.page;
           this.limit = response.limit;
           this.totalPages = response.totalPages;
@@ -192,6 +195,10 @@ export class FoundItemsPageComponent implements OnInit, OnDestroy {
 
   isClaimed(status: string | null | undefined): boolean {
     return (status ?? '').toUpperCase() === 'CLAIMED';
+  }
+
+  isArchived(item: ItemPublicResponse): boolean {
+    return (item.status ?? '').toUpperCase() === 'ARCHIVED';
   }
 
   getAvailabilityLabel(status: string | null | undefined): string {
