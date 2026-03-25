@@ -253,7 +253,9 @@ const getStatusSyncTargets = async (
   return {
     primaryRef: ref,
     primaryData: data,
-    targetRefs: targetRefs.filter((targetRef, index, refs) => refs.findIndex((value) => value.id === targetRef.id) === index),
+    targetRefs: targetRefs.filter(
+      (targetRef, index, refs) => refs.findIndex((value) => value.path === targetRef.path) === index,
+    ),
     canonicalItemId,
     referenceCode,
   };
@@ -547,7 +549,7 @@ export const updateItemStatus = async (
       await recordArchivedHistory(
         db,
         canonicalItemId,
-        canonicalItemId,
+        primaryRef.id,
         currentStatus,
         updatedAt,
         actor,
