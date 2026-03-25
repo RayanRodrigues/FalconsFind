@@ -84,6 +84,12 @@ type ItemsRouterOptions = {
   requireStaffUser?: RequestHandler;
 };
 
+const getItemVisibilityMessage = (item: ItemDetailsResponse): string => (
+  item.status === 'ARCHIVED'
+    ? 'This item has been archived and is no longer in active listings.'
+    : 'This item is currently under review by Campus Security.'
+);
+
 export const createItemsRouter = (
   db: Firestore,
   bucket: Bucket,
@@ -168,7 +174,7 @@ export const createItemsRouter = (
       throw new HttpError(
         403,
         'FORBIDDEN',
-        'This item is currently under review by Campus Security.',
+        getItemVisibilityMessage(item),
       );
     }
 
@@ -200,7 +206,7 @@ export const createItemsRouter = (
       throw new HttpError(
         403,
         'FORBIDDEN',
-        'This item is currently under review by Campus Security.',
+        getItemVisibilityMessage(item),
       );
     }
 

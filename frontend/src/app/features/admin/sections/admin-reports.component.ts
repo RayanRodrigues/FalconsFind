@@ -16,6 +16,7 @@ type AdminReport = {
   contactEmail?: string;
   photoUrl?: string;
   photoUrls?: string[];
+  archivedAt?: string | null;
 };
 
 type AdminReportsResponse = {
@@ -28,6 +29,8 @@ type AdminReportsResponse = {
     byStatus: Record<string, number>;
   };
 };
+
+type ViewFilter = 'active' | 'archived' | 'all';
 
 @Component({
   selector: 'app-admin-reports',
@@ -42,53 +45,87 @@ export class AdminReportsComponent implements OnInit {
   readonly activeRowId = signal<string | null>(null);
   readonly selectedItem = signal<AdminReport | null>(null);
   readonly selectedPhotoIndex = signal(0);
+
   allItems: AdminReport[] = [];
   filteredItems: AdminReport[] = [];
+
   searchTerm = '';
   statusFilter = 'all';
+  viewFilter: ViewFilter = 'active';
+
+  constructor(
+    private readonly http: HttpClient,
+    @Inject(PLATFORM_ID) private readonly platformId: object,
+  ) {}
 
   get stats() {
+    const visibleItems = this.getViewFilteredItems();
+
     const countByStatus = (statuses: string[]) =>
-      this.allItems.filter(i => statuses.includes((i.status || '').toLowerCase())).length;
+      visibleItems.filter((item) => statuses.includes(this.normalizeStatus(item.status))).length;
 
     return {
-      total: this.allItems.length,
+      total: visibleItems.length,
       pending: countByStatus(['pending_validation', 'pending']),
       validated: countByStatus(['validated', 'approved']),
       rejected: countByStatus(['rejected']),
+      archived: visibleItems.filter((item) => this.isArchived(item)).length,
     };
   }
 
-  constructor(private http: HttpClient, @Inject(PLATFORM_ID) private platformId: Object) {}
-
   ngOnInit(): void {
-    if (isPlatformBrowser(this.platformId)) this.load();
-    else this.loading.set(false);
+    if (isPlatformBrowser(this.platformId)) {
+      this.load();
+      return;
+    }
+
+    this.loading.set(false);
   }
 
   load(): void {
     this.loading.set(true);
     this.error.set('');
     this.actionMessage.set('');
+
     this.http.get<AdminReportsResponse>('/admin/reports?page=1&limit=100&kind=FOUND').subscribe({
       next: (res) => {
-        this.allItems = (res.reports ?? []).map(i => ({ ...i, status: (i.status || 'pending_validation').toLowerCase() }));
+        this.allItems = (res.reports ?? []).map((item) => ({
+          ...item,
+          status: this.normalizeStatus(item.status || 'pending_validation'),
+        }));
         this.applyFilters();
         this.loading.set(false);
       },
-      error: () => { this.error.set('Failed to load reports.'); this.loading.set(false); }
+      error: () => {
+        this.error.set('Failed to load reports.');
+        this.loading.set(false);
+      },
     });
+  }
+
+  setViewFilter(filter: ViewFilter): void {
+    this.viewFilter = filter;
+    this.applyFilters();
   }
 
   applyFilters(): void {
     const kw = this.searchTerm.trim().toLowerCase();
-    this.filteredItems = this.allItems.filter(i => {
-      const name = (i.title || '').toLowerCase();
-      const loc = (i.location || '').toLowerCase();
-      const status = (i.status || '').toLowerCase();
-      const ref = (i.referenceCode || '').toLowerCase();
-      const kwMatch = !kw || name.includes(kw) || loc.includes(kw) || status.includes(kw) || ref.includes(kw);
+
+    this.filteredItems = this.getViewFilteredItems().filter((item) => {
+      const name = (item.title || '').toLowerCase();
+      const loc = (item.location || '').toLowerCase();
+      const status = this.normalizeStatus(item.status);
+      const ref = (item.referenceCode || '').toLowerCase();
+
+      const kwMatch =
+        !kw ||
+        name.includes(kw) ||
+        loc.includes(kw) ||
+        status.includes(kw) ||
+        ref.includes(kw);
+
       const statusMatch = this.statusFilter === 'all' || status === this.statusFilter;
+
       return kwMatch && statusMatch;
     });
   }
@@ -98,6 +135,7 @@ export class AdminReportsComponent implements OnInit {
 
     this.activeRowId.set(id);
     this.actionMessage.set('');
+
     this.http.patch(`/reports/found/${id}/validate`, {}).subscribe({
       next: () => {
         this.closeDetails();
@@ -107,7 +145,7 @@ export class AdminReportsComponent implements OnInit {
       error: () => {
         this.error.set('Failed to validate the found item.');
         this.activeRowId.set(null);
-      }
+      },
     });
   }
 
@@ -117,7 +155,8 @@ export class AdminReportsComponent implements OnInit {
       return;
     }
 
-    navigator.clipboard.writeText(referenceCode)
+    navigator.clipboard
+      .writeText(referenceCode)
       .then(() => this.actionMessage.set(`Copied ${referenceCode}.`))
       .catch(() => this.actionMessage.set(`Reference code: ${referenceCode}`));
   }
@@ -130,7 +169,8 @@ export class AdminReportsComponent implements OnInit {
       return;
     }
 
-    navigator.clipboard.writeText(email)
+    navigator.clipboard
+      .writeText(email)
       .then(() => this.actionMessage.set(`Copied ${email}.`))
       .catch(() => this.actionMessage.set(`Contact email: ${email}`));
   }
@@ -151,6 +191,8 @@ export class AdminReportsComponent implements OnInit {
   }
 
   statusClass(status?: string): string {
+    const normalized = this.normalizeStatus(status);
+
     const map: Record<string, string> = {
       pending: 'bg-warning/15 text-warning border-warning/30',
       pending_validation: 'bg-warning/15 text-warning border-warning/30',
@@ -158,17 +200,45 @@ export class AdminReportsComponent implements OnInit {
       validated: 'bg-success/10 text-success border-success/30',
       rejected: 'bg-error/10 text-error border-error/30',
       claimed: 'bg-info/10 text-info border-info/30',
+      archived: 'bg-slate-100 text-slate-700 border-slate-300',
     };
-    return map[status ?? ''] ?? 'bg-border/20 text-text-secondary border-border';
+
+    return map[normalized] ?? 'bg-border/20 text-text-secondary border-border';
   }
 
   statusLabel(status?: string): string {
-    if (status === 'pending_validation') return 'pending';
-    return status || 'unknown';
+    const normalized = this.normalizeStatus(status);
+
+    switch (normalized) {
+      case 'pending_validation':
+        return 'Pending';
+      case 'validated':
+        return 'Validated';
+      case 'approved':
+        return 'Validated';
+      case 'claimed':
+        return 'Claimed';
+      case 'rejected':
+        return 'Rejected';
+      case 'archived':
+        return 'Archived';
+      default:
+        return normalized || 'Unknown';
+    }
+  }
+
+  isArchived(item: AdminReport): boolean {
+    return this.normalizeStatus(item.status) === 'archived';
+  }
+
+  rowClass(item: AdminReport): string {
+    return this.isArchived(item)
+      ? 'border-b border-border/40 bg-slate-50/70 hover:bg-slate-100/70 transition-colors'
+      : 'border-b border-border/40 hover:bg-neutral-base/50 transition-colors';
   }
 
   canValidate(item: AdminReport): boolean {
-    return item.kind === 'FOUND' && item.status === 'pending_validation';
+    return item.kind === 'FOUND' && this.normalizeStatus(item.status) === 'pending_validation';
   }
 
   canOpenPhoto(item: AdminReport): boolean {
@@ -179,7 +249,12 @@ export class AdminReportsComponent implements OnInit {
     const urls = [
       ...(Array.isArray(item.photoUrls) ? item.photoUrls : []),
       ...(item.photoUrl ? [item.photoUrl] : []),
-    ].filter((value, index, all) => typeof value === 'string' && value.trim().length > 0 && all.indexOf(value) === index);
+    ].filter(
+      (value, index, all) =>
+        typeof value === 'string' &&
+        value.trim().length > 0 &&
+        all.indexOf(value) === index,
+    );
 
     return urls;
   }
@@ -190,12 +265,30 @@ export class AdminReportsComponent implements OnInit {
       return null;
     }
 
-    return urls[this.selectedPhotoIndex()] ?? urls[0] ?? null;
+    return urls[this.selectedPhotoIndex()] ?? urls[0];
   }
 
   selectPhoto(index: number): void {
     this.selectedPhotoIndex.set(index);
   }
 
-  trackById(_: number, item: AdminReport): string { return item.id; }
+  trackById(_index: number, item: AdminReport): string {
+    return item.id;
+  }
+
+  private getViewFilteredItems(): AdminReport[] {
+    if (this.viewFilter === 'archived') {
+      return this.allItems.filter((item) => this.isArchived(item));
+    }
+
+    if (this.viewFilter === 'all') {
+      return [...this.allItems];
+    }
+
+    return this.allItems.filter((item) => !this.isArchived(item));
+  }
+
+  private normalizeStatus(status?: string): string {
+    return (status || '').trim().toLowerCase();
+  }
 }

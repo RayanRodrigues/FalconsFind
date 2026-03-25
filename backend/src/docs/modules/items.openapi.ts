@@ -505,6 +505,7 @@ export const itemsOpenApi: OpenApiModule = {
             'REPORT_UPDATED',
             'REPORT_VALIDATED',
             'REPORT_MERGED',
+            'ITEM_ARCHIVED',
             'CLAIM_CREATED',
             'CLAIM_UPDATED',
             'CLAIM_PROOF_REQUESTED',
