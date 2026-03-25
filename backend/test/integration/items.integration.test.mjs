@@ -108,6 +108,9 @@ const createFakeDb = ({ items = {}, reports = {}, claims = {}, itemHistory = {},
 
               return buildReportsQuery(filtered);
             },
+            get: async () => ({
+              docs: entries.map(([id, data]) => normalizeDoc(id, data)),
+            }),
             count: () => ({
               get: async () => ({
                 data: () => ({ count: entries.length }),
@@ -698,6 +701,29 @@ test('GET /api/v1/items/:id returns 403 when item exists but is not public', asy
   );
 });
 
+test('GET /api/v1/items/:id returns an archived message when the item is archived', async () => {
+  const app = buildTestApp({
+    items: {
+      'item-archived': {
+        title: 'Headphones',
+        status: 'ARCHIVED',
+        referenceCode: 'FND-20260225-ARCHIVE1',
+        dateReported: '2026-02-25T15:00:00.000Z',
+        archivedAt: '2026-03-30T15:00:00.000Z',
+      },
+    },
+  });
+
+  const response = await request(app).get('/api/v1/items/item-archived');
+
+  assert.equal(response.status, 403);
+  assert.equal(response.body.error.code, 'FORBIDDEN');
+  assert.equal(
+    response.body.error.message,
+    'This item has been archived and is no longer in active listings.',
+  );
+});
+
 test('GET /api/v1/items/:id/status returns public availability for a claimed item', async () => {
   const app = buildTestApp({
     items: {
@@ -1058,4 +1084,50 @@ test('PATCH /api/v1/admin/items/:id/status returns 400 for unsupported target st
 
   assert.equal(response.status, 400);
   assert.equal(response.body.error.code, 'BAD_REQUEST');
+});
+
+test('PATCH /api/v1/admin/items/:id/status archives linked item/report records and logs item history', async () => {
+  const itemStatusHistory = {};
+  const itemHistory = {};
+  const app = buildTestApp({
+    items: {
+      'item-linked-1': {
+        reportId: 'report-linked-1',
+        title: 'Umbrella',
+        status: 'VALIDATED',
+        referenceCode: 'FND-20260225-LINK0001',
+        dateReported: '2026-02-25T12:00:00.000Z',
+      },
+    },
+    reports: {
+      'report-linked-1': {
+        kind: 'FOUND',
+        title: 'Umbrella',
+        status: 'VALIDATED',
+        referenceCode: 'FND-20260225-LINK0001',
+        dateReported: '2026-02-25T12:00:00.000Z',
+      },
+    },
+    itemHistory,
+    itemStatusHistory,
+  });
+
+  const response = await request(app)
+    .patch('/api/v1/admin/items/item-linked-1/status')
+    .send({ status: 'ARCHIVED' });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.id, 'item-linked-1');
+  assert.equal(response.body.status, 'ARCHIVED');
+
+  const statusEntries = Object.values(itemStatusHistory);
+  assert.equal(statusEntries.length, 1);
+  assert.equal(statusEntries[0].nextStatus, 'ARCHIVED');
+  assert.equal(statusEntries[0].itemId, 'item-linked-1');
+
+  const historyEntries = Object.values(itemHistory);
+  assert.equal(historyEntries.length, 1);
+  assert.equal(historyEntries[0].itemId, 'report-linked-1');
+  assert.equal(historyEntries[0].actionType, 'ITEM_ARCHIVED');
+  assert.equal(historyEntries[0].summary, 'Item archived by staff.');
 });

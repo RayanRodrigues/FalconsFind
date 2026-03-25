@@ -11,6 +11,7 @@ export type AdminReportResponse = {
   referenceCode: string;
   location?: string;
   dateReported: string;
+  archivedAt?: string | null;
   contactEmail?: string;
   photoUrl?: string;
   photoUrls?: string[];

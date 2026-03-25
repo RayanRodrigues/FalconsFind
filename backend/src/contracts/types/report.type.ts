@@ -18,6 +18,7 @@ export type Report = {
   contactEmail?: string;
   photoUrl?: string;
   sourceEnv?: ReportSourceEnv;
+  archivedAt?: string | null;
   isSuspicious?: boolean;
   suspiciousReason?: string | null;
   suspiciousFlaggedByUid?: string | null;

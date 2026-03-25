@@ -22,6 +22,7 @@ import type {
 import { randomUUID } from 'node:crypto';
 import { isProductionApp } from '../utils/app-env.js';
 import { normalizeDateReported } from '../utils/date-normalization.js';
+import { recordItemHistoryEvent } from './item-history.service.js';
 export { ItemHistoryNotFoundError, getItemHistory } from './item-history.service.js';
 
 // Cache signed URLs for 50 min; the URL itself is valid for 60 min (10 min buffer)
@@ -43,11 +44,12 @@ type StoredItem = {
   kind?: Report['kind'];
   contactEmail?: string;
   sourceEnv?: Report['sourceEnv'];
+  archivedAt?: string | null;
   updatedAt?: string;
   statusUpdatedAt?: string;
   statusUpdatedByUid?: string;
   statusUpdatedByEmail?: string | null;
-  statusUpdatedByRole?: 'ADMIN' | 'SECURITY';
+  statusUpdatedByRole?: 'ADMIN' | 'SECURITY' | 'SYSTEM';
 };
 
 type ItemStatusUpdateActor = {
@@ -56,14 +58,23 @@ type ItemStatusUpdateActor = {
   role: 'ADMIN' | 'SECURITY';
 };
 
+type ItemAutomationActor = {
+  type: 'SYSTEM';
+  uid?: string;
+  email?: string | null;
+  role?: 'SYSTEM';
+};
+
+type StatusChangeActor = ItemStatusUpdateActor | ItemAutomationActor;
+
 type ItemStatusHistoryRecord = {
   itemId: string;
   previousStatus: ItemStatus;
   nextStatus: ItemStatus;
   changedAt: string;
-  changedByUid: string;
+  changedByUid?: string;
   changedByEmail?: string | null;
-  changedByRole: 'ADMIN' | 'SECURITY';
+  changedByRole?: 'ADMIN' | 'SECURITY' | 'SYSTEM';
 };
 
 type TransactionReader = {
@@ -77,6 +88,15 @@ const isVisibleInCurrentEnvironment = (sourceEnv: Report['sourceEnv'] | undefine
   }
 
   return sourceEnv === undefined || sourceEnv === 'production';
+};
+
+const getRefCollectionName = (ref: DocumentReference<DocumentData>): string => {
+  const parentId = (ref.parent as { id?: string } | undefined)?.id;
+  if (typeof parentId === 'string') {
+    return parentId;
+  }
+
+  return (ref as { collectionName?: string }).collectionName ?? '';
 };
 
 const isPublicItemStatus = (status: ItemStatus | undefined): status is ItemStatus.VALIDATED | ItemStatus.CLAIMED => (
@@ -166,6 +186,120 @@ const allowedStatusTransitions: Record<ItemStatus, ItemStatus[]> = {
   [ItemStatus.CLAIMED]: [ItemStatus.RETURNED, ItemStatus.ARCHIVED],
   [ItemStatus.RETURNED]: [ItemStatus.ARCHIVED],
   [ItemStatus.ARCHIVED]: [],
+};
+
+const createStatusPatch = (
+  nextStatus: ItemStatus,
+  updatedAt: string,
+  actor: StatusChangeActor,
+): Partial<StoredItem> => {
+  const patch: Partial<StoredItem> = {
+    status: nextStatus,
+    updatedAt,
+    statusUpdatedAt: updatedAt,
+    statusUpdatedByEmail: actor.email ?? null,
+  };
+
+  if (nextStatus === ItemStatus.ARCHIVED) {
+    patch.archivedAt = updatedAt;
+  }
+
+  if (actor.uid) {
+    patch.statusUpdatedByUid = actor.uid;
+  }
+
+  if (actor.role) {
+    patch.statusUpdatedByRole = actor.role;
+  }
+
+  return patch;
+};
+
+const getStatusSyncTargets = async (
+  reader: TransactionReader,
+  db: Firestore,
+  itemId: string,
+): Promise<{
+  primaryRef: DocumentReference<DocumentData>;
+  primaryData: StoredItem;
+  targetRefs: Array<DocumentReference<DocumentData>>;
+  canonicalItemId: string;
+  referenceCode?: string;
+}> => {
+  const { ref, data } = await getFirstExistingItem(reader, db, itemId);
+  const targetRefs: Array<DocumentReference<DocumentData>> = [ref];
+  let canonicalItemId = ref.id;
+  let referenceCode = data.referenceCode;
+
+  if (getRefCollectionName(ref) === 'items') {
+    const reportId = data.reportId?.trim();
+    if (reportId) {
+      canonicalItemId = reportId;
+      const reportRef = db.collection('reports').doc(reportId);
+      const reportSnap = await reader.get(reportRef);
+      if (reportSnap.exists) {
+        const reportData = (reportSnap.data() as StoredItem | undefined) ?? {};
+        referenceCode ??= reportData.referenceCode;
+        targetRefs.push(reportRef);
+      }
+    }
+  } else if (getRefCollectionName(ref) === 'reports') {
+    const linkedItemsSnap = await reader.get(db.collection('items').where('reportId', '==', ref.id).limit(1));
+    if (!linkedItemsSnap.empty) {
+      targetRefs.push(linkedItemsSnap.docs[0].ref as DocumentReference<DocumentData>);
+    }
+  }
+
+  return {
+    primaryRef: ref,
+    primaryData: data,
+    targetRefs: targetRefs.filter((targetRef, index, refs) => refs.findIndex((value) => value.id === targetRef.id) === index),
+    canonicalItemId,
+    referenceCode,
+  };
+};
+
+const recordArchivedHistory = async (
+  db: Firestore,
+  canonicalItemId: string,
+  entityId: string,
+  previousStatus: ItemStatus,
+  archivedAt: string,
+  actor: StatusChangeActor,
+  referenceCode?: string,
+  options: { transaction?: Transaction; summary?: string; automatic?: boolean } = {},
+): Promise<void> => {
+  const historyActor =
+    actor.role === 'SYSTEM'
+      ? { type: 'SYSTEM' as const }
+      : actor.role === 'ADMIN' || actor.role === 'SECURITY'
+        ? {
+          type: actor.role,
+          uid: actor.uid,
+          email: actor.email ?? undefined,
+          role: actor.role,
+        }
+        : undefined;
+
+  await recordItemHistoryEvent(db, {
+    itemId: canonicalItemId,
+    entityType: 'ITEM',
+    entityId,
+    actionType: 'ITEM_ARCHIVED',
+    timestamp: archivedAt,
+    summary: options.summary ?? 'Item archived.',
+    actor: historyActor,
+    metadata: {
+      referenceCode,
+      itemStatus: ItemStatus.ARCHIVED,
+      automatic: options.automatic === true,
+    },
+    changes: [{
+      field: 'status',
+      previousValue: previousStatus,
+      newValue: ItemStatus.ARCHIVED,
+    }],
+  }, options);
 };
 
 const parseGsUrl = (value: string): { bucketName: string; filePath: string } | null => {
@@ -377,8 +511,8 @@ export const updateItemStatus = async (
   actor: ItemStatusUpdateActor,
 ): Promise<UpdateItemStatusResponse> => {
   return db.runTransaction(async (transaction: Transaction) => {
-    const { ref, data } = await getFirstExistingItem(transaction, db, itemId);
-    const currentStatus = data.status;
+    const { primaryRef, primaryData, targetRefs, canonicalItemId, referenceCode } = await getStatusSyncTargets(transaction, db, itemId);
+    const currentStatus = primaryData.status;
 
     if (!currentStatus || !Object.values(ItemStatus).includes(currentStatus)) {
       throw new InvalidItemDataError();
@@ -393,20 +527,14 @@ export const updateItemStatus = async (
     }
 
     const updatedAt = new Date().toISOString();
-    const patch: Partial<StoredItem> = {
-      status: payload.status,
-      updatedAt,
-      statusUpdatedAt: updatedAt,
-      statusUpdatedByUid: actor.uid,
-      statusUpdatedByEmail: actor.email ?? null,
-      statusUpdatedByRole: actor.role,
-    };
-
-    transaction.update(ref, patch);
+    const patch = createStatusPatch(payload.status, updatedAt, actor);
+    for (const targetRef of targetRefs) {
+      transaction.update(targetRef, patch);
+    }
 
     const historyRef = db.collection('itemStatusHistory').doc(randomUUID());
     transaction.set(historyRef, {
-      itemId: ref.id,
+      itemId: primaryRef.id,
       previousStatus: currentStatus,
       nextStatus: payload.status,
       changedAt: updatedAt,
@@ -415,8 +543,24 @@ export const updateItemStatus = async (
       changedByRole: actor.role,
     } satisfies ItemStatusHistoryRecord);
 
+    if (payload.status === ItemStatus.ARCHIVED) {
+      await recordArchivedHistory(
+        db,
+        canonicalItemId,
+        canonicalItemId,
+        currentStatus,
+        updatedAt,
+        actor,
+        referenceCode,
+        {
+          transaction,
+          summary: 'Item archived by staff.',
+        },
+      );
+    }
+
     return {
-      id: ref.id,
+      id: primaryRef.id,
       previousStatus: currentStatus,
       status: payload.status,
       updatedAt,
