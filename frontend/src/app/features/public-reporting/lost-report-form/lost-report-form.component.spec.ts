@@ -14,7 +14,7 @@ describe('LostReportFormComponent', () => {
   beforeEach(async () => {
     reportService = {
       createLostReport: vi.fn().mockReturnValue(
-      of({ id: 'report-2', referenceCode: 'LST-20260225-XYZ98765' }),
+        of({ id: 'report-2', referenceCode: 'LST-20260225-XYZ98765' }),
       ),
     };
 
@@ -33,7 +33,7 @@ describe('LostReportFormComponent', () => {
     fixture.detectChanges();
   });
 
-  it('submits lost report request including optional multipart photo', async () => {
+  it('submits lost report request including optional multipart photo using dropdown location', async () => {
     const photo = new File(['image-bytes'], 'bag.jpg', {
       type: 'image/jpeg',
       lastModified: 1,
@@ -41,9 +41,9 @@ describe('LostReportFormComponent', () => {
 
     component.reportForm.patchValue({
       title: 'Lost backpack',
-      category: 'Backpacks & Bags',
+      categoryOption: 'Backpacks & Bags',
       description: 'Black backpack with laptop',
-      location: 'Building D',
+      locationOption: 'Building D',
       date: '2026-02-20',
       time: '09:00',
       contactName: 'John Doe',
@@ -67,6 +67,39 @@ describe('LostReportFormComponent', () => {
     expect(request.get('lastSeenLocation')).toBe('Building D');
     expect(request.get('contactEmail')).toBe('john@example.com');
     expect(request.get('photo')).toBe(photo);
+    expect(component.submitSuccess).toBe(true);
+    expect(component.referenceCode).toBe('LST-20260225-XYZ98765');
+  });
+
+  it('submits lost report request using manual location when Other is selected', async () => {
+    const photo = new File(['image-bytes'], 'bag.jpg', {
+      type: 'image/jpeg',
+      lastModified: 1,
+    });
+
+    component.reportForm.patchValue({
+      title: 'Lost backpack',
+      categoryOption: 'Backpacks & Bags',
+      description: 'Black backpack with laptop',
+      locationOption: 'Other',
+      locationCustom: 'Building B, Room 204',
+      date: '2026-02-20',
+      time: '09:00',
+      contactName: 'John Doe',
+      contactEmail: 'john@example.com',
+      contactPhone: '+1 555 111 2222',
+      additionalInfo: 'Has course stickers',
+      photos: [photo],
+    });
+
+    component.onSubmit();
+    await Promise.resolve();
+
+    const createLostReportMock = reportService.createLostReport as ReturnType<typeof vi.fn>;
+    expect(createLostReportMock).toHaveBeenCalledTimes(1);
+    const request = createLostReportMock.mock.calls[0][0] as FormData;
+
+    expect(request.get('lastSeenLocation')).toBe('Building B, Room 204');
     expect(component.submitSuccess).toBe(true);
     expect(component.referenceCode).toBe('LST-20260225-XYZ98765');
   });
