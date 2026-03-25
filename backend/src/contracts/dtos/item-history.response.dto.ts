@@ -23,6 +23,7 @@ export type ItemHistoryEventResponse = {
     | 'REPORT_CREATED'
     | 'REPORT_UPDATED'
     | 'REPORT_VALIDATED'
+    | 'REPORT_MERGED'
     | 'CLAIM_CREATED'
     | 'CLAIM_UPDATED'
     | 'CLAIM_PROOF_REQUESTED'

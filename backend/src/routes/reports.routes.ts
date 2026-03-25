@@ -9,6 +9,8 @@ import type {
   CreateLostReportRequest,
   EditableReportResponse,
   FlagReportRequest,
+  MergeDuplicateReportsRequest,
+  MergeDuplicateReportsResponse,
   UpdateReportByReferenceRequest,
 } from '../contracts/index.js';
 import fs from 'node:fs';
@@ -47,6 +49,11 @@ const schemaModule = (await import(pathToFileURL(schemaPath).href)) as {
       input: unknown,
     ) => { success: true; data: FlagReportRequest } | { success: false; error: { issues: Array<{ message?: string }> } };
   };
+  mergeDuplicateReportsSchema: {
+    safeParse: (
+      input: unknown,
+    ) => { success: true; data: MergeDuplicateReportsRequest } | { success: false; error: { issues: Array<{ message?: string }> } };
+  };
   updateReportByReferenceSchema: {
     safeParse: (
       input: unknown,
@@ -62,6 +69,7 @@ const reportsServiceModule = (await import(pathToFileURL(servicePath).href)) as 
   ReportNotFoundError: new () => Error;
   ReportEditConflictError: new (message: string) => Error;
   ReportValidationConflictError: new (message: string) => Error;
+  ReportMergeConflictError: new (message: string) => Error;
   createLostReport: (
     db: Firestore,
     bucket: Bucket,
@@ -103,6 +111,11 @@ const reportsServiceModule = (await import(pathToFileURL(servicePath).href)) as 
       suspiciousFlaggedByRole?: string | null;
     };
   }>;
+  mergeDuplicateReports: (
+    db: Firestore,
+    payload: MergeDuplicateReportsRequest,
+    actor: { uid: string; email?: string | null; role: Extract<UserRole, UserRole.ADMIN | UserRole.SECURITY> },
+  ) => Promise<MergeDuplicateReportsResponse>;
   listAdminReports: (
     db: Firestore,
     bucket: Bucket,
@@ -376,6 +389,33 @@ export const createReportsRouter = (
     } catch (error) {
       if (error instanceof reportsServiceModule.ReportNotFoundError) {
         throw new HttpError(404, 'NOT_FOUND', error.message);
+      }
+
+      throw error;
+    }
+  });
+
+  router.post(`${API_PREFIX}/admin/reports/merge`, requireStaffUser, async (req, res) => {
+    const payload = parseBodyOrThrow(schemaModule.mergeDuplicateReportsSchema, req.body);
+    const actor = res.locals.authUser as {
+      uid: string;
+      email?: string | null;
+      role: Extract<UserRole, UserRole.ADMIN | UserRole.SECURITY>;
+    } | undefined;
+    if (!actor?.uid || (actor.role !== 'ADMIN' && actor.role !== 'SECURITY')) {
+      throw new HttpError(403, 'FORBIDDEN', 'You do not have permission to perform this action.');
+    }
+
+    try {
+      const result = await reportsServiceModule.mergeDuplicateReports(db, payload, actor);
+      res.status(200).json(result);
+    } catch (error) {
+      if (error instanceof reportsServiceModule.ReportNotFoundError) {
+        throw new HttpError(404, 'NOT_FOUND', error.message);
+      }
+
+      if (error instanceof reportsServiceModule.ReportMergeConflictError) {
+        throw new HttpError(409, 'REPORT_MERGE_CONFLICT', error.message);
       }
 
       throw error;

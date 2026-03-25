@@ -17,6 +17,7 @@ export type Report = {
   dateReported: string;
   contactEmail?: string;
   photoUrl?: string;
+  archivedAt?: string | null;
   sourceEnv?: ReportSourceEnv;
   isSuspicious?: boolean;
   suspiciousReason?: string | null;
@@ -24,4 +25,10 @@ export type Report = {
   suspiciousFlaggedByEmail?: string | null;
   suspiciousFlaggedByRole?: Extract<UserRole, 'ADMIN' | 'SECURITY'> | null;
   suspiciousFlaggedAt?: string | null;
+  mergedIntoReportId?: string | null;
+  mergedIntoReferenceCode?: string | null;
+  mergedAt?: string | null;
+  mergedByUid?: string | null;
+  mergedByEmail?: string | null;
+  mergedByRole?: Extract<UserRole, 'ADMIN' | 'SECURITY'> | null;
 };

@@ -231,6 +231,52 @@ export const reportsOpenApi: OpenApiModule = {
         },
       },
     },
+    '/api/v1/admin/reports/merge': {
+      post: {
+        tags: ['Reports'],
+        summary: 'Merge duplicate reports into a primary report',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                $ref: '#/components/schemas/MergeDuplicateReportsRequest',
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: 'Duplicate reports merged successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/MergeDuplicateReportsResponse',
+                },
+              },
+            },
+          },
+          400: {
+            ...errorResponseRefs.badRequest,
+          },
+          401: {
+            ...errorResponseRefs.unauthorized,
+          },
+          403: {
+            ...errorResponseRefs.forbidden,
+          },
+          404: {
+            ...errorResponseRefs.notFound,
+          },
+          409: {
+            ...errorResponseRefs.conflict,
+          },
+          500: {
+            ...errorResponseRefs.internalServerError,
+          },
+        },
+      },
+    },
     '/api/v1/reports/lost': {
       post: {
         tags: ['Reports'],
@@ -410,6 +456,40 @@ export const reportsOpenApi: OpenApiModule = {
         suspiciousFlaggedByUid: { type: 'string', nullable: true, example: 'security-user-1' },
         suspiciousFlaggedByEmail: { type: 'string', format: 'email', nullable: true, example: 'security@example.com' },
         suspiciousFlaggedByRole: { type: 'string', nullable: true, enum: ['ADMIN', 'SECURITY'], example: 'SECURITY' },
+      },
+    },
+    MergeDuplicateReportsRequest: {
+      type: 'object',
+      required: ['primaryReportId', 'duplicateReportIds'],
+      properties: {
+        primaryReportId: { type: 'string', example: 'report-primary-1' },
+        duplicateReportIds: {
+          type: 'array',
+          minItems: 1,
+          items: { type: 'string', example: 'report-duplicate-1' },
+        },
+      },
+    },
+    MergeDuplicateReportsResponse: {
+      type: 'object',
+      required: ['primaryReportId', 'mergedReportIds', 'primaryReport'],
+      properties: {
+        primaryReportId: { type: 'string', example: 'report-primary-1' },
+        mergedReportIds: {
+          type: 'array',
+          items: { type: 'string', example: 'report-duplicate-1' },
+        },
+        primaryReport: {
+          type: 'object',
+          required: ['id', 'referenceCode', 'kind', 'status', 'title'],
+          properties: {
+            id: { type: 'string', example: 'report-primary-1' },
+            referenceCode: { type: 'string', example: 'FND-20260325-PRIMARY1' },
+            kind: { type: 'string', enum: ['LOST', 'FOUND'], example: 'FOUND' },
+            status: { $ref: '#/components/schemas/ItemStatus' },
+            title: { type: 'string', example: 'Black backpack' },
+          },
+        },
       },
     },
     ItemStatus: {
