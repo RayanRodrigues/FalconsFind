@@ -306,6 +306,67 @@ export const itemsOpenApi: OpenApiModule = {
         },
       },
     },
+    '/api/v1/admin/items/{id}/restore-status': {
+      post: {
+        tags: ['Items'],
+        summary: 'Restore an item to a selected previous status from its history',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: {
+              type: 'string',
+            },
+            description: 'Item or report document id',
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                $ref: '#/components/schemas/RestoreItemStatusRequest',
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: 'Item status restored successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/UpdateItemStatusResponse',
+                },
+              },
+            },
+          },
+          400: {
+            ...errorResponseRefs.badRequest,
+          },
+          401: {
+            ...errorResponseRefs.unauthorized,
+          },
+          403: {
+            ...errorResponseRefs.forbidden,
+          },
+          404: {
+            ...errorResponseRefs.notFound,
+          },
+          409: {
+            ...errorResponseRefs.conflict,
+          },
+          422: {
+            ...errorResponseRefs.unprocessableEntity,
+          },
+          500: {
+            ...errorResponseRefs.internalServerError,
+          },
+        },
+      },
+    },
   },
   schemas: {
     ItemStatus: {
@@ -346,6 +407,17 @@ export const itemsOpenApi: OpenApiModule = {
         updatedByUid: { type: 'string', example: 'security-1' },
         updatedByEmail: { type: 'string', format: 'email', nullable: true, example: 'security@example.com' },
         updatedByRole: { type: 'string', enum: ['ADMIN', 'SECURITY'], example: 'SECURITY' },
+      },
+    },
+    RestoreItemStatusRequest: {
+      type: 'object',
+      required: ['status'],
+      properties: {
+        status: {
+          type: 'string',
+          enum: ['REPORTED', 'PENDING_VALIDATION', 'VALIDATED', 'CLAIMED', 'RETURNED', 'ARCHIVED'],
+          example: 'VALIDATED',
+        },
       },
     },
     ItemPublicResponse: {
@@ -504,6 +576,8 @@ export const itemsOpenApi: OpenApiModule = {
             'REPORT_CREATED',
             'REPORT_UPDATED',
             'REPORT_VALIDATED',
+            'ITEM_ARCHIVED',
+            'ITEM_STATUS_RESTORED',
             'CLAIM_CREATED',
             'CLAIM_UPDATED',
             'CLAIM_PROOF_REQUESTED',

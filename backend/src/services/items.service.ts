@@ -14,6 +14,7 @@ import { ItemStatus } from '../contracts/index.js';
 import type {
   ItemDetailsResponse,
   ItemPublicResponse,
+  RestoreItemStatusRequest,
   ItemStatusResponse,
   Report,
   UpdateItemStatusRequest,
@@ -143,6 +144,13 @@ export class ItemStatusConflictError extends Error {
   }
 }
 
+export class ItemStatusRestoreNotAllowedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ItemStatusRestoreNotAllowedError';
+  }
+}
+
 const getFirstExistingItem = async (
   reader: TransactionReader,
   db: Firestore,
@@ -177,6 +185,18 @@ const getFirstExistingItem = async (
   }
 
   throw new ItemNotFoundError();
+};
+
+const getStatusHistoryEntries = async (
+  reader: TransactionReader,
+  db: Firestore,
+  historyItemId: string,
+): Promise<ItemStatusHistoryRecord[]> => {
+  const snapshot = await reader.get(db.collection('itemStatusHistory').where('itemId', '==', historyItemId));
+
+  return snapshot.docs
+    .map((doc) => doc.data() as ItemStatusHistoryRecord)
+    .filter((entry) => Object.values(ItemStatus).includes(entry.previousStatus) && Object.values(ItemStatus).includes(entry.nextStatus));
 };
 
 const allowedStatusTransitions: Record<ItemStatus, ItemStatus[]> = {
@@ -298,6 +318,44 @@ const recordArchivedHistory = async (
       field: 'status',
       previousValue: previousStatus,
       newValue: ItemStatus.ARCHIVED,
+    }],
+  }, options);
+};
+
+const recordStatusRestoredHistory = async (
+  db: Firestore,
+  canonicalItemId: string,
+  entityId: string,
+  previousStatus: ItemStatus,
+  restoredStatus: ItemStatus,
+  restoredAt: string,
+  actor: ItemStatusUpdateActor,
+  referenceCode?: string,
+  options: { transaction?: Transaction } = {},
+): Promise<void> => {
+  await recordItemHistoryEvent(db, {
+    itemId: canonicalItemId,
+    entityType: 'ITEM',
+    entityId,
+    actionType: 'ITEM_STATUS_RESTORED',
+    timestamp: restoredAt,
+    summary: `Item status restored from ${previousStatus} to ${restoredStatus}.`,
+    actor: {
+      type: actor.role,
+      uid: actor.uid,
+      email: actor.email ?? undefined,
+      role: actor.role,
+    },
+    metadata: {
+      referenceCode,
+      itemStatus: restoredStatus,
+      restoredFromStatus: previousStatus,
+      restoredToStatus: restoredStatus,
+    },
+    changes: [{
+      field: 'status',
+      previousValue: previousStatus,
+      newValue: restoredStatus,
     }],
   }, options);
 };
@@ -558,6 +616,83 @@ export const updateItemStatus = async (
         },
       );
     }
+
+    return {
+      id: primaryRef.id,
+      previousStatus: currentStatus,
+      status: payload.status,
+      updatedAt,
+      updatedByUid: actor.uid,
+      updatedByEmail: actor.email ?? null,
+      updatedByRole: actor.role,
+    };
+  });
+};
+
+export const restoreItemStatus = async (
+  db: Firestore,
+  itemId: string,
+  payload: RestoreItemStatusRequest,
+  actor: ItemStatusUpdateActor,
+): Promise<UpdateItemStatusResponse> => {
+  return db.runTransaction(async (transaction: Transaction) => {
+    const { primaryRef, primaryData, targetRefs, canonicalItemId, referenceCode } = await getStatusSyncTargets(transaction, db, itemId);
+    const currentStatus = primaryData.status;
+
+    if (!currentStatus || !Object.values(ItemStatus).includes(currentStatus)) {
+      throw new InvalidItemDataError();
+    }
+
+    if (currentStatus === payload.status) {
+      throw new ItemStatusConflictError(`Item is already in status ${payload.status}.`);
+    }
+
+    const historyEntries = await getStatusHistoryEntries(transaction, db, primaryRef.id);
+    const availablePreviousStatuses = new Set<ItemStatus>();
+
+    for (const entry of historyEntries) {
+      availablePreviousStatuses.add(entry.previousStatus);
+      if (entry.nextStatus !== currentStatus) {
+        availablePreviousStatuses.add(entry.nextStatus);
+      }
+    }
+
+    availablePreviousStatuses.delete(currentStatus);
+
+    if (!availablePreviousStatuses.has(payload.status)) {
+      throw new ItemStatusRestoreNotAllowedError(
+        `Cannot restore item to ${payload.status} because that status is not available in this item's history.`,
+      );
+    }
+
+    const updatedAt = new Date().toISOString();
+    const patch = createStatusPatch(payload.status, updatedAt, actor);
+    for (const targetRef of targetRefs) {
+      transaction.update(targetRef, patch);
+    }
+
+    const statusHistoryRef = db.collection('itemStatusHistory').doc(randomUUID());
+    transaction.set(statusHistoryRef, {
+      itemId: primaryRef.id,
+      previousStatus: currentStatus,
+      nextStatus: payload.status,
+      changedAt: updatedAt,
+      changedByUid: actor.uid,
+      changedByEmail: actor.email ?? null,
+      changedByRole: actor.role,
+    } satisfies ItemStatusHistoryRecord);
+
+    await recordStatusRestoredHistory(
+      db,
+      canonicalItemId,
+      canonicalItemId,
+      currentStatus,
+      payload.status,
+      updatedAt,
+      actor,
+      referenceCode,
+      { transaction },
+    );
 
     return {
       id: primaryRef.id,
