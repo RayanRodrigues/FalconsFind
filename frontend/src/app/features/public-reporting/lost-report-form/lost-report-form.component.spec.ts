@@ -41,7 +41,7 @@ describe('LostReportFormComponent', () => {
 
     component.reportForm.patchValue({
       title: 'Lost backpack',
-      category: 'Backpacks & Bags',
+      categoryOption: 'Backpacks & Bags',
       description: 'Black backpack with laptop',
       locationOption: 'Building D',
       date: '2026-02-20',
@@ -79,7 +79,7 @@ describe('LostReportFormComponent', () => {
 
     component.reportForm.patchValue({
       title: 'Lost backpack',
-      category: 'Backpacks & Bags',
+      categoryOption: 'Backpacks & Bags',
       description: 'Black backpack with laptop',
       locationOption: 'Other',
       locationCustom: 'Building B, Room 204',

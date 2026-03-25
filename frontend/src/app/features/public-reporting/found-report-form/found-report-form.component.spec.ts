@@ -41,7 +41,7 @@ describe('FoundReportFormComponent', () => {
 
     component.foundForm.patchValue({
       title: 'Found wallet',
-      category: 'Wallets & Purses',
+      categoryOption: 'Wallets & Purses',
       description: 'Brown leather wallet with documents',
       foundLocationOption: 'Library',
       foundDate: '2026-02-20',
@@ -74,7 +74,7 @@ describe('FoundReportFormComponent', () => {
 
     component.foundForm.patchValue({
       title: 'Found wallet',
-      category: 'Wallets & Purses',
+      categoryOption: 'Wallets & Purses',
       description: 'Brown leather wallet with documents',
       foundLocationOption: 'Other',
       foundLocationCustom: 'Building B, Room 204',
