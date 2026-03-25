@@ -8,6 +8,8 @@ export type ItemsFilters = {
   category?: string;
   location?: string;
   dateFrom?: string;
+  includeArchived?: boolean;
+  archivedOnly?: boolean;
 };
 
 export type ItemsListResponse = {
@@ -29,10 +31,29 @@ export class ItemsApiService {
       .set('page', String(page))
       .set('limit', String(limit));
 
-    if (filters.keyword?.trim())  params = params.set('keyword',  filters.keyword.trim());
-    if (filters.category?.trim()) params = params.set('category', filters.category.trim());
-    if (filters.location?.trim()) params = params.set('location', filters.location.trim());
-    if (filters.dateFrom?.trim()) params = params.set('dateFrom', filters.dateFrom.trim());
+    if (filters.keyword?.trim()) {
+      params = params.set('keyword', filters.keyword.trim());
+    }
+
+    if (filters.category?.trim()) {
+      params = params.set('category', filters.category.trim());
+    }
+
+    if (filters.location?.trim()) {
+      params = params.set('location', filters.location.trim());
+    }
+
+    if (filters.dateFrom?.trim()) {
+      params = params.set('dateFrom', filters.dateFrom.trim());
+    }
+
+    if (filters.includeArchived !== undefined) {
+      params = params.set('includeArchived', String(filters.includeArchived));
+    }
+
+    if (filters.archivedOnly !== undefined) {
+      params = params.set('archivedOnly', String(filters.archivedOnly));
+    }
 
     return this.http.get<ItemsListResponse>('/items', { params });
   }
