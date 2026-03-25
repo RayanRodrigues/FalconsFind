@@ -14,6 +14,12 @@ const createFakeDb = ({ items = {}, reports = {}, claims = {}, itemHistory = {},
     data: () => source,
   });
 
+  const buildRef = (collectionName, id) => ({
+    id,
+    path: `${collectionName}/${id}`,
+    collectionName,
+  });
+
   const normalizeDate = (value) => {
     if (typeof value === 'string') {
       return value;
@@ -43,8 +49,7 @@ const createFakeDb = ({ items = {}, reports = {}, claims = {}, itemHistory = {},
       if (collectionName === 'items') {
         return {
           doc: (id) => ({
-            id,
-            collectionName,
+            ...buildRef(collectionName, id),
             get: async () => {
               const source = items[id];
               if (!source) {
@@ -60,7 +65,7 @@ const createFakeDb = ({ items = {}, reports = {}, claims = {}, itemHistory = {},
               .filter(([, item]) => item.reportId === value)
               .map(([id, item]) => ({
                 ...normalizeDoc(id, item),
-                ref: { id, collectionName: 'items' },
+                ref: buildRef('items', id),
               }));
 
             return {
@@ -162,8 +167,7 @@ const createFakeDb = ({ items = {}, reports = {}, claims = {}, itemHistory = {},
         return {
           where: (field, operator, value) => buildReportsQuery(Object.entries(reports)).where(field, operator, value),
           doc: (id) => ({
-            id,
-            collectionName,
+            ...buildRef(collectionName, id),
             get: async () => {
               const source = reports[id];
               if (!source) {
@@ -183,8 +187,7 @@ const createFakeDb = ({ items = {}, reports = {}, claims = {}, itemHistory = {},
         return {
           ...buildEqualsQuery(Object.entries(itemHistory), 'itemId'),
           doc: (id) => ({
-            id,
-            collectionName,
+            ...buildRef(collectionName, id),
             set: async (data) => {
               itemHistory[id] = data;
             },
@@ -198,8 +201,7 @@ const createFakeDb = ({ items = {}, reports = {}, claims = {}, itemHistory = {},
           doc: (id) => {
             const generatedId = id || `history-${++historyCounter}`;
             return {
-              id: generatedId,
-              collectionName,
+              ...buildRef(collectionName, generatedId),
               set: async (data) => {
                 itemStatusHistory[generatedId] = data;
               },
@@ -1129,8 +1131,52 @@ test('PATCH /api/v1/admin/items/:id/status archives linked item/report records a
   const historyEntries = Object.values(itemHistory);
   assert.equal(historyEntries.length, 1);
   assert.equal(historyEntries[0].itemId, 'report-linked-1');
+  assert.equal(historyEntries[0].entityId, 'item-linked-1');
   assert.equal(historyEntries[0].actionType, 'ITEM_ARCHIVED');
   assert.equal(historyEntries[0].summary, 'Item archived by staff.');
+});
+
+test('PATCH /api/v1/admin/items/:id/status keeps linked item/report updates when ids collide across collections', async () => {
+  const items = {
+    'shared-id': {
+      reportId: 'shared-id',
+      title: 'Umbrella',
+      status: 'VALIDATED',
+      referenceCode: 'FND-20260225-SHARED01',
+      dateReported: '2026-02-25T12:00:00.000Z',
+    },
+  };
+  const reports = {
+    'shared-id': {
+      kind: 'FOUND',
+      title: 'Umbrella',
+      status: 'VALIDATED',
+      referenceCode: 'FND-20260225-SHARED01',
+      dateReported: '2026-02-25T12:00:00.000Z',
+    },
+  };
+  const itemHistory = {};
+  const app = buildTestApp({
+    items,
+    reports,
+    itemHistory,
+  });
+
+  const response = await request(app)
+    .patch('/api/v1/admin/items/shared-id/status')
+    .send({ status: 'ARCHIVED' });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.status, 'ARCHIVED');
+
+  const historyEntries = Object.values(itemHistory);
+  assert.equal(historyEntries.length, 1);
+  assert.equal(historyEntries[0].itemId, 'shared-id');
+  assert.equal(historyEntries[0].entityId, 'shared-id');
+  assert.equal(items['shared-id'].status, 'ARCHIVED');
+  assert.equal(reports['shared-id'].status, 'ARCHIVED');
+  assert.match(items['shared-id'].archivedAt, /^\d{4}-\d{2}-\d{2}T/);
+  assert.match(reports['shared-id'].archivedAt, /^\d{4}-\d{2}-\d{2}T/);
 });
 
 test('POST /api/v1/admin/items/:id/restore-status restores an item to a previous status from history', async () => {
