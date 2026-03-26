@@ -539,6 +539,8 @@ test('PATCH /api/v1/admin/reports/:id/flag flags a report as suspicious with act
   assert.equal(response.status, 200);
   assert.equal(response.body.id, 'report-flag-1');
   assert.equal(response.body.isSuspicious, true);
+  assert.equal(response.body.flagReason, 'Suspicious duplicate report');
+  assert.match(response.body.flaggedAt, /^\d{4}-\d{2}-\d{2}T/);
   assert.equal(response.body.suspiciousReason, 'Suspicious duplicate report');
   assert.equal(response.body.suspiciousFlaggedByUid, 'security-1');
   assert.equal(response.body.suspiciousFlaggedByEmail, 'security@example.com');
@@ -546,6 +548,32 @@ test('PATCH /api/v1/admin/reports/:id/flag flags a report as suspicious with act
   assert.match(response.body.suspiciousFlaggedAt, /^\d{4}-\d{2}-\d{2}T/);
   assert.equal(reports['report-flag-1'].isSuspicious, true);
   assert.equal(reports['report-flag-1'].suspiciousReason, 'Suspicious duplicate report');
+});
+
+test('PATCH /api/v1/admin/reports/:id/flag accepts suspiciousReason-only payload from the admin UI', async () => {
+  const { app, reports } = buildTestApp({
+    'report-flag-ui': {
+      kind: 'FOUND',
+      title: 'Found wallet',
+      status: 'VALIDATED',
+      referenceCode: 'FND-20260326-FLAGUI01',
+      location: 'Gym',
+      dateReported: '2026-03-26T10:00:00.000Z',
+    },
+  });
+
+  const response = await request(app)
+    .patch('/api/v1/admin/reports/report-flag-ui/flag')
+    .send({
+      suspiciousReason: 'Submitted with inconsistent finder details',
+    });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.isSuspicious, true);
+  assert.equal(response.body.flagReason, 'Submitted with inconsistent finder details');
+  assert.equal(response.body.suspiciousReason, 'Submitted with inconsistent finder details');
+  assert.equal(reports['report-flag-ui'].isSuspicious, true);
+  assert.equal(reports['report-flag-ui'].suspiciousReason, 'Submitted with inconsistent finder details');
 });
 
 test('PATCH /api/v1/admin/reports/:id/flag clears suspicious metadata when unflagging', async () => {
@@ -832,6 +860,8 @@ test('GET /api/v1/admin/reports filters by suspicious flag status', async () => 
   assert.equal(response.body.reports.length, 1);
   assert.equal(response.body.reports[0].id, 'report-flagged');
   assert.equal(response.body.reports[0].isSuspicious, true);
+  assert.equal(response.body.reports[0].flagReason, 'Duplicate report');
+  assert.equal(response.body.reports[0].flaggedAt, '2026-03-17T12:00:00.000Z');
   assert.equal(response.body.reports[0].suspiciousReason, 'Duplicate report');
 });
 

@@ -380,6 +380,8 @@ export const createReportsRouter = (
       res.status(200).json({
         id: result.id,
         isSuspicious: result.report.isSuspicious,
+        flagReason: result.report.suspiciousReason ?? null,
+        flaggedAt: result.report.suspiciousFlaggedAt ?? null,
         suspiciousReason: result.report.suspiciousReason ?? null,
         suspiciousFlaggedAt: result.report.suspiciousFlaggedAt ?? null,
         suspiciousFlaggedByUid: result.report.suspiciousFlaggedByUid ?? null,

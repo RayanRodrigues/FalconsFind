@@ -35,7 +35,7 @@ export type CreateLostReportInput = z.infer<typeof createLostReportSchema>;
 export type CreateFoundReportInput = z.infer<typeof createFoundReportSchema>;
 export type UpdateReportByReferenceInput = z.infer<typeof updateReportByReferenceSchema>;
 
-export const flagReportSchema = z.object({
+const legacyFlagReportSchema = z.object({
   flagged: z.boolean(),
   reason: z.string().trim().min(1, 'reason cannot be empty').optional(),
 }).superRefine((payload, ctx) => {
@@ -47,6 +47,18 @@ export const flagReportSchema = z.object({
     });
   }
 });
+
+const suspiciousReasonFlagReportSchema = z.object({
+  suspiciousReason: z.string().trim().min(1, 'suspiciousReason cannot be empty'),
+}).transform((payload) => ({
+  flagged: true,
+  reason: payload.suspiciousReason.trim(),
+}));
+
+export const flagReportSchema = z.union([
+  legacyFlagReportSchema,
+  suspiciousReasonFlagReportSchema,
+]);
 
 export type FlagReportInput = z.infer<typeof flagReportSchema>;
 
