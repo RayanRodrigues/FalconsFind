@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 @Component({
@@ -29,9 +29,11 @@ export class ButtonComponent {
   @Input() disabled = false;
   @Input() loading = false;
 
+  @Output() buttonClick = new EventEmitter<MouseEvent>();
+
   get buttonClasses(): string {
     const baseClasses = 'inline-flex items-center justify-center text-center whitespace-normal break-words leading-tight font-medium rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 shadow-sm';
-    
+
     const sizeClasses = {
       sm: 'px-3 py-1.5 text-xs min-h-8',
       md: 'px-6 py-2 text-sm min-h-10',
@@ -53,6 +55,9 @@ export class ButtonComponent {
     if (this.disabled || this.loading) {
       event.preventDefault();
       event.stopPropagation();
+      return;
     }
+
+    this.buttonClick.emit(event);
   }
 }
