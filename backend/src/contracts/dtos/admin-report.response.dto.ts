@@ -16,6 +16,8 @@ export type AdminReportResponse = {
   photoUrl?: string;
   photoUrls?: string[];
   isSuspicious: boolean;
+  flagReason?: string | null;
+  flaggedAt?: string | null;
   suspiciousReason?: string | null;
   suspiciousFlaggedByUid?: string | null;
   suspiciousFlaggedByEmail?: string | null;

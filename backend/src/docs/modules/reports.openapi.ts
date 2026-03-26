@@ -438,12 +438,23 @@ export const reportsOpenApi: OpenApiModule = {
       minProperties: 1,
     },
     FlagReportRequest: {
-      type: 'object',
-      required: ['flagged'],
-      properties: {
-        flagged: { type: 'boolean', example: true },
-        reason: { type: 'string', minLength: 1, example: 'Repeated duplicate submissions from the same reporter' },
-      },
+      oneOf: [
+        {
+          type: 'object',
+          required: ['flagged'],
+          properties: {
+            flagged: { type: 'boolean', example: true },
+            reason: { type: 'string', minLength: 1, example: 'Repeated duplicate submissions from the same reporter' },
+          },
+        },
+        {
+          type: 'object',
+          required: ['suspiciousReason'],
+          properties: {
+            suspiciousReason: { type: 'string', minLength: 1, example: 'Repeated duplicate submissions from the same reporter' },
+          },
+        },
+      ],
     },
     FlagReportResponse: {
       type: 'object',
@@ -451,6 +462,8 @@ export const reportsOpenApi: OpenApiModule = {
       properties: {
         id: { type: 'string', example: 'AbCdEF123456' },
         isSuspicious: { type: 'boolean', example: true },
+        flagReason: { type: 'string', nullable: true, example: 'Repeated duplicate submissions from the same reporter' },
+        flaggedAt: { type: 'string', format: 'date-time', nullable: true },
         suspiciousReason: { type: 'string', nullable: true, example: 'Repeated duplicate submissions from the same reporter' },
         suspiciousFlaggedAt: { type: 'string', format: 'date-time', nullable: true },
         suspiciousFlaggedByUid: { type: 'string', nullable: true, example: 'security-user-1' },
@@ -522,6 +535,8 @@ export const reportsOpenApi: OpenApiModule = {
           items: { type: 'string' },
         },
         isSuspicious: { type: 'boolean', example: false },
+        flagReason: { type: 'string', nullable: true },
+        flaggedAt: { type: 'string', format: 'date-time', nullable: true },
         suspiciousReason: { type: 'string', nullable: true },
         suspiciousFlaggedByUid: { type: 'string', nullable: true },
         suspiciousFlaggedByEmail: { type: 'string', format: 'email', nullable: true },

@@ -275,6 +275,8 @@ const mapAdminReport = async (
     photoUrl: photoUrls?.[0],
     photoUrls,
     isSuspicious: source.isSuspicious === true,
+    flagReason: source.suspiciousReason,
+    flaggedAt: source.suspiciousFlaggedAt,
     suspiciousReason: source.suspiciousReason,
     suspiciousFlaggedByUid: source.suspiciousFlaggedByUid,
     suspiciousFlaggedByEmail: source.suspiciousFlaggedByEmail,
