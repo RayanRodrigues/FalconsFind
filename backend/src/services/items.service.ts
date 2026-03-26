@@ -218,11 +218,8 @@ const createStatusPatch = (
     updatedAt,
     statusUpdatedAt: updatedAt,
     statusUpdatedByEmail: actor.email ?? null,
+    archivedAt: nextStatus === ItemStatus.ARCHIVED ? updatedAt : null,
   };
-
-  if (nextStatus === ItemStatus.ARCHIVED) {
-    patch.archivedAt = updatedAt;
-  }
 
   if (actor.uid) {
     patch.statusUpdatedByUid = actor.uid;
@@ -687,7 +684,7 @@ export const restoreItemStatus = async (
     await recordStatusRestoredHistory(
       db,
       canonicalItemId,
-      canonicalItemId,
+      primaryRef.id,
       currentStatus,
       payload.status,
       updatedAt,
