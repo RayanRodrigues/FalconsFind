@@ -53,7 +53,8 @@ export type FlagReportInput = z.infer<typeof flagReportSchema>;
 export const mergeDuplicateReportsSchema = z.object({
   primaryReportId: z.string().trim().min(1, 'primaryReportId is required'),
   duplicateReportIds: z.array(z.string().trim().min(1, 'duplicate report id cannot be empty'))
-    .min(1, 'At least one duplicate report id is required'),
+    .min(1, 'At least one duplicate report id is required')
+    .max(100, 'You can specify at most 100 duplicate report ids per request'),
 }).superRefine((payload, ctx) => {
   const seen = new Set<string>();
 

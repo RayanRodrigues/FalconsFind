@@ -708,6 +708,96 @@ test('POST /api/v1/admin/reports/merge returns 409 when reports are from differe
   assert.equal(response.body.error.code, 'REPORT_MERGE_CONFLICT');
 });
 
+test('POST /api/v1/admin/reports/merge returns 409 when the primary report has already been merged', async () => {
+  const { app } = buildTestApp({
+    'report-primary-merged': {
+      kind: 'FOUND',
+      title: 'Wallet',
+      status: 'PENDING_VALIDATION',
+      referenceCode: 'FND-20260325-MERGED01',
+      mergedIntoReportId: 'report-other-primary',
+      dateReported: '2026-03-25T09:00:00.000Z',
+    },
+    'report-duplicate-free': {
+      kind: 'FOUND',
+      title: 'Wallet duplicate',
+      status: 'PENDING_VALIDATION',
+      referenceCode: 'FND-20260325-MERGED02',
+      dateReported: '2026-03-25T09:10:00.000Z',
+    },
+  });
+
+  const response = await request(app)
+    .post('/api/v1/admin/reports/merge')
+    .send({
+      primaryReportId: 'report-primary-merged',
+      duplicateReportIds: ['report-duplicate-free'],
+    });
+
+  assert.equal(response.status, 409);
+  assert.equal(response.body.error.code, 'REPORT_MERGE_CONFLICT');
+});
+
+test('POST /api/v1/admin/reports/merge returns 409 when a duplicate report is archived', async () => {
+  const { app } = buildTestApp({
+    'report-primary-active': {
+      kind: 'FOUND',
+      title: 'Wallet',
+      status: 'PENDING_VALIDATION',
+      referenceCode: 'FND-20260325-ARCHIVE1',
+      dateReported: '2026-03-25T09:00:00.000Z',
+    },
+    'report-duplicate-archived': {
+      kind: 'FOUND',
+      title: 'Wallet duplicate',
+      status: 'ARCHIVED',
+      referenceCode: 'FND-20260325-ARCHIVE2',
+      archivedAt: '2026-03-25T10:00:00.000Z',
+      dateReported: '2026-03-25T09:10:00.000Z',
+    },
+  });
+
+  const response = await request(app)
+    .post('/api/v1/admin/reports/merge')
+    .send({
+      primaryReportId: 'report-primary-active',
+      duplicateReportIds: ['report-duplicate-archived'],
+    });
+
+  assert.equal(response.status, 409);
+  assert.equal(response.body.error.code, 'REPORT_MERGE_CONFLICT');
+});
+
+test('POST /api/v1/admin/reports/merge returns 409 when a duplicate report has already been merged', async () => {
+  const { app } = buildTestApp({
+    'report-primary-clean': {
+      kind: 'FOUND',
+      title: 'Wallet',
+      status: 'PENDING_VALIDATION',
+      referenceCode: 'FND-20260325-DUPCHK1',
+      dateReported: '2026-03-25T09:00:00.000Z',
+    },
+    'report-duplicate-merged': {
+      kind: 'FOUND',
+      title: 'Wallet duplicate',
+      status: 'PENDING_VALIDATION',
+      referenceCode: 'FND-20260325-DUPCHK2',
+      mergedIntoReportId: 'report-somewhere-else',
+      dateReported: '2026-03-25T09:10:00.000Z',
+    },
+  });
+
+  const response = await request(app)
+    .post('/api/v1/admin/reports/merge')
+    .send({
+      primaryReportId: 'report-primary-clean',
+      duplicateReportIds: ['report-duplicate-merged'],
+    });
+
+  assert.equal(response.status, 409);
+  assert.equal(response.body.error.code, 'REPORT_MERGE_CONFLICT');
+});
+
 test('GET /api/v1/admin/reports filters by suspicious flag status', async () => {
   const { app } = buildTestApp({
     'report-flagged': {

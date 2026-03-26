@@ -675,6 +675,10 @@ export const mergeDuplicateReports = async (
       throw new ReportMergeConflictError('Primary report cannot be archived.');
     }
 
+    if (primaryReport.mergedIntoReportId) {
+      throw new ReportMergeConflictError('Primary report has already been merged into another report.');
+    }
+
     const duplicateDocs = await Promise.all(payload.duplicateReportIds.map(async (reportId) => {
       const reportRef = db.collection('reports').doc(reportId);
       const reportSnap = await transaction.get(reportRef);

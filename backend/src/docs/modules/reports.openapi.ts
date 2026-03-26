@@ -466,6 +466,7 @@ export const reportsOpenApi: OpenApiModule = {
         duplicateReportIds: {
           type: 'array',
           minItems: 1,
+          maxItems: 100,
           items: { type: 'string', example: 'report-duplicate-1' },
         },
       },
