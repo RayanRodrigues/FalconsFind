@@ -8,6 +8,7 @@ import type {
   ItemDetailsResponse,
   ItemHistoryResponse,
   ItemStatusResponse,
+  RestoreItemStatusRequest,
   UpdateItemStatusRequest,
   UpdateItemStatusResponse,
 } from '../contracts/index.js';
@@ -43,12 +44,18 @@ const schemaModule = (await import(pathToFileURL(schemaPath).href)) as {
       input: unknown,
     ) => { success: true; data: UpdateItemStatusRequest } | { success: false; error: { issues: Array<{ message?: string }> } };
   };
+  restoreItemStatusSchema: {
+    safeParse: (
+      input: unknown,
+    ) => { success: true; data: RestoreItemStatusRequest } | { success: false; error: { issues: Array<{ message?: string }> } };
+  };
 };
 
 const itemsServiceModule = (await import(pathToFileURL(servicePath).href)) as {
   InvalidItemDataError: new () => Error;
   ItemNotFoundError: new () => Error;
   ItemStatusConflictError: new (message: string) => Error;
+  ItemStatusRestoreNotAllowedError: new (message: string) => Error;
   ItemHistoryNotFoundError: new () => Error;
   getItemById: (db: Firestore, bucket: Bucket, redis: RedisClient | null, itemId: string) => Promise<ItemDetailsResponse | null>;
   getItemHistory: (db: Firestore, itemId: string) => Promise<ItemHistoryResponse>;
@@ -57,6 +64,12 @@ const itemsServiceModule = (await import(pathToFileURL(servicePath).href)) as {
     db: Firestore,
     itemId: string,
     payload: UpdateItemStatusRequest,
+    actor: { uid: string; email?: string | null; role: 'ADMIN' | 'SECURITY' },
+  ) => Promise<UpdateItemStatusResponse>;
+  restoreItemStatus: (
+    db: Firestore,
+    itemId: string,
+    payload: RestoreItemStatusRequest,
     actor: { uid: string; email?: string | null; role: 'ADMIN' | 'SECURITY' },
   ) => Promise<UpdateItemStatusResponse>;
   getPublicItemStatus: (item: ItemDetailsResponse) => ItemStatusResponse;
@@ -261,6 +274,46 @@ export const createItemsRouter = (
 
       if (error instanceof itemsServiceModule.ItemStatusConflictError) {
         throw new HttpError(409, 'ITEM_STATUS_CONFLICT', error.message);
+      }
+
+      throw error;
+    }
+  });
+
+  router.post(`${API_PREFIX}/admin/items/:id/restore-status`, requireStaffUser, async (req, res) => {
+    const itemId = getSingleRouteParam(req.params.id);
+    if (!itemId) {
+      throw new HttpError(400, 'BAD_REQUEST', 'id is required');
+    }
+
+    const payload = parseBodyOrThrow(schemaModule.restoreItemStatusSchema, req.body);
+    const actor = res.locals.authUser as { uid?: string; email?: string | null; role?: 'ADMIN' | 'SECURITY' } | undefined;
+    if (!actor?.uid || (actor.role !== 'ADMIN' && actor.role !== 'SECURITY')) {
+      throw new HttpError(403, 'FORBIDDEN', 'You do not have permission to perform this action.');
+    }
+
+    try {
+      const result = await itemsServiceModule.restoreItemStatus(db, itemId, payload, {
+        uid: actor.uid,
+        email: actor.email,
+        role: actor.role,
+      });
+      res.status(200).json(result);
+    } catch (error) {
+      if (error instanceof itemsServiceModule.ItemNotFoundError) {
+        throw new HttpError(404, 'NOT_FOUND', error.message);
+      }
+
+      if (error instanceof itemsServiceModule.InvalidItemDataError) {
+        throw new HttpError(422, 'INVALID_ITEM_DATA', error.message);
+      }
+
+      if (error instanceof itemsServiceModule.ItemStatusConflictError) {
+        throw new HttpError(409, 'ITEM_STATUS_CONFLICT', error.message);
+      }
+
+      if (error instanceof itemsServiceModule.ItemStatusRestoreNotAllowedError) {
+        throw new HttpError(409, 'ITEM_STATUS_RESTORE_NOT_ALLOWED', error.message);
       }
 
       throw error;
