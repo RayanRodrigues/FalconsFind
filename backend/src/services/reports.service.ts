@@ -6,6 +6,8 @@ import type {
   CreateFoundReportRequest,
   CreateLostReportRequest,
   EditableReportResponse,
+  MergeDuplicateReportsRequest,
+  MergeDuplicateReportsResponse,
   Report,
   UpdateReportByReferenceRequest,
 } from '../contracts/index.js';
@@ -46,7 +48,20 @@ export class ReportValidationConflictError extends Error {
   }
 }
 
+export class ReportMergeConflictError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ReportMergeConflictError';
+  }
+}
+
 type ReportFlagActor = {
+  uid: string;
+  email?: string | null;
+  role: Extract<UserRole, UserRole.ADMIN | UserRole.SECURITY>;
+};
+
+type ReportMergeActor = {
   uid: string;
   email?: string | null;
   role: Extract<UserRole, UserRole.ADMIN | UserRole.SECURITY>;
@@ -186,6 +201,42 @@ const mapEditableReport = (id: string, report: Report): EditableReportResponse =
 
 const isItemStatus = (value: unknown): value is ItemStatus => {
   return typeof value === 'string' && Object.values(ItemStatus).includes(value as ItemStatus);
+};
+
+const mergeableReportFields: Array<keyof Pick<
+  Report,
+  'category' | 'description' | 'additionalInfo' | 'location' | 'contactEmail' | 'photoUrl'
+>> = ['category', 'description', 'additionalInfo', 'location', 'contactEmail', 'photoUrl'];
+
+const hasMeaningfulValue = (value: unknown): boolean => {
+  if (typeof value === 'string') {
+    return value.trim().length > 0;
+  }
+
+  return value !== undefined && value !== null;
+};
+
+const buildPrimaryMergePatch = (
+  primaryReport: Report,
+  duplicateReports: Report[],
+): Partial<Report> => {
+  const patch: Partial<Report> = {};
+
+  for (const field of mergeableReportFields) {
+    if (hasMeaningfulValue(primaryReport[field])) {
+      continue;
+    }
+
+    const nextValue = duplicateReports
+      .map((report) => report[field])
+      .find((value) => hasMeaningfulValue(value));
+
+    if (nextValue !== undefined) {
+      patch[field] = nextValue;
+    }
+  }
+
+  return patch;
 };
 
 const mapAdminReport = async (
@@ -597,6 +648,166 @@ export const flagReport = async (
         suspiciousFlaggedByUid: patch.suspiciousFlaggedByUid,
         suspiciousFlaggedByEmail: patch.suspiciousFlaggedByEmail,
         suspiciousFlaggedByRole: patch.suspiciousFlaggedByRole,
+      },
+    };
+  });
+};
+
+export const mergeDuplicateReports = async (
+  db: Firestore,
+  payload: MergeDuplicateReportsRequest,
+  actor: ReportMergeActor,
+): Promise<MergeDuplicateReportsResponse> => {
+  return db.runTransaction(async (transaction: Transaction) => {
+    const primaryRef = db.collection('reports').doc(payload.primaryReportId);
+    const primarySnap = await transaction.get(primaryRef);
+
+    if (!primarySnap.exists) {
+      throw new ReportNotFoundError();
+    }
+
+    const primaryReport = primarySnap.data() as Report | undefined;
+    if (!primaryReport) {
+      throw new ReportNotFoundError();
+    }
+
+    if (primaryReport.status === ItemStatus.ARCHIVED) {
+      throw new ReportMergeConflictError('Primary report cannot be archived.');
+    }
+
+    if (primaryReport.mergedIntoReportId) {
+      throw new ReportMergeConflictError('Primary report has already been merged into another report.');
+    }
+
+    const duplicateDocs = await Promise.all(payload.duplicateReportIds.map(async (reportId) => {
+      const reportRef = db.collection('reports').doc(reportId);
+      const reportSnap = await transaction.get(reportRef);
+
+      if (!reportSnap.exists) {
+        throw new ReportNotFoundError();
+      }
+
+      const report = reportSnap.data() as Report | undefined;
+      if (!report) {
+        throw new ReportNotFoundError();
+      }
+
+      return {
+        id: reportId,
+        ref: reportRef,
+        report,
+      };
+    }));
+
+    for (const duplicate of duplicateDocs) {
+      if (duplicate.report.kind !== primaryReport.kind) {
+        throw new ReportMergeConflictError('Only reports of the same kind can be merged.');
+      }
+
+      if (duplicate.report.status === ItemStatus.ARCHIVED) {
+        throw new ReportMergeConflictError('Archived reports cannot be merged as duplicates.');
+      }
+
+      if (duplicate.report.mergedIntoReportId) {
+        throw new ReportMergeConflictError('A selected duplicate report has already been merged.');
+      }
+    }
+
+    const mergedAt = new Date().toISOString();
+    const primaryPatch = buildPrimaryMergePatch(primaryReport, duplicateDocs.map((entry) => entry.report));
+    if (Object.keys(primaryPatch).length > 0) {
+      transaction.update(primaryRef, primaryPatch);
+    }
+
+    const primaryChanges = createChangesFromPatch(
+      primaryReport as Record<string, unknown>,
+      primaryPatch as Record<string, unknown>,
+    );
+
+    await recordItemHistoryEvent(db, {
+      itemId: primaryRef.id,
+      entityType: 'REPORT',
+      entityId: primaryRef.id,
+      actionType: 'REPORT_MERGED',
+      timestamp: mergedAt,
+      summary: `Merged ${duplicateDocs.length} duplicate report(s) into this primary report.`,
+      actor: {
+        type: actor.role,
+        uid: actor.uid,
+        email: actor.email ?? undefined,
+        role: actor.role,
+      },
+      metadata: {
+        referenceCode: primaryReport.referenceCode,
+        reportKind: primaryReport.kind,
+        itemStatus: primaryReport.status,
+        mergedCount: duplicateDocs.length,
+        duplicateReportIds: duplicateDocs.map((entry) => entry.id).join(','),
+        duplicateReferenceCodes: duplicateDocs.map((entry) => entry.report.referenceCode).join(','),
+      },
+      changes: primaryChanges.length > 0 ? primaryChanges : [{
+        field: 'duplicateReportsMerged',
+        previousValue: 0,
+        newValue: duplicateDocs.length,
+      }],
+    }, {
+      transaction,
+    });
+
+    for (const duplicate of duplicateDocs) {
+      const duplicatePatch: Partial<Report> = {
+        status: ItemStatus.ARCHIVED,
+        archivedAt: mergedAt,
+        mergedIntoReportId: primaryRef.id,
+        mergedIntoReferenceCode: primaryReport.referenceCode,
+        mergedAt,
+        mergedByUid: actor.uid,
+        mergedByEmail: actor.email ?? null,
+        mergedByRole: actor.role,
+      };
+
+      transaction.update(duplicate.ref, duplicatePatch);
+
+      const duplicateChanges = createChangesFromPatch(
+        duplicate.report as Record<string, unknown>,
+        duplicatePatch as Record<string, unknown>,
+      );
+
+      await recordItemHistoryEvent(db, {
+        itemId: duplicate.id,
+        entityType: 'REPORT',
+        entityId: duplicate.id,
+        actionType: 'REPORT_MERGED',
+        timestamp: mergedAt,
+        summary: `Report merged into primary report ${primaryReport.referenceCode}.`,
+        actor: {
+          type: actor.role,
+          uid: actor.uid,
+          email: actor.email ?? undefined,
+          role: actor.role,
+        },
+        metadata: {
+          referenceCode: duplicate.report.referenceCode,
+          reportKind: duplicate.report.kind,
+          itemStatus: ItemStatus.ARCHIVED,
+          mergedIntoReportId: primaryRef.id,
+          mergedIntoReferenceCode: primaryReport.referenceCode,
+        },
+        changes: duplicateChanges,
+      }, {
+        transaction,
+      });
+    }
+
+    return {
+      primaryReportId: primaryRef.id,
+      mergedReportIds: duplicateDocs.map((entry) => entry.id),
+      primaryReport: {
+        id: primaryRef.id,
+        referenceCode: primaryReport.referenceCode,
+        kind: primaryReport.kind,
+        status: primaryReport.status,
+        title: primaryReport.title,
       },
     };
   });

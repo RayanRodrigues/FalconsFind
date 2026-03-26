@@ -15,6 +15,8 @@ export * from './dtos/register.request.dto.js';
 export * from './dtos/register.response.dto.js';
 export * from './dtos/update-report-by-reference.request.dto.js';
 export * from './dtos/flag-report.request.dto.js';
+export * from './dtos/merge-duplicate-reports.request.dto.js';
+export * from './dtos/merge-duplicate-reports.response.dto.js';
 export * from './dtos/editable-report.response.dto.js';
 export * from './dtos/admin-report.response.dto.js';
 export * from './dtos/admin-reports-list.response.dto.js';
