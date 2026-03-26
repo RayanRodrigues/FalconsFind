@@ -2,6 +2,11 @@ import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { Component, Inject, OnInit, PLATFORM_ID, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
+import { AlertComponent } from '../../../shared/components/feedback/alert.component';
+import { ButtonComponent } from '../../../shared/components/buttons/button.component';
+import { TextareaComponent } from '../../../shared/components/forms/textarea.component';
+import { ErrorService } from '../../../core/services/error.service';
+import type { ErrorResponse } from '../../../models';
 
 type AdminReport = {
   id: string;
@@ -17,6 +22,9 @@ type AdminReport = {
   photoUrl?: string;
   photoUrls?: string[];
   archivedAt?: string | null;
+  isSuspicious?: boolean;
+  flagReason?: string | null;
+  flaggedAt?: string | null;
 };
 
 type AdminReportsResponse = {
@@ -56,6 +64,9 @@ type ItemHistoryEvent = {
     referenceCode?: string;
     reportKind?: string;
     claimStatus?: string;
+    isSuspicious?: boolean;
+    flagReason?: string;
+    flaggedAt?: string;
   };
   changes?: ItemHistoryChange[];
 };
@@ -73,7 +84,13 @@ type ItemHistoryResponse = {
 @Component({
   selector: 'app-admin-reports',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [
+    CommonModule,
+    FormsModule,
+    AlertComponent,
+    ButtonComponent,
+    TextareaComponent,
+  ],
   templateUrl: './admin-reports.component.html',
 })
 export class AdminReportsComponent implements OnInit {
@@ -91,15 +108,21 @@ export class AdminReportsComponent implements OnInit {
   readonly restoreModalOpen = signal(false);
   readonly restoring = signal(false);
 
+  readonly flagModalOpen = signal(false);
+  readonly flagging = signal(false);
+  readonly flagTargetItem = signal<AdminReport | null>(null);
+
   allItems: AdminReport[] = [];
   filteredItems: AdminReport[] = [];
 
   searchTerm = '';
   statusFilter = 'all';
   viewFilter: ViewFilter = 'active';
+  suspiciousReason = '';
 
   constructor(
     private readonly http: HttpClient,
+    private readonly errorService: ErrorService,
     @Inject(PLATFORM_ID) private readonly platformId: object,
   ) {}
 
@@ -115,6 +138,7 @@ export class AdminReportsComponent implements OnInit {
       validated: countByStatus(['validated', 'approved']),
       rejected: countByStatus(['rejected']),
       archived: visibleItems.filter((item) => this.isArchived(item)).length,
+      suspicious: visibleItems.filter((item) => this.isFlagged(item)).length,
     };
   }
 
@@ -137,12 +161,15 @@ export class AdminReportsComponent implements OnInit {
         this.allItems = (res.reports ?? []).map((item) => ({
           ...item,
           status: this.normalizeStatus(item.status || 'pending_validation'),
+          isSuspicious: this.extractSuspiciousValue(item),
+          flagReason: item.flagReason ?? null,
+          flaggedAt: item.flaggedAt ?? null,
         }));
         this.applyFilters();
         this.loading.set(false);
       },
-      error: () => {
-        this.error.set('Failed to load reports.');
+      error: (err) => {
+        this.error.set(this.getFriendlyErrorMessage(err, 'Failed to load reports.'));
         this.loading.set(false);
       },
     });
@@ -161,13 +188,17 @@ export class AdminReportsComponent implements OnInit {
       const loc = (item.location || '').toLowerCase();
       const status = this.normalizeStatus(item.status);
       const ref = (item.referenceCode || '').toLowerCase();
+      const flagReason = (item.flagReason || '').toLowerCase();
+      const suspiciousText = this.isFlagged(item) ? 'suspicious flagged' : '';
 
       const kwMatch =
         !kw ||
         name.includes(kw) ||
         loc.includes(kw) ||
         status.includes(kw) ||
-        ref.includes(kw);
+        ref.includes(kw) ||
+        flagReason.includes(kw) ||
+        suspiciousText.includes(kw);
 
       const statusMatch = this.statusFilter === 'all' || status === this.statusFilter;
 
@@ -176,7 +207,7 @@ export class AdminReportsComponent implements OnInit {
   }
 
   approve(id: string): void {
-    if (this.activeRowId()) return;
+    if (this.activeRowId() || this.flagging()) return;
 
     this.activeRowId.set(id);
     this.actionMessage.set('');
@@ -191,16 +222,106 @@ export class AdminReportsComponent implements OnInit {
       },
       error: (err) => {
         this.activeRowId.set(null);
-
-        const backendMessage =
-          err?.error?.message ||
-          err?.error?.error ||
-          'Failed to validate the found item.';
-
-        this.error.set(backendMessage);
+        this.error.set(this.getFriendlyErrorMessage(err, 'Failed to validate the found item.'));
       },
     });
   }
+
+  openFlagModal(item: AdminReport): void {
+    if (this.isFlagged(item) || this.flagging()) return;
+
+    this.flagTargetItem.set(item);
+    this.suspiciousReason = item.flagReason ?? '';
+    this.flagModalOpen.set(true);
+    this.error.set('');
+    this.actionMessage.set('');
+  }
+
+  closeFlagModal(): void {
+    if (this.flagging()) return;
+
+    this.flagModalOpen.set(false);
+    this.flagTargetItem.set(null);
+    this.suspiciousReason = '';
+  }
+
+submitFlagReport(): void {
+  const item = this.flagTargetItem();
+  if (!item || this.flagging()) return;
+
+  this.error.set('');
+  this.actionMessage.set('');
+
+  const reason = this.suspiciousReason.trim();
+
+  if (!reason) {
+    this.error.set('Please enter a reason before flagging this report.');
+    return;
+  }
+
+  this.flagging.set(true);
+
+  this.http.patch<{
+    id: string;
+    isSuspicious: boolean;
+    suspiciousReason?: string | null;
+    suspiciousFlaggedAt?: string | null;
+  }>(`/admin/reports/${item.id}/flag`, {
+    suspiciousReason: reason,
+  }).subscribe({
+    next: (response) => {
+      const flaggedAt = response?.suspiciousFlaggedAt ?? new Date().toISOString();
+      const savedReason = response?.suspiciousReason ?? reason;
+
+      this.allItems = this.allItems.map((report) =>
+        report.id === item.id
+          ? {
+              ...report,
+              isSuspicious: true,
+              flagReason: savedReason,
+              flaggedAt,
+            }
+          : report,
+      );
+
+      this.filteredItems = this.filteredItems.map((report) =>
+        report.id === item.id
+          ? {
+              ...report,
+              isSuspicious: true,
+              flagReason: savedReason,
+              flaggedAt,
+            }
+          : report,
+      );
+
+      if (this.selectedItem()?.id === item.id) {
+        this.selectedItem.set({
+          ...this.selectedItem()!,
+          isSuspicious: true,
+          flagReason: savedReason,
+          flaggedAt,
+        });
+      }
+
+      this.flagging.set(false);
+      this.flagModalOpen.set(false);
+      this.flagTargetItem.set(null);
+      this.suspiciousReason = '';
+      this.error.set('');
+      this.actionMessage.set('Report flagged as suspicious.');
+    },
+    error: (err) => {
+      this.flagging.set(false);
+      this.error.set(
+        err?.error?.message ||
+        err?.error?.error ||
+        err?.error?.details ||
+        'Failed to flag report as suspicious.'
+      );
+    },
+  });
+}
 
   copyReferenceCode(referenceCode: string): void {
     if (!isPlatformBrowser(this.platformId) || typeof navigator === 'undefined' || !navigator.clipboard) {
@@ -257,8 +378,8 @@ export class AdminReportsComponent implements OnInit {
         this.itemHistory.set(history);
         this.historyLoading.set(false);
       },
-      error: () => {
-        this.historyError.set('Failed to load item history.');
+      error: (err) => {
+        this.historyError.set(this.getFriendlyErrorMessage(err, 'Failed to load item history.'));
         this.historyLoading.set(false);
       },
     });
@@ -269,8 +390,8 @@ export class AdminReportsComponent implements OnInit {
     if (!history) return [];
 
     return history.events.filter((event) =>
-      (event.changes ?? []).some((change) => change.field === 'status')
-      || typeof event.metadata?.itemStatus === 'string',
+      (event.changes ?? []).some((change) => change.field === 'status') ||
+      typeof event.metadata?.itemStatus === 'string',
     );
   }
 
@@ -358,14 +479,7 @@ export class AdminReportsComponent implements OnInit {
       error: (err) => {
         this.restoring.set(false);
         this.restoreModalOpen.set(false);
-
-        const backendMessage =
-          err?.error?.message ||
-          err?.error?.error ||
-          err?.error?.details ||
-          'Restore failed. That status change is not allowed.';
-
-        this.error.set(backendMessage);
+        this.error.set(this.getFriendlyErrorMessage(err, 'Restore failed. That status change is not allowed.'));
       },
     });
   }
@@ -391,6 +505,12 @@ export class AdminReportsComponent implements OnInit {
     };
 
     return map[normalized] ?? 'bg-border/20 text-text-secondary border-border';
+  }
+
+  suspiciousBadgeClass(item: AdminReport): string {
+    return this.isFlagged(item)
+      ? 'bg-primary/10 text-primary border-primary/30'
+      : 'bg-border/20 text-text-secondary border-border';
   }
 
   statusLabel(status?: string): string {
@@ -446,15 +566,29 @@ export class AdminReportsComponent implements OnInit {
     return this.normalizeStatus(item.status) === 'archived';
   }
 
+  isFlagged(item: AdminReport): boolean {
+    return Boolean(item.isSuspicious);
+  }
+
   rowClass(item: AdminReport): string {
-    return this.isArchived(item)
-      ? 'border-b border-border/40 bg-slate-50/70 hover:bg-slate-100/70 transition-colors'
-      : 'border-b border-border/40 hover:bg-neutral-base/50 transition-colors';
+    if (this.isArchived(item)) {
+      return 'border-b border-border/40 bg-slate-50/70 hover:bg-slate-100/70 transition-colors';
+    }
+
+    if (this.isFlagged(item)) {
+      return 'border-b border-border/40 bg-primary/5 hover:bg-primary/10 transition-colors';
+    }
+
+    return 'border-b border-border/40 hover:bg-neutral-base/50 transition-colors';
   }
 
   canValidate(item: AdminReport): boolean {
     const status = this.normalizeStatus(item.status);
     return status === 'pending_validation' || status === 'pending' || status === 'reported';
+  }
+
+  canFlag(item: AdminReport): boolean {
+    return !this.isArchived(item) && !this.isFlagged(item);
   }
 
   canOpenPhoto(item: AdminReport): boolean {
@@ -510,5 +644,14 @@ export class AdminReportsComponent implements OnInit {
 
   private normalizeStatus(status?: string): string {
     return (status || '').trim().toLowerCase();
+  }
+
+  private extractSuspiciousValue(item: Partial<AdminReport>): boolean {
+    return Boolean(item.isSuspicious);
+  }
+
+  private getFriendlyErrorMessage(err: unknown, fallback: string): string {
+    const friendly = this.errorService.getUserFriendlyMessage(err as ErrorResponse);
+    return friendly && friendly !== 'An error occurred. Please try again.' ? friendly : fallback;
   }
 }
