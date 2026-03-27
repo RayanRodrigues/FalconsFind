@@ -1,0 +1,140 @@
+<div class="space-y-6">
+  <div class="rounded-2xl border border-border/60 bg-white p-5 shadow-sm">
+    <div class="flex flex-col gap-4">
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-text-secondary mb-2">Filters</p>
+        <p class="text-sm text-text-secondary mb-0">
+          Refine dashboard statistics by date range, category, or location.
+        </p>
+      </div>
+
+      <div class="grid gap-3 lg:grid-cols-4">
+        <div>
+          <label class="mb-2 block text-sm font-semibold text-text-primary">Date From</label>
+          <input
+            type="date"
+            [ngModel]="dateFrom()"
+            (ngModelChange)="setDateFrom($event)"
+            class="w-full rounded-lg border border-border px-3 py-2 text-sm bg-white"
+          />
+        </div>
+
+        <div>
+          <label class="mb-2 block text-sm font-semibold text-text-primary">Category</label>
+          <select
+            [ngModel]="categoryFilter()"
+            (ngModelChange)="setCategory($event)"
+            class="w-full rounded-lg border border-border px-3 py-2 text-sm bg-white"
+          >
+            <option value="all">All categories</option>
+            @for (category of uniqueCategories(); track category) {
+              <option [value]="category.toLowerCase()">{{ category }}</option>
+            }
+          </select>
+        </div>
+
+        <div>
+          <label class="mb-2 block text-sm font-semibold text-text-primary">Location</label>
+          <input
+            type="text"
+            [ngModel]="locationFilter()"
+            (ngModelChange)="setLocation($event)"
+            placeholder="Search location"
+            class="w-full rounded-lg border border-border px-3 py-2 text-sm bg-white"
+          />
+        </div>
+
+        <div class="flex items-end">
+          <button
+            type="button"
+            (click)="clearFilters()"
+            class="w-full rounded-lg border border-border bg-white px-4 py-2 text-sm font-semibold"
+          >
+            Clear Filters
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  @if (!loading() && !error()) {
+    <!-- Cards -->
+    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div class="rounded-2xl border bg-white p-5 shadow-sm">
+        <p class="text-xs text-text-secondary mb-2">Total Reported</p>
+        <p class="text-3xl font-bold">{{ totalReported() }}</p>
+      </div>
+
+      <div class="rounded-2xl border bg-white p-5 shadow-sm">
+        <p class="text-xs text-text-secondary mb-2">Validated</p>
+        <p class="text-3xl font-bold" style="color: var(--color-primary)">
+          {{ validatedCount() }}
+        </p>
+      </div>
+
+      <div class="rounded-2xl border bg-white p-5 shadow-sm">
+        <p class="text-xs text-text-secondary mb-2">Claimed</p>
+        <p class="text-3xl font-bold" style="color: var(--color-primary)">
+          {{ claimedCount() }}
+        </p>
+      </div>
+
+      <div class="rounded-2xl border bg-white p-5 shadow-sm">
+        <p class="text-xs text-text-secondary mb-2">Returned</p>
+        <p class="text-3xl font-bold" style="color: var(--color-primary)">
+          {{ returnedCount() }}
+        </p>
+      </div>
+    </div>
+
+    <!-- Bars -->
+    <div class="rounded-2xl border bg-white p-5 shadow-sm">
+      <h2 class="text-lg font-bold mb-4">Status Distribution</h2>
+
+      <div class="space-y-5">
+        @for (bar of statusBars(); track trackByLabel($index, bar)) {
+          <div>
+            <div class="flex justify-between mb-2">
+              <span>{{ bar.label }} ({{ bar.percent }}%)</span>
+              <span style="color: var(--color-primary); font-weight: bold">
+                {{ bar.value }}
+              </span>
+            </div>
+
+            <!-- background -->
+            <div style="height:12px; background:#e5e7eb; border-radius:999px;">
+              
+              <!-- DARK PINK BAR -->
+              <div
+                [style.width.%]="bar.percent"
+                style="
+                  height:12px;
+                  background: var(--color-primary);
+                  border-radius:999px;
+                  transition:0.3s;
+                "
+              ></div>
+
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+
+    <!-- Locations -->
+    <div class="rounded-2xl border bg-white p-5 shadow-sm">
+      <h2 class="text-lg font-bold mb-4">Top Locations</h2>
+
+      <div class="space-y-3">
+        @for (entry of topLocations(); track trackByLocation($index, entry)) {
+          <div class="flex justify-between border p-3 rounded-xl">
+            <span>{{ entry.location }}</span>
+            <span style="color: var(--color-primary); font-weight: bold">
+              {{ entry.count }}
+            </span>
+          </div>
+        }
+      </div>
+    </div>
+  }
+</div>
