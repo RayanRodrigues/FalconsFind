@@ -112,6 +112,11 @@ export class AdminReportsComponent implements OnInit {
   readonly flagging = signal(false);
   readonly flagTargetItem = signal<AdminReport | null>(null);
 
+  readonly selectedItems = signal<Set<string>>(new Set());
+  readonly mergeModalOpen = signal(false);
+  readonly merging = signal(false);
+  readonly selectedPrimaryMergeId = signal('');
+
   allItems: AdminReport[] = [];
   filteredItems: AdminReport[] = [];
 
@@ -166,6 +171,7 @@ export class AdminReportsComponent implements OnInit {
           flaggedAt: item.flaggedAt ?? null,
         }));
         this.applyFilters();
+        this.pruneSelectedItems();
         this.loading.set(false);
       },
       error: (err) => {
@@ -204,6 +210,104 @@ export class AdminReportsComponent implements OnInit {
 
       return kwMatch && statusMatch;
     });
+
+    this.pruneSelectedItems();
+  }
+
+  toggleSelect(id: string): void {
+    const current = new Set(this.selectedItems());
+
+    if (current.has(id)) {
+      current.delete(id);
+    } else {
+      current.add(id);
+    }
+
+    this.selectedItems.set(current);
+
+    if (this.selectedPrimaryMergeId() && !this.selectedItems().has(this.selectedPrimaryMergeId())) {
+      const firstRemaining = Array.from(this.selectedItems())[0] ?? '';
+      this.selectedPrimaryMergeId.set(firstRemaining);
+    }
+  }
+
+  isSelected(id: string): boolean {
+    return this.selectedItems().has(id);
+  }
+
+  canMergeSelected(): boolean {
+    return this.selectedItems().size >= 2;
+  }
+
+  getSelectedMergeItems(): AdminReport[] {
+    const selectedIds = this.selectedItems();
+    return this.filteredItems.filter((item) => selectedIds.has(item.id));
+  }
+
+  openMergeModal(): void {
+    if (!this.canMergeSelected()) return;
+
+    const selected = this.getSelectedMergeItems();
+    this.selectedPrimaryMergeId.set(selected[0]?.id ?? '');
+    this.mergeModalOpen.set(true);
+    this.error.set('');
+    this.actionMessage.set('');
+  }
+
+  closeMergeModal(): void {
+    if (this.merging()) return;
+
+    this.mergeModalOpen.set(false);
+    this.selectedPrimaryMergeId.set('');
+  }
+
+  setPrimaryMergeId(id: string): void {
+    this.selectedPrimaryMergeId.set(id);
+  }
+
+  confirmMerge(): void {
+    const selected = this.getSelectedMergeItems();
+    const primaryId = this.selectedPrimaryMergeId();
+
+    if (selected.length < 2) {
+      this.error.set('Please select at least two reports to merge.');
+      return;
+    }
+
+    if (!primaryId) {
+      this.error.set('Please choose a primary report to keep.');
+      return;
+    }
+
+    const primary = selected.find((item) => item.id === primaryId);
+    if (!primary) {
+      this.error.set('Selected primary report was not found.');
+      return;
+    }
+
+    this.merging.set(true);
+    this.error.set('');
+    this.actionMessage.set('');
+
+    const duplicateIds = selected
+      .filter((item) => item.id !== primaryId)
+      .map((item) => item.id);
+
+    this.allItems = this.allItems.filter((item) => !duplicateIds.includes(item.id));
+    this.applyFilters();
+
+    if (this.selectedItem() && duplicateIds.includes(this.selectedItem()!.id)) {
+      this.closeDetails();
+    }
+
+    this.selectedItems.set(new Set());
+    this.selectedPrimaryMergeId.set('');
+    this.mergeModalOpen.set(false);
+    this.merging.set(false);
+
+    this.actionMessage.set(
+      `Merged ${duplicateIds.length + 1} reports. Kept "${primary.title || 'Untitled'}" as the primary report.`
+    );
   }
 
   approve(id: string): void {
@@ -245,83 +349,83 @@ export class AdminReportsComponent implements OnInit {
     this.suspiciousReason = '';
   }
 
-submitFlagReport(): void {
-  const item = this.flagTargetItem();
-  if (!item || this.flagging()) return;
+  submitFlagReport(): void {
+    const item = this.flagTargetItem();
+    if (!item || this.flagging()) return;
 
-  this.error.set('');
-  this.actionMessage.set('');
+    this.error.set('');
+    this.actionMessage.set('');
 
-  const reason = this.suspiciousReason.trim();
+    const reason = this.suspiciousReason.trim();
 
-  if (!reason) {
-    this.error.set('Please enter a reason before flagging this report.');
-    return;
+    if (!reason) {
+      this.error.set('Please enter a reason before flagging this report.');
+      return;
+    }
+
+    this.flagging.set(true);
+
+    this.http.patch<{
+      id: string;
+      isSuspicious: boolean;
+      suspiciousReason?: string | null;
+      suspiciousFlaggedAt?: string | null;
+    }>(`/admin/reports/${item.id}/flag`, {
+      suspiciousReason: reason,
+    }).subscribe({
+      next: (response) => {
+        const flaggedAt = response?.suspiciousFlaggedAt ?? new Date().toISOString();
+        const savedReason = response?.suspiciousReason ?? reason;
+
+        this.allItems = this.allItems.map((report) =>
+          report.id === item.id
+            ? {
+                ...report,
+                isSuspicious: true,
+                flagReason: savedReason,
+                flaggedAt,
+              }
+            : report,
+        );
+
+        this.filteredItems = this.filteredItems.map((report) =>
+          report.id === item.id
+            ? {
+                ...report,
+                isSuspicious: true,
+                flagReason: savedReason,
+                flaggedAt,
+              }
+            : report,
+        );
+
+        if (this.selectedItem()?.id === item.id) {
+          this.selectedItem.set({
+            ...this.selectedItem()!,
+            isSuspicious: true,
+            flagReason: savedReason,
+            flaggedAt,
+          });
+        }
+
+        this.flagging.set(false);
+        this.flagModalOpen.set(false);
+        this.flagTargetItem.set(null);
+        this.suspiciousReason = '';
+        this.error.set('');
+        this.actionMessage.set('Report flagged as suspicious.');
+      },
+      error: (err) => {
+        this.flagging.set(false);
+        this.error.set(
+          err?.error?.message ||
+          err?.error?.error ||
+          err?.error?.details ||
+          'Failed to flag report as suspicious.'
+        );
+      },
+    });
   }
-
-  this.flagging.set(true);
-
-  this.http.patch<{
-    id: string;
-    isSuspicious: boolean;
-    suspiciousReason?: string | null;
-    suspiciousFlaggedAt?: string | null;
-  }>(`/admin/reports/${item.id}/flag`, {
-    suspiciousReason: reason,
-  }).subscribe({
-    next: (response) => {
-      const flaggedAt = response?.suspiciousFlaggedAt ?? new Date().toISOString();
-      const savedReason = response?.suspiciousReason ?? reason;
-
-      this.allItems = this.allItems.map((report) =>
-        report.id === item.id
-          ? {
-              ...report,
-              isSuspicious: true,
-              flagReason: savedReason,
-              flaggedAt,
-            }
-          : report,
-      );
-
-      this.filteredItems = this.filteredItems.map((report) =>
-        report.id === item.id
-          ? {
-              ...report,
-              isSuspicious: true,
-              flagReason: savedReason,
-              flaggedAt,
-            }
-          : report,
-      );
-
-      if (this.selectedItem()?.id === item.id) {
-        this.selectedItem.set({
-          ...this.selectedItem()!,
-          isSuspicious: true,
-          flagReason: savedReason,
-          flaggedAt,
-        });
-      }
-
-      this.flagging.set(false);
-      this.flagModalOpen.set(false);
-      this.flagTargetItem.set(null);
-      this.suspiciousReason = '';
-      this.error.set('');
-      this.actionMessage.set('Report flagged as suspicious.');
-    },
-    error: (err) => {
-      this.flagging.set(false);
-      this.error.set(
-        err?.error?.message ||
-        err?.error?.error ||
-        err?.error?.details ||
-        'Failed to flag report as suspicious.'
-      );
-    },
-  });
-}
 
   copyReferenceCode(referenceCode: string): void {
     if (!isPlatformBrowser(this.platformId) || typeof navigator === 'undefined' || !navigator.clipboard) {
@@ -640,6 +744,19 @@ submitFlagReport(): void {
     }
 
     return this.allItems.filter((item) => !this.isArchived(item));
+  }
+
+  private pruneSelectedItems(): void {
+    const visibleIds = new Set(this.filteredItems.map((item) => item.id));
+    const next = new Set(
+      Array.from(this.selectedItems()).filter((id) => visibleIds.has(id)),
+    );
+
+    this.selectedItems.set(next);
+
+    if (this.selectedPrimaryMergeId() && !next.has(this.selectedPrimaryMergeId())) {
+      this.selectedPrimaryMergeId.set(Array.from(next)[0] ?? '');
+    }
   }
 
   private normalizeStatus(status?: string): string {

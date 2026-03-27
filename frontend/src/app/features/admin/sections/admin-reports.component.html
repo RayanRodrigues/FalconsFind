@@ -66,6 +66,18 @@
         >
           All
         </button>
+
+        <button
+          type="button"
+          (click)="openMergeModal()"
+          [disabled]="!canMergeSelected()"
+          class="rounded-lg border px-4 py-2 text-sm font-semibold transition-colors"
+          [class]="canMergeSelected()
+            ? 'border-primary bg-primary text-white hover:opacity-90'
+            : 'border-border bg-neutral-base text-text-secondary cursor-not-allowed'"
+        >
+          Merge Selected
+        </button>
       </div>
 
       <div class="flex flex-col gap-3 lg:flex-row lg:items-center">
@@ -109,6 +121,9 @@
 
         <span class="text-xs text-text-secondary lg:ml-auto">
           {{ filteredItems.length }} result{{ filteredItems.length === 1 ? '' : 's' }}
+          @if (selectedItems().size > 0) {
+            <span> • {{ selectedItems().size }} selected</span>
+          }
         </span>
       </div>
     </div>
@@ -149,6 +164,7 @@
         <table class="min-w-full">
           <thead class="bg-neutral-base/60">
             <tr>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wide">Select</th>
               <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wide">Item</th>
               <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wide">Location</th>
               <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wide">Reported</th>
@@ -159,6 +175,16 @@
           <tbody>
             @for (item of filteredItems; track trackById($index, item)) {
               <tr [class]="rowClass(item)">
+                <td class="px-4 py-3 align-top">
+                  <input
+                    type="checkbox"
+                    [checked]="isSelected(item.id)"
+                    (change)="toggleSelect(item.id)"
+                    class="mt-1 h-4 w-4 accent-[var(--color-primary)]"
+                    aria-label="Select report"
+                  />
+                </td>
+
                 <td class="px-4 py-3">
                   <div class="flex items-start gap-3">
                     <div class="min-w-0">
@@ -267,6 +293,74 @@
     </div>
   }
 </div>
+
+@if (mergeModalOpen()) {
+  <div class="fixed inset-0 z-[96] flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-slate-950/40" (click)="closeMergeModal()"></div>
+
+    <div class="relative w-full max-w-2xl rounded-2xl border border-border/60 bg-white p-6 shadow-2xl">
+      <p class="text-xs font-semibold uppercase tracking-[0.18em] text-text-secondary mb-2">Merge Duplicate Reports</p>
+      <h4 class="text-lg font-bold text-text-primary mb-2">Choose the primary report to keep</h4>
+      <p class="text-sm text-text-secondary mb-5">
+        Select which report should remain as the main record. The other selected reports will be removed from the current frontend view.
+      </p>
+
+      <div class="space-y-3 max-h-[320px] overflow-y-auto">
+        @for (item of getSelectedMergeItems(); track trackById($index, item)) {
+          <label class="flex items-start gap-3 rounded-xl border border-border/60 bg-neutral-base/30 p-4 cursor-pointer">
+            <input
+              type="radio"
+              name="primaryMergeReport"
+              [checked]="selectedPrimaryMergeId() === item.id"
+              (change)="setPrimaryMergeId(item.id)"
+              class="mt-1 h-4 w-4 accent-[var(--color-primary)]"
+            />
+
+            <div class="min-w-0 flex-1">
+              <div class="flex flex-wrap items-center gap-2 mb-1">
+                <p class="font-semibold text-text-primary mb-0">{{ item.title || 'Untitled' }}</p>
+                <span
+                  class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide"
+                  [class]="statusClass(item.status)"
+                >
+                  {{ statusLabel(item.status) }}
+                </span>
+              </div>
+
+              <p class="text-xs text-text-secondary mb-1">{{ item.referenceCode }}</p>
+              <p class="text-xs text-text-secondary mb-0">
+                {{ item.location || 'No location' }} • {{ item.dateReported | date: 'mediumDate' }}
+              </p>
+            </div>
+          </label>
+        }
+      </div>
+
+      <div class="mt-6 flex items-center justify-end gap-3">
+        <app-button
+          type="button"
+          variant="secondary"
+          size="md"
+          [disabled]="merging()"
+          (buttonClick)="closeMergeModal()"
+        >
+          Cancel
+        </app-button>
+
+        <app-button
+          type="button"
+          variant="primary"
+          size="md"
+          [loading]="merging()"
+          [disabled]="merging() || !selectedPrimaryMergeId()"
+          (buttonClick)="confirmMerge()"
+        >
+          {{ merging() ? 'Merging…' : 'Confirm Merge' }}
+        </app-button>
+      </div>
+    </div>
+  </div>
+}
 
 @if (selectedItem(); as item) {
   <div class="fixed inset-0 z-[80]">
