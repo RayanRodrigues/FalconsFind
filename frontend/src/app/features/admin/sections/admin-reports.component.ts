@@ -499,6 +499,112 @@ export class AdminReportsComponent implements OnInit {
     );
   }
 
+  getFullHistoryEvents(): ItemHistoryEvent[] {
+    const history = this.itemHistory();
+    if (!history) return [];
+
+    return [...history.events].sort((a, b) => {
+      const aTime = new Date(a.timestamp).getTime();
+      const bTime = new Date(b.timestamp).getTime();
+      return bTime - aTime;
+    });
+  }
+
+  getHistoryBadgeClass(event: ItemHistoryEvent): string {
+    const type = this.normalizeHistoryActionType(event.actionType);
+
+    if (
+      type.includes('flag') ||
+      type.includes('suspicious')
+    ) {
+      return 'bg-primary/10 text-primary border-primary/30';
+    }
+
+    if (
+      type.includes('restore') ||
+      type.includes('status') ||
+      type.includes('validate') ||
+      type.includes('approved') ||
+      type.includes('update')
+    ) {
+      return 'bg-info/10 text-info border-info/30';
+    }
+
+    if (
+      type.includes('claim')
+    ) {
+      return 'bg-success/10 text-success border-success/30';
+    }
+
+    if (
+      type.includes('archive')
+    ) {
+      return 'bg-slate-100 text-slate-700 border-slate-300';
+    }
+
+    return 'bg-border/20 text-text-secondary border-border';
+  }
+
+  getHistoryActorLabel(event: ItemHistoryEvent): string {
+    if (event.actor?.email?.trim()) {
+      return event.actor.email.trim();
+    }
+
+    if (event.actor?.type?.trim()) {
+      return event.actor.type.trim();
+    }
+
+    return 'System';
+  }
+
+  getHistoryActionLabel(event: ItemHistoryEvent): string {
+    const actionType = this.normalizeHistoryActionType(event.actionType);
+
+    if (actionType.includes('flag') || actionType.includes('suspicious')) {
+      return 'Flagged';
+    }
+
+    if (actionType.includes('restore')) {
+      return 'Restored';
+    }
+
+    if (actionType.includes('validate') || actionType.includes('approved')) {
+      return 'Validated';
+    }
+
+    if (actionType.includes('archive')) {
+      return 'Archived';
+    }
+
+    if (actionType.includes('claim')) {
+      return 'Claim Activity';
+    }
+
+    if (actionType.includes('report') || actionType.includes('create')) {
+      return 'Report Activity';
+    }
+
+    if (actionType.includes('status') || actionType.includes('update')) {
+      return 'Status Update';
+    }
+
+    return event.actionType
+      ? event.actionType.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
+      : 'History Event';
+  }
+
+  hasHistoryMetadata(event: ItemHistoryEvent): boolean {
+    return Boolean(
+      event.actor?.email ||
+      event.actor?.type ||
+      event.entityType ||
+      event.metadata?.referenceCode ||
+      event.metadata?.claimStatus ||
+      event.metadata?.reportKind ||
+      event.metadata?.flagReason
+    );
+  }
+
   private getAllowedRestoreTargetsForCurrentStatus(): Set<string> {
     const currentStatus = this.normalizeStatus(this.selectedItem()?.status);
 
@@ -761,6 +867,10 @@ export class AdminReportsComponent implements OnInit {
 
   private normalizeStatus(status?: string): string {
     return (status || '').trim().toLowerCase();
+  }
+
+  private normalizeHistoryActionType(actionType?: string): string {
+    return (actionType || '').trim().toLowerCase();
   }
 
   private extractSuspiciousValue(item: Partial<AdminReport>): boolean {
