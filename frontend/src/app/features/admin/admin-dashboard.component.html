@@ -18,18 +18,40 @@
     <nav class="admin-sidebar__nav">
       <p class="admin-sidebar__section-label">Management</p>
 
-      <button type="button" class="admin-nav-item" [class.admin-nav-item--active]="activeTab() === 'reports'" (click)="setTab('reports')">
+      <button
+        type="button"
+        class="admin-nav-item"
+        [class.admin-nav-item--active]="activeTab() === 'reports'"
+        (click)="setTab('reports')"
+      >
         <svg class="admin-nav-item__icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
         Found Reports
       </button>
 
-      <button type="button" class="admin-nav-item" [class.admin-nav-item--active]="activeTab() === 'claims'" (click)="setTab('claims')">
+      <button
+        type="button"
+        class="admin-nav-item"
+        [class.admin-nav-item--active]="activeTab() === 'claims'"
+        (click)="setTab('claims')"
+      >
         <svg class="admin-nav-item__icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
         </svg>
         Claims
+      </button>
+
+      <button
+        type="button"
+        class="admin-nav-item"
+        [class.admin-nav-item--active]="activeTab() === 'statistics'"
+        (click)="setTab('statistics')"
+      >
+        <svg class="admin-nav-item__icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M7 20V10m5 10V4m5 16v-7" />
+        </svg>
+        Statistics
       </button>
     </nav>
 
@@ -85,13 +107,13 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
         </svg>
       </button>
-      <span class="admin-topbar__title">{{ activeTab() === 'reports' ? 'Found Reports' : 'Claims' }}</span>
+      <span class="admin-topbar__title">{{ getPageTitle() }}</span>
     </header>
 
     <!-- Page header -->
     <div class="admin-page-header">
       <p class="admin-page-header__eyebrow">Administration</p>
-      <h1 class="admin-page-header__title">{{ activeTab() === 'reports' ? 'Found Reports' : 'Claims' }}</h1>
+      <h1 class="admin-page-header__title">{{ getPageTitle() }}</h1>
     </div>
 
     <!-- Content -->
@@ -99,6 +121,7 @@
       @defer {
         <app-admin-reports [hidden]="activeTab() !== 'reports'" />
         <app-admin-claims [hidden]="activeTab() !== 'claims'" />
+        <app-admin-statistics [hidden]="activeTab() !== 'statistics'" />
       }
     </div>
 
