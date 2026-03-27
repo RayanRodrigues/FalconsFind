@@ -643,7 +643,7 @@
 
             <div class="space-y-5">
               <div class="rounded-2xl border border-border/60 bg-white p-4">
-                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-text-secondary mb-3">Status History</p>
+                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-text-secondary mb-3">Full Item History</p>
 
                 @if (historyLoading()) {
                   <p class="text-sm text-text-secondary mb-0">Loading timeline…</p>
@@ -653,37 +653,128 @@
                   <p class="text-sm text-error mb-0">{{ historyError() }}</p>
                 }
 
-                @if (!historyLoading() && !historyError() && getStatusTimeline().length === 0) {
-                  <p class="text-sm text-text-secondary mb-0">No status history available yet.</p>
+                @if (!historyLoading() && !historyError() && getFullHistoryEvents().length === 0) {
+                  <p class="text-sm text-text-secondary mb-0">No history available yet.</p>
                 }
 
-                @if (!historyLoading() && !historyError() && getStatusTimeline().length > 0) {
-                  <div class="space-y-4">
-                    @for (event of getStatusTimeline(); track trackHistoryEvent($index, event)) {
+                @if (!historyLoading() && !historyError() && getFullHistoryEvents().length > 0) {
+                  <div class="space-y-4 max-h-[28rem] overflow-y-auto pr-1">
+                    @for (event of getFullHistoryEvents(); track trackHistoryEvent($index, event)) {
                       <div class="relative pl-6">
                         <div class="absolute left-2 top-2 bottom-0 w-px bg-border"></div>
                         <div class="absolute left-0 top-1.5 h-4 w-4 rounded-full border-2 border-white bg-primary shadow-sm"></div>
 
-                        <div class="rounded-xl border border-border/60 bg-neutral-base/30 p-3">
-                          <p class="text-sm font-semibold text-text-primary mb-1">
-                            {{ getHistoryEventLabel(event) }}
-                          </p>
+                        <div class="rounded-xl border border-border/60 bg-neutral-base/30 p-4">
+                          <div class="flex flex-wrap items-start justify-between gap-2 mb-2">
+                            <div class="min-w-0">
+                              <p class="text-sm font-semibold text-text-primary mb-1">
+                                {{ getHistoryEventLabel(event) }}
+                              </p>
+
+                              <div class="flex flex-wrap items-center gap-2">
+                                <span
+                                  class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide"
+                                  [class]="getHistoryBadgeClass(event)"
+                                >
+                                  {{ getHistoryActionLabel(event) }}
+                                </span>
+
+                                <span class="text-[11px] text-text-secondary">
+                                  {{ event.entityType }}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div class="text-right shrink-0">
+                              <p class="text-xs font-medium text-text-primary mb-0">
+                                {{ event.timestamp | date: 'medium' }}
+                              </p>
+                            </div>
+                          </div>
 
                           @if (getHistoryStatusChange(event); as statusChange) {
-                            <p class="text-xs text-text-secondary mb-2">
-                              @if (statusChange.previous) {
-                                <span>{{ statusLabel(statusChange.previous) }}</span>
-                                <span class="mx-1">→</span>
-                              }
-                              @if (statusChange.next) {
-                                <span>{{ statusLabel(statusChange.next) }}</span>
-                              }
-                            </p>
+                            <div class="mb-3 rounded-lg border border-border/60 bg-white px-3 py-2">
+                              <p class="text-[11px] font-semibold uppercase tracking-wide text-text-secondary mb-1">
+                                Status Change
+                              </p>
+
+                              <p class="text-xs text-text-primary mb-0">
+                                @if (statusChange.previous) {
+                                  <span>{{ statusLabel(statusChange.previous) }}</span>
+                                  <span class="mx-1">→</span>
+                                }
+                                @if (statusChange.next) {
+                                  <span>{{ statusLabel(statusChange.next) }}</span>
+                                }
+                              </p>
+                            </div>
                           }
 
-                          <p class="text-xs text-text-secondary mb-0">
-                            {{ event.timestamp | date: 'medium' }}
-                          </p>
+                          @if (hasHistoryMetadata(event)) {
+                            <div class="grid gap-2 sm:grid-cols-2">
+                              <div class="rounded-lg border border-border/60 bg-white px-3 py-2">
+                                <p class="text-[11px] font-semibold uppercase tracking-wide text-text-secondary mb-1">
+                                  Actor
+                                </p>
+                                <p class="text-xs text-text-primary mb-0">
+                                  {{ getHistoryActorLabel(event) }}
+                                </p>
+                              </div>
+
+                              <div class="rounded-lg border border-border/60 bg-white px-3 py-2">
+                                <p class="text-[11px] font-semibold uppercase tracking-wide text-text-secondary mb-1">
+                                  Action Type
+                                </p>
+                                <p class="text-xs text-text-primary mb-0">
+                                  {{ event.actionType || 'N/A' }}
+                                </p>
+                              </div>
+
+                              @if (event.metadata?.referenceCode) {
+                                <div class="rounded-lg border border-border/60 bg-white px-3 py-2">
+                                  <p class="text-[11px] font-semibold uppercase tracking-wide text-text-secondary mb-1">
+                                    Reference Code
+                                  </p>
+                                  <p class="text-xs text-text-primary mb-0">
+                                    {{ event.metadata?.referenceCode }}
+                                  </p>
+                                </div>
+                              }
+
+                              @if (event.metadata?.claimStatus) {
+                                <div class="rounded-lg border border-border/60 bg-white px-3 py-2">
+                                  <p class="text-[11px] font-semibold uppercase tracking-wide text-text-secondary mb-1">
+                                    Claim Status
+                                  </p>
+                                  <p class="text-xs text-text-primary mb-0">
+                                    {{ event.metadata?.claimStatus }}
+                                  </p>
+                                </div>
+                              }
+
+                              @if (event.metadata?.reportKind) {
+                                <div class="rounded-lg border border-border/60 bg-white px-3 py-2">
+                                  <p class="text-[11px] font-semibold uppercase tracking-wide text-text-secondary mb-1">
+                                    Report Kind
+                                  </p>
+                                  <p class="text-xs text-text-primary mb-0">
+                                    {{ event.metadata?.reportKind }}
+                                  </p>
+                                </div>
+                              }
+
+                              @if (event.metadata?.flagReason) {
+                                <div class="rounded-lg border border-border/60 bg-white px-3 py-2 sm:col-span-2">
+                                  <p class="text-[11px] font-semibold uppercase tracking-wide text-text-secondary mb-1">
+                                    Flag Reason
+                                  </p>
+                                  <p class="text-xs text-text-primary mb-0">
+                                    {{ event.metadata?.flagReason }}
+                                  </p>
+                                </div>
+                              }
+                            </div>
+                          }
                         </div>
                       </div>
                     }
