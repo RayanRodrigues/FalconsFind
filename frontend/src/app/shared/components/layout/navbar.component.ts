@@ -10,8 +10,8 @@ import { UserRole } from '../../../models';
   imports: [RouterLink],
   template: `
     <header
-      class="fixed top-0 left-0 right-0 z-50 border-b shadow-sm"
-      style="background-color: var(--app-surface); border-color: var(--app-border); color: var(--app-text);"
+      class="fixed top-0 left-0 right-0 z-[100] border-b shadow-sm"
+      style="background-color: var(--color-bg); border-color: var(--color-border); color: var(--color-text-primary);"
     >
       <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex h-[72px] items-center justify-between gap-4">
@@ -21,9 +21,9 @@ import { UserRole } from '../../../models';
           </a>
 
           <nav class="hidden sm:flex items-center gap-2">
-            <a routerLink="/found-items" class="px-3 py-1.5 text-sm" style="color: var(--app-text);">Browse</a>
-            <a routerLink="/report/lost" class="px-3 py-1.5 text-sm" style="color: var(--app-text);">Lost</a>
-            <a routerLink="/report/found" class="px-3 py-1.5 text-sm" style="color: var(--app-text);">Found</a>
+            <a routerLink="/found-items" class="px-3 py-1.5 text-sm" style="color: var(--color-text-primary);">Browse</a>
+            <a routerLink="/report/lost" class="px-3 py-1.5 text-sm" style="color: var(--color-text-primary);">Lost</a>
+            <a routerLink="/report/found" class="px-3 py-1.5 text-sm" style="color: var(--color-text-primary);">Found</a>
           </nav>
 
           <div class="hidden sm:flex items-center gap-2">
@@ -33,33 +33,53 @@ import { UserRole } from '../../../models';
               style="
                 padding: 6px 10px;
                 border-radius: 8px;
-                border: 1px solid var(--app-border);
-                background: var(--app-surface);
-                color: var(--app-text);
+                border: 1px solid var(--color-border);
+                background: var(--color-bg);
+                color: var(--color-text-primary);
               "
             >
               {{ isDarkMode() ? 'Light Mode' : 'Dark Mode' }}
             </button>
 
             @if (studentSession()) {
-              <span style="color: var(--app-text);">{{ displayName() }}</span>
-              <button type="button" (click)="logout()">Logout</button>
+              <span style="color: var(--color-text-primary);">{{ displayName() }}</span>
+              <button type="button" (click)="logout()" style="color: var(--color-text-primary);">Logout</button>
             } @else {
-              <a routerLink="/login">Login</a>
+              <a routerLink="/login" style="color: var(--color-text-primary);">Login</a>
             }
           </div>
 
-          <button type="button" (click)="toggleMenu()" class="sm:hidden">☰</button>
+          <button
+            type="button"
+            (click)="toggleMenu()"
+            class="sm:hidden"
+            style="color: var(--color-text-primary);"
+          >
+            ☰
+          </button>
         </div>
 
         @if (menuOpen()) {
           <div
             class="sm:hidden flex flex-col gap-2 p-3"
-            style="border-top: 1px solid var(--app-border); background: var(--app-surface);"
+            style="border-top: 1px solid var(--color-border); background: var(--color-bg);"
           >
-            <button type="button" (click)="toggleTheme()">
+            <a routerLink="/found-items" (click)="closeMenu()" style="color: var(--color-text-primary);">Browse</a>
+            <a routerLink="/report/lost" (click)="closeMenu()" style="color: var(--color-text-primary);">Lost</a>
+            <a routerLink="/report/found" (click)="closeMenu()" style="color: var(--color-text-primary);">Found</a>
+
+            <button type="button" (click)="toggleTheme()" style="text-align:left; color: var(--color-text-primary);">
               {{ isDarkMode() ? 'Light Mode' : 'Dark Mode' }}
             </button>
+
+            @if (studentSession()) {
+              <span style="color: var(--color-text-primary);">{{ displayName() }}</span>
+              <button type="button" (click)="logout()" style="text-align:left; color: var(--color-text-primary);">
+                Logout
+              </button>
+            } @else {
+              <a routerLink="/login" (click)="closeMenu()" style="color: var(--color-text-primary);">Login</a>
+            }
           </div>
         }
       </div>
@@ -88,6 +108,10 @@ export class NavbarComponent {
 
   toggleMenu(): void {
     this.menuOpen.update(value => !value);
+  }
+
+  closeMenu(): void {
+    this.menuOpen.set(false);
   }
 
   toggleTheme(): void {
