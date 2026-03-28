@@ -4,17 +4,18 @@
   align-items: center;
   justify-content: center;
   padding: 2rem 1rem;
-  background-color: var(--color-neutral-base);
+  background-color: var(--color-bg);
 }
 
 .login-box {
   width: 100%;
   max-width: 400px;
-  background: #ffffff;
+  background: var(--color-surface); /* ✅ matches login page */
   border: 1px solid var(--color-border);
   border-radius: 1.25rem;
   padding: 2.5rem 2rem;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+  color: var(--color-text-primary);
 }
 
 .login-logo {
@@ -61,6 +62,12 @@
   display: block;
 }
 
+/* 👇 makes inputs match dark mode */
+app-input {
+  --input-bg: var(--color-bg);
+  --input-text: var(--color-text-primary);
+}
+
 .password-toggle {
   position: absolute;
   right: 0.75rem;
@@ -76,7 +83,25 @@
   transition: color 0.15s;
 }
 
-.password-toggle:hover { color: var(--color-text-primary); }
+.password-toggle:hover {
+  color: var(--color-text-primary);
+}
+
+.login-forgot {
+  text-align: right;
+  margin-top: -0.75rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.8125rem;
+}
+
+.login-forgot a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.login-forgot a:hover {
+  text-decoration: underline;
+}
 
 .login-submit-btn {
   width: 100%;
@@ -94,11 +119,16 @@
   cursor: pointer;
   transition: background-color 0.15s;
   min-height: 48px;
-  margin-top: 0.5rem;
 }
 
-.login-submit-btn:hover:not(:disabled) { background-color: var(--color-secondary); }
-.login-submit-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.login-submit-btn:hover:not(:disabled) {
+  background-color: var(--color-secondary);
+}
+
+.login-submit-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
 
 .login-spinner {
   width: 16px;
@@ -113,4 +143,17 @@
   margin: 1.5rem 0 0;
 }
 
-@keyframes spin { to { transform: rotate(360deg); } }
+.login-footer a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.login-footer a:hover {
+  text-decoration: underline;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
