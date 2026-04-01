@@ -222,9 +222,9 @@ Single export point for imports inside the frontend.
 
 **Report Reference Code format**
 
-* Lost reports: `LST-<base36Timestamp>-<base36Random5>`  
-* Found reports: `FND-<base36Timestamp>-<base36Random5>`  
-* Example: `FND-MTQ49QF-7K2PA`
+* Lost reports: `LST-<YYYYMMDD>-<8 uppercase alphanumeric chars>`  
+* Found reports: `FND-<YYYYMMDD>-<8 uppercase alphanumeric chars>`  
+* Example: `FND-20260318-ALIAS002`
 
 **Items**
 
