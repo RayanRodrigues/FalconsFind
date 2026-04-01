@@ -202,23 +202,13 @@ Single export point for imports inside the frontend.
 * `contactEmail?: string`
 * `photo?: File` *(optional, JPEG/PNG, max 5MB)*
 
-**TODO (Photo Strategy)**
+**Current Contract Notes**
 
-* Analyze and decide whether `lost` and `found` reports should support **multiple photos** in the backend contract.
-* Current state: both flows are implemented as **single-photo persistence** using multipart uploads to Storage.
-* If approved for multi-photo: update backend DTOs/schemas/routes, OpenAPI docs, and frontend submit payloads in both forms.
-
-**TODO (Items Pagination Strategy)**
-
-* Evaluate moving `GET /items` from page-number pagination to a true cursor-token contract.
-* Current state: the backend avoids Firestore `offset(...)`, but the public API still exposes `page` and `limit`.
-* If approved: return a cursor such as `nextCursor`, update the backend route/OpenAPI contract, and align the frontend found-items flow to request subsequent pages by cursor instead of page number.
-
-**TODO (Firebase Admin Credential Precedence)**
-
-* Document and enforce the precedence between `FIREBASE_ADMIN_CREDENTIALS_JSON` and `FIREBASE_ADMIN_CREDENTIALS`.
-* Current state: the backend accepts either source and currently prefers the raw JSON env var when both are set.
-* If approved: choose one explicit precedence rule or fail fast when both are present, and document that rule in environment setup docs.
+* Report creation currently accepts **one photo per report** in both `lost` and `found` flows.
+* Claim proof responses currently support **multiple photos** in the authenticated student claim flow.
+* Public/admin item and report responses may expose image arrays such as `imageUrls` or `photoUrls` when multiple stored images exist.
+* `GET /items` currently uses page-based pagination with `page` and `limit`, even though the backend avoids Firestore `offset(...)`.
+* When both credential env vars are present, the backend currently prefers `FIREBASE_ADMIN_CREDENTIALS_JSON` over `FIREBASE_ADMIN_CREDENTIALS`.
 
 **Report Reference Code format**
 

@@ -85,6 +85,26 @@ All state transitions are enforced by the backend service layer.
 All endpoints are prefixed with:  
 `/api/v1`
 
+### **Auth Endpoints**
+
+#### **POST /auth/login**
+
+Authenticate a staff user (SECURITY or ADMIN) with email and password. Returns a Firebase ID token and refresh token.
+
+#### **POST /auth/refresh**
+
+Exchange a refresh token for a new ID token.
+
+#### **POST /auth/forgot-password**
+
+Trigger a password reset email.
+
+#### **POST /auth/logout**
+
+Invalidate the current staff session. Requires authentication.
+
+---
+
 ### **Public Endpoints (No Authentication)**
 
 #### **POST /reports/lost**
@@ -95,6 +115,14 @@ Submit a lost item report.
 
 Submit a found item report.
 
+#### **GET /reports/{referenceCode}**
+
+Retrieve an editable report by reference code (used by the Edit Report flow).
+
+#### **PATCH /reports/{referenceCode}**
+
+Update an editable report by reference code (only while the report is still under review).
+
 #### **GET /items**
 
 Retrieve publicly visible found items (validated only).
@@ -103,9 +131,13 @@ Retrieve publicly visible found items (validated only).
 
 Retrieve item details (only if validated).
 
+#### **GET /items/{id}/status**
+
+Retrieve the current status of a specific item.
+
 #### **POST /claims**
 
-Submit a structured claim request for a found item.
+Submit a structured claim request for a found item. Requires student authentication.
 
 #### **GET /claims/me**
 
@@ -127,25 +159,45 @@ Cancel an authenticated student's own claim.
 
 ### **Secured Endpoints (SECURITY / ADMIN)**
 
-#### **POST /security/items/{id}/validate**
+#### **PATCH /reports/found/{id}/validate**
 
-Validate a found item.
+Validate a found item report and promote it to `PENDING_VALIDATION`. Requires staff authentication.
 
-#### **PATCH /security/items/{id}/status**
+#### **GET /admin/reports**
 
-Update item status.
+List all reports (lost & found) for staff review.
 
-#### **GET /security/reports**
+#### **PATCH /admin/reports/{id}/flag**
 
-View all reports (lost & found).
+Flag a report for follow-up. Requires staff authentication.
 
-#### **GET /security/claims**
+#### **POST /admin/reports/merge**
 
-View and manage claims.
+Merge duplicate reports. Requires staff authentication.
 
-#### **PATCH /security/claims/{id}/approve**
+#### **GET /admin/claims**
 
-#### **PATCH /security/claims/{id}/reject**
+List all claim requests for staff review.
+
+#### **PATCH /claims/{id}/status**
+
+Update a claim's status (e.g. approve, reject, request proof). Requires staff authentication.
+
+#### **PATCH /claims/{id}/proof-request**
+
+Request additional proof from a claimant. Requires staff authentication.
+
+#### **GET /admin/items/{id}/history**
+
+Retrieve the full status history of a specific item. Requires staff authentication.
+
+#### **PATCH /admin/items/{id}/status**
+
+Manually update an item's lifecycle status. Requires staff authentication.
+
+#### **POST /admin/items/{id}/restore-status**
+
+Restore a previously archived or incorrectly transitioned item status. Requires staff authentication.
 
 ---
 
