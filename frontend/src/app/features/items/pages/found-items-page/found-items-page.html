@@ -84,12 +84,7 @@
         </select>
 
         <div class="ml-auto flex items-center gap-3">
-          @if (loading) {
-            <svg class="h-3.5 w-3.5 animate-spin text-primary" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <circle cx="12" cy="12" r="9" class="opacity-25" stroke="currentColor" stroke-width="3" />
-              <path class="opacity-90" fill="currentColor" d="M12 3a9 9 0 0 1 9 9h-3a6 6 0 0 0-6-6V3Z" />
-            </svg>
-          } @else {
+          @if (!loading) {
             <span class="whitespace-nowrap text-xs text-[var(--color-text-secondary)]">
               {{ total }} result{{ total === 1 ? '' : 's' }}
             </span>
@@ -217,11 +212,6 @@
                   <div class="min-w-0">
                     <p class="mb-0 font-medium text-[var(--color-text-primary)]">Turn-in location</p>
                     <p class="mb-0">{{ item.location || 'Turn-in location unavailable' }}</p>
-                    @if (getMapLink(item.location); as mapLink) {
-                      <a [href]="mapLink" target="_blank" rel="noopener noreferrer" class="mt-1 inline-flex items-center gap-1 text-primary transition-colors hover:text-secondary" (click)="$event.stopPropagation()">
-                        Open in Maps
-                      </a>
-                    }
                   </div>
                 </div>
 

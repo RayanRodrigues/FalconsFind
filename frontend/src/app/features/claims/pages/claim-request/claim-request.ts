@@ -2,11 +2,10 @@ import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { finalize } from 'rxjs';
-import { CardComponent } from '../../../../shared/components/layout/card.component';
+import { AlertComponent } from '../../../../shared/components/feedback/alert.component';
 import { FormFieldComponent } from '../../../../shared/components/forms/form-field.component';
 import { InputComponent } from '../../../../shared/components/forms/input.component';
 import { TextareaComponent } from '../../../../shared/components/forms/textarea.component';
-import { ButtonComponent } from '../../../../shared/components/buttons/button.component';
 import { ReportStepsComponent } from '../../../../shared/components/navigation/report-steps.component';
 import { ClaimsApiService, type CreateClaimResponse } from '../../../../core/services/claims-api.service';
 import { AuthService } from '../../../../core/services/auth.service';
@@ -17,11 +16,10 @@ import type { ErrorResponse } from '../../../../models';
   standalone: true,
   imports: [
     ReactiveFormsModule,
-    CardComponent,
+    AlertComponent,
     FormFieldComponent,
     InputComponent,
     TextareaComponent,
-    ButtonComponent,
     ReportStepsComponent,
   ],
   templateUrl: './claim-request.html',

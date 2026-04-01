@@ -1,6 +1,6 @@
 import { CommonModule, Location } from '@angular/common';
 import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Subject, finalize, takeUntil, timeout } from 'rxjs';
 import { ItemService } from '../../../core/services/item.service';
 import type { ItemDetailsResponse, ItemStatus, ErrorResponse } from '../../../models';
@@ -10,7 +10,7 @@ import { AlertComponent } from '../../../shared/components/feedback/alert.compon
 @Component({
   selector: 'app-item-details',
   standalone: true,
-  imports: [CommonModule, ButtonComponent, AlertComponent],
+  imports: [CommonModule, RouterLink, ButtonComponent, AlertComponent],
   templateUrl: './item-details.component.html'
 })
 export class ItemDetailsComponent implements OnInit, OnDestroy {
@@ -197,8 +197,8 @@ export class ItemDetailsComponent implements OnInit, OnDestroy {
 
   get availabilityClass(): string {
     return this.isClaimed()
-      ? 'bg-red-100 text-red-700 border-red-200'
-      : 'bg-green-100 text-green-700 border-green-200';
+      ? 'bg-error/10 text-error border-error/20'
+      : 'bg-success/10 text-success border-success/20';
   }
 
   getTimeSinceListed(date: string | null | undefined): string {
@@ -245,13 +245,6 @@ export class ItemDetailsComponent implements OnInit, OnDestroy {
 
     const months = Math.floor(diffMs / month);
     return `${months} month${months === 1 ? '' : 's'} ago`;
-  }
-
-  getMapLink(location: string | null | undefined): string | null {
-    const trimmedLocation = location?.trim();
-    if (!trimmedLocation) return null;
-
-    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(trimmedLocation)}`;
   }
 
   get statusLabel(): string {
