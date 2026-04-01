@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, Input } from '@angular/core';
-import type { ActivityPoint, PieSlice, StatusBar } from '../../../features/admin/sections/admin-statistics.types';
+import type { ActivityPoint, PieSlice, StatusBar } from '../../../features/admin/statistics/admin-statistics.types';
 
 @Component({
   selector: 'app-admin-statistics-charts',
@@ -113,16 +113,16 @@ import type { ActivityPoint, PieSlice, StatusBar } from '../../../features/admin
               <svg viewBox="0 0 320 160" class="h-56 w-full">
                 @for (tick of activityYAxis; track $index; let index = $index) {
                   <line
-                    attr.x1="16"
+                    x1="16"
                     [attr.y1]="24 + index * 48"
-                    attr.x2="304"
+                    x2="304"
                     [attr.y2]="24 + index * 48"
                     stroke="var(--color-border)"
                     stroke-width="1"
                     stroke-dasharray="4 4"
                   />
                   <text
-                    attr.x="4"
+                    x="4"
                     [attr.y]="28 + index * 48"
                     fill="var(--color-text-secondary)"
                     font-size="10"

@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
-import type { AdminReport } from '../../../features/admin/sections/admin-reports.types';
+import type { AdminReport } from '../../../features/admin/reports/admin-reports.types';
 
 @Component({
   selector: 'app-admin-report-table',

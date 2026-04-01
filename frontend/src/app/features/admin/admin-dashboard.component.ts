@@ -1,8 +1,8 @@
 import { Component, signal, inject, OnInit } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
-import { AdminReportsComponent } from './sections/admin-reports.component';
-import { AdminClaimsComponent } from './sections/admin-claims.component';
-import { AdminStatisticsComponent } from './sections/admin-statistics.component';
+import { AdminReportsComponent } from './reports/admin-reports.component';
+import { AdminClaimsComponent } from './claims/admin-claims.component';
+import { AdminStatisticsComponent } from './statistics/admin-statistics.component';
 import { AuthService } from '../../core/services/auth.service';
 import { ThemeService } from '../../core/services/theme.service';
 import { UserRole } from '../../models/enums/user-role.enum';

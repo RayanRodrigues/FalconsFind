@@ -2,7 +2,7 @@ import { CommonModule, DOCUMENT } from '@angular/common';
 import { AfterViewInit, Component, ElementRef, EventEmitter, Input, OnChanges, OnDestroy, Output, Renderer2, RendererFactory2, SimpleChanges, ViewChild, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ButtonComponent } from '../buttons/button.component';
-import type { AdminReport, ItemHistoryEvent } from '../../../features/admin/sections/admin-reports.types';
+import type { AdminReport, ItemHistoryEvent } from '../../../features/admin/reports/admin-reports.types';
 
 @Component({
   selector: 'app-admin-report-details-modal',
