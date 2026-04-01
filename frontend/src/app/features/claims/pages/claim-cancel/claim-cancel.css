@@ -1,8 +1,6 @@
 .my-claims-page {
   min-height: 100vh;
-  background:
-    radial-gradient(circle at top right, rgba(28, 126, 214, 0.1), transparent 28%),
-    linear-gradient(180deg, #f7f8fb 0%, #f1f4f8 100%);
+  background: var(--color-bg);
   padding: 6rem 1rem 2rem;
 }
 
@@ -13,6 +11,13 @@
 
 .my-claims-hero {
   margin-bottom: 1.5rem;
+}
+
+.my-claims-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.35rem;
 }
 
 .my-claims-eyebrow {
@@ -50,15 +55,38 @@
 .claims-empty,
 .claim-card,
 .message {
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
+  background: color-mix(in srgb, var(--color-surface) 88%, transparent);
   backdrop-filter: blur(10px);
-  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.06);
+  box-shadow: 0 18px 45px color-mix(in srgb, var(--color-bg) 16%, transparent);
 }
 
 .stats-card {
+  position: relative;
   border-radius: 1.15rem;
   padding: 1rem 1.1rem;
+  overflow: hidden;
+}
+
+.stats-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  border-radius: 999px;
+  background: var(--color-primary);
+}
+
+.stats-card--pending::before {
+  background: var(--color-warning);
+}
+
+.stats-card--proof::before {
+  background: var(--color-info);
+}
+
+.stats-card--resolved::before {
+  background: var(--color-success);
 }
 
 .stats-card p {
@@ -102,6 +130,14 @@
 .claims-empty h2 {
   margin: 0 0 0.4rem;
   color: var(--color-text-primary);
+}
+
+.claims-empty__actions {
+  display: flex;
+  justify-content: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 1.25rem;
 }
 
 .claims-empty p,
@@ -150,8 +186,8 @@
   margin-bottom: 1rem;
   padding: 1rem;
   border-radius: 1rem;
-  background: rgba(248, 250, 252, 0.95);
-  border: 1px solid rgba(15, 23, 42, 0.06);
+  background: color-mix(in srgb, var(--color-surface-2) 82%, var(--color-surface));
+  border: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
 }
 
 .claim-card__meta span,
@@ -197,8 +233,8 @@
   margin-bottom: 1rem;
   padding: 1rem;
   border-radius: 1rem;
-  background: color-mix(in srgb, var(--color-info) 8%, white);
-  border: 1px solid color-mix(in srgb, var(--color-info) 22%, white);
+  background: color-mix(in srgb, var(--color-info) 10%, var(--color-surface));
+  border: 1px solid color-mix(in srgb, var(--color-info) 26%, var(--color-surface));
 }
 
 .claim-proof-request__label {
@@ -223,8 +259,8 @@
   margin-bottom: 1rem;
   padding: 1rem;
   border-radius: 1rem;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  background: rgba(248, 250, 252, 0.92);
+  border: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
+  background: color-mix(in srgb, var(--color-surface-2) 80%, var(--color-surface));
 }
 
 .claim-proof-response__label {
@@ -260,8 +296,8 @@
   display: block;
   border-radius: 0.95rem;
   overflow: hidden;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  background: white;
+  border: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
+  background: var(--color-surface);
 }
 
 .claim-proof-response__thumb img {
@@ -273,16 +309,16 @@
 
 .claim-edit-form__input {
   width: 100%;
-  border: 1px solid rgba(15, 23, 42, 0.12);
+  border: 1px solid color-mix(in srgb, var(--color-border) 88%, transparent);
   border-radius: 1rem;
   padding: 0.9rem 1rem;
-  background: white;
+  background: var(--color-surface);
   color: var(--color-text-primary);
 }
 
 .claim-edit-form__input:focus {
   outline: none;
-  border-color: color-mix(in srgb, var(--color-info) 42%, white);
+  border-color: color-mix(in srgb, var(--color-info) 42%, var(--color-surface));
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-info) 14%, transparent);
 }
 
@@ -294,10 +330,10 @@
 
 .claim-proof-form__textarea {
   width: 100%;
-  border: 1px solid rgba(15, 23, 42, 0.12);
+  border: 1px solid color-mix(in srgb, var(--color-border) 88%, transparent);
   border-radius: 1rem;
   padding: 0.9rem 1rem;
-  background: white;
+  background: var(--color-surface);
   color: var(--color-text-primary);
   resize: vertical;
   min-height: 7rem;
@@ -306,7 +342,7 @@
 
 .claim-proof-form__textarea:focus {
   outline: none;
-  border-color: color-mix(in srgb, var(--color-info) 42%, white);
+  border-color: color-mix(in srgb, var(--color-info) 42%, var(--color-surface));
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-info) 14%, transparent);
 }
 
@@ -335,7 +371,7 @@
   border: none;
   border-radius: 999px;
   padding: 0.85rem 1.25rem;
-  background: color-mix(in srgb, var(--color-error) 92%, black 8%);
+  background: color-mix(in srgb, var(--color-error) 88%, black 12%);
   color: white;
   font-weight: 700;
   cursor: pointer;
@@ -347,22 +383,62 @@
   border: none;
   border-radius: 999px;
   padding: 0.85rem 1.25rem;
-  background: color-mix(in srgb, var(--color-info) 88%, black 12%);
+  background: color-mix(in srgb, var(--color-primary) 88%, black 12%);
   color: white;
   font-weight: 700;
   cursor: pointer;
   transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
-  box-shadow: 0 12px 26px rgba(59, 130, 246, 0.22);
+  box-shadow: 0 12px 26px color-mix(in srgb, var(--color-primary) 26%, transparent);
 }
 
 .secondary-button {
-  border: 1px solid rgba(15, 23, 42, 0.12);
+  border: 1px solid color-mix(in srgb, var(--color-border) 88%, transparent);
   border-radius: 999px;
   padding: 0.85rem 1.25rem;
-  background: white;
+  background: var(--color-surface);
   color: var(--color-text-primary);
   font-weight: 700;
   cursor: pointer;
+}
+
+.secondary-button:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.my-claims-primary-link,
+.my-claims-secondary-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0.85rem 1.25rem;
+  text-decoration: none;
+  font-weight: 700;
+  transition: transform 0.18s ease, border-color 0.18s ease, color 0.18s ease, background-color 0.18s ease;
+}
+
+.my-claims-primary-link {
+  background: var(--color-primary);
+  color: #fff;
+  box-shadow: 0 12px 26px color-mix(in srgb, var(--color-primary) 24%, transparent);
+}
+
+.my-claims-primary-link:hover {
+  transform: translateY(-1px);
+  background: var(--color-secondary);
+}
+
+.my-claims-secondary-link {
+  border: 1px solid color-mix(in srgb, var(--color-border) 88%, transparent);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+}
+
+.my-claims-secondary-link:hover {
+  transform: translateY(-1px);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 .cancel-button:hover:not(:disabled) {
@@ -395,28 +471,28 @@
 }
 
 .status-badge.pending {
-  background: color-mix(in srgb, var(--color-warning) 18%, white);
-  color: #8a6500;
-  border-color: color-mix(in srgb, var(--color-warning) 30%, white);
+  background: color-mix(in srgb, var(--color-warning) 16%, var(--color-surface));
+  color: var(--color-warning);
+  border-color: color-mix(in srgb, var(--color-warning) 30%, var(--color-surface));
 }
 
 .status-badge.needs-proof {
-  background: color-mix(in srgb, var(--color-info) 14%, white);
+  background: color-mix(in srgb, var(--color-info) 14%, var(--color-surface));
   color: var(--color-info);
-  border-color: color-mix(in srgb, var(--color-info) 26%, white);
+  border-color: color-mix(in srgb, var(--color-info) 26%, var(--color-surface));
 }
 
 .status-badge.approved {
-  background: color-mix(in srgb, var(--color-success) 14%, white);
+  background: color-mix(in srgb, var(--color-success) 14%, var(--color-surface));
   color: var(--color-success);
-  border-color: color-mix(in srgb, var(--color-success) 24%, white);
+  border-color: color-mix(in srgb, var(--color-success) 24%, var(--color-surface));
 }
 
 .status-badge.rejected,
 .status-badge.cancelled {
-  background: color-mix(in srgb, var(--color-error) 10%, white);
+  background: color-mix(in srgb, var(--color-error) 10%, var(--color-surface));
   color: var(--color-error);
-  border-color: color-mix(in srgb, var(--color-error) 24%, white);
+  border-color: color-mix(in srgb, var(--color-error) 24%, var(--color-surface));
 }
 
 @media (max-width: 900px) {
@@ -428,6 +504,11 @@
 @media (max-width: 640px) {
   .my-claims-page {
     padding-top: 5.2rem;
+  }
+
+  .my-claims-hero__actions,
+  .claims-empty__actions {
+    flex-direction: column;
   }
 
   .my-claims-stats {
@@ -447,6 +528,13 @@
   }
 
   .cancel-button {
+    width: 100%;
+  }
+
+  .my-claims-primary-link,
+  .my-claims-secondary-link,
+  .secondary-button,
+  .submit-proof-button {
     width: 100%;
   }
 }

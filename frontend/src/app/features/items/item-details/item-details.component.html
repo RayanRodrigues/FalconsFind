@@ -1,13 +1,20 @@
-<section class="min-h-screen bg-neutral-base py-10 px-4 sm:px-6 lg:px-8">
-  <div class="max-w-4xl mx-auto">
+<section class="min-h-screen bg-[var(--color-bg)] px-4 py-10 sm:px-6 lg:px-8">
+  <div class="mx-auto max-w-6xl">
     <div class="mb-6">
-      <app-button type="button" variant="secondary" size="sm" (click)="back()">
-        Back
-      </app-button>
+      <button
+        type="button"
+        (click)="back()"
+        class="inline-flex items-center gap-2 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2 text-sm font-semibold text-[var(--color-text-primary)] shadow-sm transition-colors hover:border-primary hover:text-primary"
+      >
+        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+        </svg>
+        Back to Browse
+      </button>
     </div>
 
     @if (isLoading) {
-      <div class="rounded-xl border border-border/60 bg-white p-8 shadow-sm">
+      <div class="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-10 shadow-sm">
         <div class="flex flex-col items-center text-center gap-4 py-2">
           <svg
             class="h-9 w-9 animate-spin text-primary"
@@ -23,17 +30,17 @@
             />
           </svg>
           <div>
-            <p class="text-text-primary font-medium mb-0">Loading item information...</p>
-            <p class="text-text-secondary text-sm mt-1 mb-0">Fetching item details.</p>
+            <p class="mb-0 text-[var(--color-text-primary)] font-medium">Loading item information...</p>
+            <p class="mb-0 mt-1 text-sm text-[var(--color-text-secondary)]">Fetching the latest item details.</p>
           </div>
         </div>
       </div>
     }
 
     @if (!isLoading && isNotFound) {
-      <div class="rounded-xl border border-border/60 bg-white p-8 shadow-sm text-center">
-        <h1 class="text-2xl font-semibold text-text-primary mb-2">Item not found</h1>
-        <p class="text-text-secondary mb-6">
+      <div class="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 text-center shadow-sm">
+        <h1 class="mb-2 text-2xl font-semibold text-[var(--color-text-primary)]">Item not found</h1>
+        <p class="mb-6 text-[var(--color-text-secondary)]">
           This item may not exist or is not publicly visible.
         </p>
         <app-button type="button" variant="primary" (click)="back()">
@@ -43,9 +50,9 @@
     }
 
     @if (!isLoading && isUnderReview) {
-      <div class="rounded-xl border border-border/60 bg-white p-8 shadow-sm text-center">
-        <h1 class="text-2xl font-semibold text-text-primary mb-2">Item under review</h1>
-        <p class="text-text-secondary mb-6">
+      <div class="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 text-center shadow-sm">
+        <h1 class="mb-2 text-2xl font-semibold text-[var(--color-text-primary)]">Item under review</h1>
+        <p class="mb-6 text-[var(--color-text-secondary)]">
           This item is currently being reviewed by Campus Security. Please check back later.
         </p>
         <app-button type="button" variant="primary" (click)="back()">
@@ -72,66 +79,148 @@
     }
 
     @if (!isLoading && item && !isUnderReview) {
-      <article class="rounded-xl border border-border/60 bg-white shadow-sm overflow-hidden">
-        <header class="px-6 py-5 border-b border-border/60 bg-bg-secondary">
-          <div class="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p class="text-sm text-text-secondary mb-1">Reference Code</p>
-              <h1 class="text-2xl font-semibold text-text-primary">{{ item.referenceCode }}</h1>
+      <div class="mb-6 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-sm sm:p-8">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+          <div class="max-w-3xl">
+            <p class="mb-1 text-xs font-semibold uppercase tracking-widest text-primary">Found Item</p>
+            <h1 class="text-3xl font-bold leading-tight text-[var(--color-text-primary)] sm:text-4xl">{{ item.title }}</h1>
+            <p class="mt-3 text-sm text-[var(--color-text-secondary)]">
+              Review the details below and use the reference code when submitting a claim request.
+            </p>
+          </div>
+          <span
+            class="inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide"
+            [ngClass]="availabilityClass"
+          >
+            {{ availabilityLabel }}
+          </span>
+        </div>
+      </div>
+
+      <article class="grid gap-6 lg:grid-cols-[minmax(0,1.75fr)_minmax(280px,0.95fr)]">
+        <div class="space-y-6">
+          <section class="overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-sm">
+            <div class="border-b border-[var(--color-border)] bg-[var(--color-surface-2)] px-6 py-4">
+              <p class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-secondary)]">Photos</p>
             </div>
+            <div class="p-6">
+              @if (imageUrls.length > 0) {
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  @for (url of imageUrls; track url) {
+                    <a [href]="url" target="_blank" rel="noopener noreferrer" class="block overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)] transition hover:border-primary/40">
+                      <img
+                        [src]="url"
+                        [alt]="'Photo of ' + item.title"
+                        class="w-full aspect-[4/3] object-cover"
+                        loading="lazy"
+                      />
+                    </a>
+                  }
+                </div>
+              } @else {
+                <div class="rounded-xl border border-dashed border-[var(--color-border)] bg-[var(--color-surface-2)] px-6 py-10 text-center">
+                  <p class="mb-0 text-sm text-[var(--color-text-secondary)]">No photos available for this item.</p>
+                </div>
+              }
+            </div>
+          </section>
+
+          <section class="overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-sm">
+            <div class="border-b border-[var(--color-border)] bg-[var(--color-surface-2)] px-6 py-4">
+              <p class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-secondary)]">Item Details</p>
+            </div>
+            <div class="space-y-6 p-6">
+              @if (isClaimed()) {
+                <div class="rounded-xl border border-error/20 bg-error/8 px-4 py-3">
+                  <p class="mb-1 text-sm font-medium text-error">This item has already been claimed.</p>
+                  <p class="mb-0 text-sm text-[var(--color-text-secondary)]">
+                    It is no longer available for new claim requests.
+                  </p>
+                </div>
+              }
+
+              <div>
+                <p class="mb-1 text-xs font-semibold uppercase tracking-widest text-[var(--color-text-secondary)]">Reference Code</p>
+                <p class="mb-0 font-mono text-sm font-semibold text-[var(--color-text-primary)]">{{ item.referenceCode }}</p>
+              </div>
+
+              @if (item.description) {
+                <div>
+                  <p class="mb-2 text-xs font-semibold uppercase tracking-widest text-[var(--color-text-secondary)]">Description</p>
+                  <p class="mb-0 whitespace-pre-line leading-7 text-[var(--color-text-primary)]">{{ item.description }}</p>
+                </div>
+              }
+
+              <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div class="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)] px-4 py-4">
+                  <p class="mb-1 text-xs font-semibold uppercase tracking-widest text-[var(--color-text-secondary)]">Turn-in Location</p>
+                  <p class="mb-0 text-[var(--color-text-primary)]">{{ item.location || 'Turn-in location unavailable' }}</p>
+                </div>
+
+                <div class="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)] px-4 py-4">
+                  <p class="mb-1 text-xs font-semibold uppercase tracking-widest text-[var(--color-text-secondary)]">Reported At</p>
+                  <p class="mb-0 text-[var(--color-text-primary)]">{{ item.dateReported | date: 'medium' }}</p>
+                </div>
+
+                <div class="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)] px-4 py-4 sm:col-span-2">
+                  <p class="mb-1 text-xs font-semibold uppercase tracking-widest text-[var(--color-text-secondary)]">Time Listed</p>
+                  <p class="mb-0 text-[var(--color-text-primary)]">{{ getTimeSinceListed(item.dateReported) }}</p>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <aside class="space-y-6">
+          <section class="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-sm">
+            <p class="mb-2 text-xs font-semibold uppercase tracking-widest text-primary">Next Step</p>
+            <h2 class="text-xl font-bold text-[var(--color-text-primary)]">Want to claim this item?</h2>
+            <p class="mt-3 text-sm leading-6 text-[var(--color-text-secondary)]">
+              Use the reference code below in the claim form and add identifying details that only the owner would know.
+            </p>
+
+            <p class="mt-3 text-xs text-[var(--color-text-secondary)]">
+              We will pre-fill the item reference and name for you.
+            </p>
+
+            <div class="mt-5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)] px-4 py-4">
+              <p class="mb-1 text-xs font-semibold uppercase tracking-widest text-[var(--color-text-secondary)]">Reference Code</p>
+              <p class="mb-0 font-mono text-base font-semibold text-[var(--color-text-primary)]">{{ item.referenceCode }}</p>
+            </div>
+
+            <div class="mt-5 flex flex-col gap-3">
+              @if (!isClaimed()) {
+                <a
+                  routerLink="/claim-request"
+                  [queryParams]="claimQueryParams"
+                  class="inline-flex items-center justify-center rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-secondary"
+                >
+                  Start Claim Request
+                </a>
+              }
+              <button
+                type="button"
+                (click)="back()"
+                class="inline-flex items-center justify-center rounded-full border border-[var(--color-border)] px-6 py-2.5 text-sm font-semibold text-[var(--color-text-primary)] transition-colors hover:border-primary hover:text-primary"
+              >
+                Back to Browse
+              </button>
+            </div>
+          </section>
+
+          <section class="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-sm">
+            <p class="mb-2 text-xs font-semibold uppercase tracking-widest text-[var(--color-text-secondary)]">Status</p>
             <span
               class="inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide"
-              [class]="statusClass"
+              [ngClass]="statusClass"
             >
               {{ statusLabel }}
             </span>
-          </div>
-        </header>
-
-        <div class="p-6 space-y-6">
-          <div>
-            <p class="text-sm text-text-secondary mb-1">Title</p>
-            <h2 class="text-xl font-semibold text-text-primary mb-0">{{ item.title }}</h2>
-          </div>
-
-          @if (item.description) {
-            <div>
-              <p class="text-sm text-text-secondary mb-1">Description</p>
-              <p class="text-text-primary whitespace-pre-line mb-0">{{ item.description }}</p>
-            </div>
-          }
-
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div class="rounded-lg border border-border/60 bg-bg-secondary px-4 py-3">
-              <p class="text-xs uppercase tracking-wide text-text-secondary mb-1">Location</p>
-              <p class="text-text-primary mb-0">{{ item.location || 'Not informed' }}</p>
-            </div>
-            <div class="rounded-lg border border-border/60 bg-bg-secondary px-4 py-3">
-              <p class="text-xs uppercase tracking-wide text-text-secondary mb-1">Reported at</p>
-              <p class="text-text-primary mb-0">{{ item.dateReported | date: 'medium' }}</p>
-            </div>
-          </div>
-
-          <div>
-            <p class="text-sm text-text-secondary mb-3">Photos</p>
-            @if (imageUrls.length > 0) {
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                @for (url of imageUrls; track url) {
-                  <a [href]="url" target="_blank" rel="noopener noreferrer" class="block rounded-lg overflow-hidden border border-border/60 bg-bg-secondary">
-                    <img
-                      [src]="url"
-                      [alt]="'Photo of ' + item.title"
-                      class="w-full aspect-[4/3] sm:aspect-[16/10] lg:aspect-[3/2] object-cover"
-                      loading="lazy"
-                    />
-                  </a>
-                }
-              </div>
-            } @else {
-              <p class="text-text-secondary mb-0">No photos available for this item.</p>
-            }
-          </div>
-        </div>
+            <p class="mt-4 mb-0 text-sm leading-6 text-[var(--color-text-secondary)]">
+              Availability is managed by Campus Security and updates automatically as claims are processed.
+            </p>
+          </section>
+        </aside>
       </article>
     }
   </div>

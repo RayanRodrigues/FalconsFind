@@ -21,6 +21,6 @@ export class ErrorService {
       'UNKNOWN_ERROR': 'An unexpected error occurred. Please try again.'
     };
 
-    return errorMessages[errorCode] || error.error?.message || 'An error occurred. Please try again.';
+    return errorMessages[errorCode] || 'An error occurred. Please try again.';
   }
 }

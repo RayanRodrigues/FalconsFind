@@ -11,7 +11,14 @@ export type UploadedPhoto = {
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: {
+    fileSize: 5 * 1024 * 1024,
+    files: 5,
+    fields: 20,
+    parts: 25,
+    fieldSize: 64 * 1024,
+    headerPairs: 200,
+  },
 });
 
 const detectAllowedImageMime = (buffer: Buffer): SupportedPhotoMimeType | null => {

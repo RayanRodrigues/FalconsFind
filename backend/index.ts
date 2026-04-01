@@ -50,6 +50,7 @@ const reportsRoutesModule = await importRuntimeModule<{
   createReportsRouter: (
     db: FirebaseFirestore.Firestore,
     bucket: unknown,
+    redis: unknown,
   ) => express.Router;
 }>(__dirname, './src/routes/reports.routes');
 
@@ -57,17 +58,25 @@ const claimsRoutesModule = await importRuntimeModule<{
   createClaimsRouter: (
     db: FirebaseFirestore.Firestore,
     bucket: unknown,
+    redis: unknown,
   ) => express.Router;
 }>(__dirname, './src/routes/claims.routes');
 
 const openApiModule = await importRuntimeModule<{
   openApiDocument: object;
 }>(__dirname, './src/docs/openapi');
+const itemsServiceModule = await importRuntimeModule<{
+  startAutoArchiveSweep: (
+    db: FirebaseFirestore.Firestore,
+    redis: unknown,
+  ) => void;
+}>(__dirname, './src/services/items.service');
 
 const app = express();
 const { db, bucket } = initializeFirebaseServices(__dirname);
 await runStartupFirestoreCheck(db);
 const redis = await createRedisClient(appConfig.redisUrl);
+itemsServiceModule.startAutoArchiveSweep(db, redis);
 
 app.use(
   cors({
@@ -123,8 +132,8 @@ app.get('/health', (_req, res) => {
 
 app.use(healthRoutesModule.createHealthRouter(db));
 app.use(authRoutesModule.createAuthRouter(db, redis));
-app.use(reportsRoutesModule.createReportsRouter(db, bucket));
-app.use(claimsRoutesModule.createClaimsRouter(db, bucket));
+app.use(reportsRoutesModule.createReportsRouter(db, bucket, redis));
+app.use(claimsRoutesModule.createClaimsRouter(db, bucket, redis));
 app.use(itemsRoutesModule.createItemsRouter(db, bucket, redis));
 app.use(notFoundHandler);
 app.use(errorHandler);

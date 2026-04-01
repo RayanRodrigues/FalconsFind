@@ -1,12 +1,11 @@
 import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { finalize } from 'rxjs';
-import { CardComponent } from '../../../../shared/components/layout/card.component';
+import { AlertComponent } from '../../../../shared/components/feedback/alert.component';
 import { FormFieldComponent } from '../../../../shared/components/forms/form-field.component';
 import { InputComponent } from '../../../../shared/components/forms/input.component';
 import { TextareaComponent } from '../../../../shared/components/forms/textarea.component';
-import { ButtonComponent } from '../../../../shared/components/buttons/button.component';
 import { ReportStepsComponent } from '../../../../shared/components/navigation/report-steps.component';
 import { ClaimsApiService, type CreateClaimResponse } from '../../../../core/services/claims-api.service';
 import { AuthService } from '../../../../core/services/auth.service';
@@ -17,11 +16,10 @@ import type { ErrorResponse } from '../../../../models';
   standalone: true,
   imports: [
     ReactiveFormsModule,
-    CardComponent,
+    AlertComponent,
     FormFieldComponent,
     InputComponent,
     TextareaComponent,
-    ButtonComponent,
     ReportStepsComponent,
   ],
   templateUrl: './claim-request.html',
@@ -56,6 +54,7 @@ export class ClaimRequest implements OnInit {
   claimResult: CreateClaimResponse | null = null;
 
   constructor(
+    private readonly route: ActivatedRoute,
     private readonly router: Router,
     private readonly claimsApi: ClaimsApiService,
     private readonly authService: AuthService,
@@ -63,6 +62,8 @@ export class ClaimRequest implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.applyItemPrefill();
+
     const session = this.authService.getStoredSession();
     if (session) {
       this.form.patchValue({
@@ -71,6 +72,16 @@ export class ClaimRequest implements OnInit {
       });
       this.cdr.detectChanges();
     }
+  }
+
+  private applyItemPrefill(): void {
+    const referenceCode = this.route.snapshot.queryParamMap.get('referenceCode')?.trim() ?? '';
+    const itemName = this.route.snapshot.queryParamMap.get('itemName')?.trim() ?? '';
+
+    this.form.patchValue({
+      referenceCode,
+      itemName,
+    });
   }
 
   getFieldError(field: string): string | null {
@@ -149,7 +160,7 @@ export class ClaimRequest implements OnInit {
       case 'ITEM_NOT_ELIGIBLE_FOR_CLAIM':
         return 'This item is not currently available for claim requests.';
       case 'VALIDATION_ERROR':
-        return err.error.message || 'Please check your submission and try again.';
+        return 'Please check your submission and try again.';
       default:
         return 'There was an error submitting your claim. Please try again.';
     }

@@ -208,6 +208,18 @@ Blur must be **subtle and functional**, never decorative.
 * Loading indicators always present  
 * Empty states are informative and friendly
 
+### **Admin Operational Views**
+
+* Reduce information density in primary list views  
+* Show only the essentials in tables: title, key status, and primary next actions  
+* Move secondary metadata, history, and recovery flows into details panels or modals  
+* Group actions by priority so destructive or exceptional actions do not compete with routine review actions
+
+**Implementation Note**
+
+The `Admin > Found Reports` screen has already been partially refactored into reusable UI building blocks (`metric card`, `list toolbar`, `report table`, `modal shell`, `details modal`).  
+Further logic consolidation was intentionally paused so visual reorganization can be completed first without mixing architectural refactor and UX redesign in the same pass.
+
 ### **Error Handling**
 
 * Errors are human-readable  

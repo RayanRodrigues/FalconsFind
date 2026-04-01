@@ -170,7 +170,7 @@ Single export point for imports inside the frontend.
 
 * ItemStatus  
 * ClaimStatus  
-* UserRole (internal)
+* UserRole (internal + student claim ownership)
 
 ### **DTOs / Models**
 
@@ -202,29 +202,19 @@ Single export point for imports inside the frontend.
 * `contactEmail?: string`
 * `photo?: File` *(optional, JPEG/PNG, max 5MB)*
 
-**TODO (Photo Strategy)**
+**Current Contract Notes**
 
-* Analyze and decide whether `lost` and `found` reports should support **multiple photos** in the backend contract.
-* Current state: both flows are implemented as **single-photo persistence** using multipart uploads to Storage.
-* If approved for multi-photo: update backend DTOs/schemas/routes, OpenAPI docs, and frontend submit payloads in both forms.
-
-**TODO (Items Pagination Strategy)**
-
-* Evaluate moving `GET /items` from page-number pagination to a true cursor-token contract.
-* Current state: the backend avoids Firestore `offset(...)`, but the public API still exposes `page` and `limit`.
-* If approved: return a cursor such as `nextCursor`, update the backend route/OpenAPI contract, and align the frontend found-items flow to request subsequent pages by cursor instead of page number.
-
-**TODO (Firebase Admin Credential Precedence)**
-
-* Document and enforce the precedence between `FIREBASE_ADMIN_CREDENTIALS_JSON` and `FIREBASE_ADMIN_CREDENTIALS`.
-* Current state: the backend accepts either source and currently prefers the raw JSON env var when both are set.
-* If approved: choose one explicit precedence rule or fail fast when both are present, and document that rule in environment setup docs.
+* Report creation currently accepts **one photo per report** in both `lost` and `found` flows.
+* Claim proof responses currently support **multiple photos** in the authenticated student claim flow.
+* Public/admin item and report responses may expose image arrays such as `imageUrls` or `photoUrls` when multiple stored images exist.
+* `GET /items` currently uses page-based pagination with `page` and `limit`, even though the backend avoids Firestore `offset(...)`.
+* When both credential env vars are present, the backend currently prefers `FIREBASE_ADMIN_CREDENTIALS_JSON` over `FIREBASE_ADMIN_CREDENTIALS`.
 
 **Report Reference Code format**
 
-* Lost reports: `LST-<base36Timestamp>-<base36Random5>`  
-* Found reports: `FND-<base36Timestamp>-<base36Random5>`  
-* Example: `FND-MTQ49QF-7K2PA`
+* Lost reports: `LST-<YYYYMMDD>-<8 uppercase alphanumeric chars>`  
+* Found reports: `FND-<YYYYMMDD>-<8 uppercase alphanumeric chars>`  
+* Example: `FND-20260318-ALIAS002`
 
 **Items**
 
@@ -234,7 +224,23 @@ Single export point for imports inside the frontend.
 **Claims**
 
 * Create claim (request)  
+* My claims list (authenticated student)
+* Update own claim (authenticated student)
+* Submit claim proof response (authenticated student)
+* Cancel own claim (authenticated student)
 * Claim status (response field)
+
+**Claim Authentication Note**
+
+Claims are no longer treated as fully anonymous once created.
+
+The current contract uses Firebase-authenticated `STUDENT` users so the backend can:
+
+* attach ownership to each claim request
+* ensure only the same student can edit, submit additional proof, or cancel that claim
+* preserve auditable ownership without exposing staff capabilities
+
+Public users can still browse items and submit reports without authentication.
 
 ### **Standard Error Response**
 

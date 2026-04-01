@@ -6,10 +6,11 @@ import type { ErrorResponse } from './models';
 import { NavbarComponent } from './shared/components/layout/navbar.component';
 import { FooterComponent } from './shared/components/layout/footer.component';
 import { publicEnv } from './config/public-env.generated';
+import { ThemeService } from './core/services/theme.service';
 
 type FirebaseStatus = 'idle' | 'ok' | 'error';
 
-const ROUTES_WITHOUT_SHELL: string[] = ['/login', '/register', '/admin'];
+const ROUTES_WITHOUT_SHELL: string[] = ['/login', '/register', '/forgot-password', '/admin'];
 
 const isShellless = (url: string): boolean =>
   ROUTES_WITHOUT_SHELL.some(r => url === r || url.startsWith(r + '/'));
@@ -24,6 +25,7 @@ export class App implements OnInit {
   private readonly platformId = inject(PLATFORM_ID);
   private readonly router = inject(Router);
   private readonly doc = inject(DOCUMENT);
+  private readonly themeService = inject(ThemeService);
 
   readonly showShell = signal(!isShellless(this.doc.location?.pathname ?? '/'));
   protected readonly title = signal('frontend');
@@ -38,7 +40,7 @@ export class App implements OnInit {
       this.showShell.set(!isShellless(url));
     });
 
-    // Skip Firebase initialization during SSR
+    // Skip browser-only logic during SSR
     if (!isPlatformBrowser(this.platformId)) {
       return;
     }
@@ -61,6 +63,7 @@ export class App implements OnInit {
       const payload = contentType.includes('application/json')
         ? await response.json()
         : { error: { message: await response.text() } };
+
       if (!response.ok || !payload?.ok) {
         this.firebaseStatus.set('error');
         const errorMessage =

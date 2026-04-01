@@ -25,7 +25,7 @@ import { TextareaComponent } from '../../../shared/components/forms/textarea.com
   viewProviders: [{ provide: ControlContainer, useExisting: FormGroupDirective }],
   template: `
     <div class="space-y-4">
-      <h3 class="text-lg font-semibold text-text-primary">Basic Information</h3>
+      <h3 class="text-lg font-semibold text-[var(--color-text-primary)]">Basic Information</h3>
 
       <app-form-field id="title" label="Item Title" [required]="true" [error]="getFieldError('title')">
         <app-input
@@ -34,21 +34,42 @@ import { TextareaComponent } from '../../../shared/components/forms/textarea.com
           placeholder="e.g., Black Laptop in Sleeve"
           [invalid]="isFieldInvalid('title')"
         />
-        <span hint class="text-xs text-text-secondary">Be specific but concise (5-100 characters)</span>
+        <span hint class="text-xs text-[var(--color-text-secondary)]">Be specific but concise (5-100 characters)</span>
       </app-form-field>
 
-      <app-form-field id="category" label="Category" [required]="true" [error]="getFieldError('category')">
+      <app-form-field
+        id="categoryOption"
+        label="Category"
+        [required]="true"
+        [error]="getCategoryError()"
+      >
         <app-select
-          id="category"
-          formControlName="category"
+          id="categoryOption"
+          formControlName="categoryOption"
           placeholder="Select a category"
-          [invalid]="isFieldInvalid('category')"
+          [invalid]="isCategoryInvalid()"
         >
           @for (category of categories; track category) {
             <option [value]="category">{{ category }}</option>
           }
         </app-select>
       </app-form-field>
+
+      <div *ngIf="form.get('categoryOption')?.value === 'Other'">
+        <app-form-field
+          id="categoryCustom"
+          label="Enter Category"
+          [required]="true"
+          [error]="getCategoryError()"
+        >
+          <app-input
+            id="categoryCustom"
+            formControlName="categoryCustom"
+            placeholder="e.g., Lab equipment"
+            [invalid]="isCategoryInvalid()"
+          />
+        </app-form-field>
+      </div>
 
       <app-form-field id="description" label="Description" [required]="true" [error]="getFieldError('description')">
         <app-textarea
@@ -58,7 +79,7 @@ import { TextareaComponent } from '../../../shared/components/forms/textarea.com
           placeholder="Describe your item in detail (color, brand, distinguishing features, etc.)"
           [invalid]="isFieldInvalid('description')"
         />
-        <span hint class="text-xs text-text-secondary">
+        <span hint class="text-xs text-[var(--color-text-secondary)]">
           {{ form.get('description')?.value?.length || 0 }}/500 characters
         </span>
       </app-form-field>
@@ -70,4 +91,6 @@ export class LostReportStepBasicComponent {
   @Input({ required: true }) categories!: string[];
   @Input({ required: true }) getFieldError!: (fieldName: string) => string | null;
   @Input({ required: true }) isFieldInvalid!: (fieldName: string) => boolean;
+  @Input({ required: true }) getCategoryError!: () => string | null;
+  @Input({ required: true }) isCategoryInvalid!: () => boolean;
 }

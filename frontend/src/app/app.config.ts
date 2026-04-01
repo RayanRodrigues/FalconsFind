@@ -15,6 +15,7 @@ import { authTokenInterceptor } from './core/http/interceptors/auth-token.interc
 import { apiErrorInterceptor } from './core/http/interceptors/api-error.interceptor';
 import { inject as injectAnalytics } from '@vercel/analytics';
 import { AuthService } from './core/services/auth.service';
+import { ThemeService } from './core/services/theme.service';
 
 function initAnalytics() {
   const platformId = inject(PLATFORM_ID);
@@ -37,12 +38,25 @@ function initSession() {
   };
 }
 
+function initTheme() {
+  const themeService = inject(ThemeService);
+  const platformId = inject(PLATFORM_ID);
+  return () => {
+    if (!isPlatformBrowser(platformId)) {
+      return;
+    }
+
+    themeService.initTheme();
+  };
+}
+
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes),
     provideClientHydration(withEventReplay()),
     provideHttpClient(withFetch(), withInterceptors([apiBaseUrlInterceptor, authTokenInterceptor, apiErrorInterceptor])),
+    { provide: APP_INITIALIZER, useFactory: initTheme, multi: true },
     { provide: APP_INITIALIZER, useFactory: initSession, multi: true },
     { provide: APP_INITIALIZER, useFactory: initAnalytics, multi: true },
   ],

@@ -80,7 +80,6 @@ export const healthOpenApi: OpenApiModule = {
       properties: {
         ok: { type: 'boolean', example: true },
         firebase: { type: 'boolean', example: true },
-        data: { type: 'object', additionalProperties: true },
       },
     },
   },

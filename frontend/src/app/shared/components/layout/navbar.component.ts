@@ -1,6 +1,7 @@
 import { Component, signal, inject, computed } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
+import { ThemeService } from '../../../core/services/theme.service';
 import { UserRole } from '../../../models';
 
 @Component({
@@ -8,221 +9,266 @@ import { UserRole } from '../../../models';
   standalone: true,
   imports: [RouterLink, RouterLinkActive],
   template: `
-    <header class="fixed top-0 left-0 right-0 z-50 bg-white border-b border-border/60 shadow-sm">
-      <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+    <header [class]="headerClass">
+      <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <div class="flex h-[72px] items-center justify-between gap-4">
 
-          <!-- Brand -->
+          <!-- Logo: white version in dark mode -->
           <a routerLink="/" class="shrink-0" aria-label="FalconFind – Home">
             <img
-              src="/PNG/LogoPrincipal.png"
+              [src]="isDarkMode() ? '/PNG/LogoBranco.png' : '/PNG/LogoPrincipal.png'"
               alt="FalconFind"
-              style="height: 30px; width: auto;"
+              class="h-[30px] w-auto"
             />
           </a>
 
-          <!-- Desktop nav -->
-          <nav class="hidden sm:flex items-center gap-1" aria-label="Main navigation">
-            <a
-              routerLink="/found-items"
-              routerLinkActive="bg-primary/10 !text-primary"
-              class="rounded-lg px-3 py-1.5 text-sm font-medium text-text-secondary hover:bg-neutral-base hover:text-text-primary transition-colors"
-            >
-              Browse Found Items
-            </a>
-            <a
-              routerLink="/report/lost"
-              routerLinkActive="bg-primary/10 !text-primary"
-              class="rounded-lg px-3 py-1.5 text-sm font-medium text-text-secondary hover:bg-neutral-base hover:text-text-primary transition-colors"
-            >
-              Report Lost
-            </a>
-            <a
-              routerLink="/report/found"
-              routerLinkActive="bg-primary/10 !text-primary"
-              class="rounded-lg px-3 py-1.5 text-sm font-medium text-text-secondary hover:bg-neutral-base hover:text-text-primary transition-colors"
-            >
-              Report Found
-            </a>
-            <a
-              routerLink="/claim-request"
-              routerLinkActive="bg-primary/10 !text-primary"
-              class="rounded-lg px-3 py-1.5 text-sm font-medium text-text-secondary hover:bg-neutral-base hover:text-text-primary transition-colors"
-            >
-              Claim Request
-            </a>
-            @if (authSession()) {
-              <a
-                routerLink="/my-claims"
-                routerLinkActive="bg-primary/10 !text-primary"
-                class="rounded-lg px-3 py-1.5 text-sm font-medium text-text-secondary hover:bg-neutral-base hover:text-text-primary transition-colors"
-              >
-                My Claims
-              </a>
-            }
+          <!-- Desktop nav links -->
+          <nav class="hidden items-center gap-0.5 sm:flex" aria-label="Main navigation">
+            <a routerLink="/found-items" routerLinkActive="font-semibold !bg-primary !text-white" [class]="navLinkClass">Browse Found Items</a>
+            <a routerLink="/report/lost"  routerLinkActive="font-semibold !bg-primary !text-white" [class]="navLinkClass">Report Lost</a>
+            <a routerLink="/report/found" routerLinkActive="font-semibold !bg-primary !text-white" [class]="navLinkClass">Report Found</a>
+            <a routerLink="/claim-request" routerLinkActive="font-semibold !bg-primary !text-white" [class]="navLinkClass">Claim Request</a>
           </nav>
 
-          <!-- Auth CTA (desktop) -->
-          <div class="hidden sm:flex items-center gap-2 shrink-0">
-            @if (studentSession()) {
-              <!-- User pill -->
-              <span class="flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm text-text-primary">
-                <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary text-white text-xs font-bold">
-                  {{ initials() }}
-                </span>
-                {{ displayName() }}
-              </span>
-              <!-- Logout -->
+          <!-- Desktop right side -->
+          <div class="hidden items-center gap-2 sm:flex">
+
+            <!-- Admin/Security session -->
+            @if (isAdmin()) {
+              <a routerLink="/admin/dashboard" [class]="actionBtnClass">Dashboard</a>
               <button
                 type="button"
                 (click)="logout()"
-                class="flex items-center gap-1.5 rounded-lg border border-border px-3.5 py-1.5 text-sm font-semibold text-text-primary hover:border-red-400 hover:text-red-500 transition-colors"
+                aria-label="Logout"
+                class="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-text-secondary)] transition-colors hover:border-primary hover:text-primary"
               >
-                <svg style="width:15px;height:15px;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/>
                 </svg>
-                Log out
               </button>
-            } @else if (isAdminSession()) {
-              <a
-                routerLink="/admin/dashboard"
-                class="flex items-center gap-1.5 rounded-lg border border-border px-3.5 py-1.5 text-sm font-semibold text-text-primary hover:border-primary hover:text-primary transition-colors"
+
+            <!-- Student session -->
+            } @else if (isStudent()) {
+              <a routerLink="/my-claims" routerLinkActive="font-semibold !bg-primary !text-white" [class]="navLinkClass">My Claims</a>
+              <div class="flex items-center rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] p-1">
+                <div class="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-[11px] font-bold uppercase tracking-[0.08em] text-white">
+                  {{ userInitials() }}
+                </div>
+              </div>
+              <button
+                type="button"
+                (click)="logout()"
+                aria-label="Logout"
+                class="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-text-secondary)] transition-colors hover:border-primary hover:text-primary"
               >
-                <svg style="width:15px;height:15px;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/>
                 </svg>
-                Dashboard
-              </a>
+              </button>
+
+            <!-- Not authenticated -->
             } @else {
-              <a
-                routerLink="/login"
-                [routerLinkActive]="'navbar-login--active'"
-                [routerLinkActiveOptions]="{ exact: true }"
-                class="flex items-center gap-1.5 rounded-lg border border-border px-3.5 py-1.5 text-sm font-semibold text-text-primary hover:border-primary hover:text-primary transition-colors"
-              >
-                <svg style="width:15px;height:15px;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              <a routerLink="/login" [class]="actionBtnClass">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
                 </svg>
                 Login
               </a>
             }
+
+            <!-- Theme toggle icon -->
+            <button
+              type="button"
+              (click)="toggleTheme()"
+              class="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-text-secondary)] transition-colors hover:border-primary hover:text-primary"
+              [attr.aria-label]="isDarkMode() ? 'Switch to light mode' : 'Switch to dark mode'"
+            >
+              @if (isDarkMode()) {
+                <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+                </svg>
+              } @else {
+                <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
+                </svg>
+              }
+            </button>
           </div>
 
-          <!-- Mobile menu button -->
+          <!-- Mobile hamburger -->
           <button
             type="button"
             (click)="toggleMenu()"
+            class="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-text-secondary)] transition-colors hover:border-primary hover:text-primary sm:hidden"
+            [attr.aria-label]="menuOpen() ? 'Close menu' : 'Open menu'"
             [attr.aria-expanded]="menuOpen()"
-            aria-label="Toggle navigation"
-            class="sm:hidden flex items-center justify-center h-9 w-9 rounded-lg border border-border text-text-secondary hover:bg-neutral-base transition-colors"
           >
             @if (menuOpen()) {
-              <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M18 6 6 18M6 6l12 12"/>
               </svg>
             } @else {
-              <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="18" y2="18"/>
               </svg>
             }
           </button>
-
         </div>
 
         <!-- Mobile menu -->
         @if (menuOpen()) {
-          <nav class="sm:hidden border-t border-border/60 py-3 flex flex-col gap-1" aria-label="Mobile navigation">
-            <a routerLink="/found-items" routerLinkActive="bg-primary/10 !text-primary" (click)="closeMenu()" class="rounded-lg px-3 py-2.5 text-sm font-medium text-text-secondary hover:bg-neutral-base hover:text-text-primary transition-colors">
-              Browse Found Items
-            </a>
-            <a routerLink="/report/lost" routerLinkActive="bg-primary/10 !text-primary" (click)="closeMenu()" class="rounded-lg px-3 py-2.5 text-sm font-medium text-text-secondary hover:bg-neutral-base hover:text-text-primary transition-colors">
-              Report Lost
-            </a>
-            <a routerLink="/report/found" routerLinkActive="bg-primary/10 !text-primary" (click)="closeMenu()" class="rounded-lg px-3 py-2.5 text-sm font-medium text-text-secondary hover:bg-neutral-base hover:text-text-primary transition-colors">
-              Report Found
-            </a>
-            <a routerLink="/claim-request" routerLinkActive="bg-primary/10 !text-primary" (click)="closeMenu()" class="rounded-lg px-3 py-2.5 text-sm font-medium text-text-secondary hover:bg-neutral-base hover:text-text-primary transition-colors">
-              Claim Request
-            </a>
-            @if (authSession()) {
-              <a routerLink="/my-claims" routerLinkActive="bg-primary/10 !text-primary" (click)="closeMenu()" class="rounded-lg px-3 py-2.5 text-sm font-medium text-text-secondary hover:bg-neutral-base hover:text-text-primary transition-colors">
-                My Claims
+          <nav class="flex flex-col gap-0.5 border-t border-[var(--color-border)] py-3 sm:hidden" aria-label="Mobile navigation">
+            <a routerLink="/found-items"  (click)="closeMenu()" routerLinkActive="font-semibold !bg-primary !text-white" [class]="mobileNavLinkClass">Browse Found Items</a>
+            <a routerLink="/report/lost"  (click)="closeMenu()" routerLinkActive="font-semibold !bg-primary !text-white" [class]="mobileNavLinkClass">Report Lost</a>
+            <a routerLink="/report/found" (click)="closeMenu()" routerLinkActive="font-semibold !bg-primary !text-white" [class]="mobileNavLinkClass">Report Found</a>
+            <a routerLink="/claim-request" (click)="closeMenu()" routerLinkActive="font-semibold !bg-primary !text-white" [class]="mobileNavLinkClass">Claim Request</a>
+
+            <div class="my-1.5 border-t border-[var(--color-border)]"></div>
+
+            @if (isAdmin()) {
+              <a routerLink="/admin/dashboard" (click)="closeMenu()" [class]="mobileActionBtnClass">Dashboard</a>
+              <button type="button" (click)="logout()" [class]="mobileItemClass">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/>
+                </svg>
+                Logout
+              </button>
+            } @else if (isStudent()) {
+              <div class="mb-1 flex items-center gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-3">
+                <div class="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-xs font-bold uppercase tracking-[0.08em] text-white">
+                  {{ userInitials() }}
+                </div>
+                <div class="min-w-0">
+                  <p class="truncate text-sm font-semibold text-[var(--color-text-primary)]">Student</p>
+                  <p class="truncate text-xs text-[var(--color-text-secondary)]">{{ userEmail() }}</p>
+                </div>
+              </div>
+              <a routerLink="/my-claims" (click)="closeMenu()" routerLinkActive="font-semibold !bg-primary !text-white" [class]="mobileNavLinkClass">My Claims</a>
+              <button type="button" (click)="logout()" [class]="mobileItemClass">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/>
+                </svg>
+                Logout
+              </button>
+            } @else {
+              <a routerLink="/login" (click)="closeMenu()" [class]="mobileActionBtnClass">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                </svg>
+                Login
               </a>
             }
 
-            <div class="border-t border-border/60 mt-1 pt-2">
-              @if (studentSession()) {
-                <div class="px-3 py-2 flex items-center gap-2 text-sm text-text-secondary mb-1">
-                  <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary text-white text-xs font-bold">{{ initials() }}</span>
-                  {{ displayName() }}
-                </div>
-                <button type="button" (click)="logout()" class="w-full text-left rounded-lg px-3 py-2.5 text-sm font-semibold text-red-500 hover:bg-red-50 transition-colors flex items-center gap-2">
-                  <svg style="width:15px;height:15px;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                  </svg>
-                  Log out
-                </button>
-              } @else if (isAdminSession()) {
-                <a routerLink="/admin/dashboard" (click)="closeMenu()" class="rounded-lg px-3 py-2.5 text-sm font-semibold text-text-primary hover:bg-neutral-base transition-colors flex items-center gap-2">
-                  <svg style="width:15px;height:15px;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                  </svg>
-                  Dashboard
-                </a>
+            <div class="my-1.5 border-t border-[var(--color-border)]"></div>
+
+            <button type="button" (click)="toggleTheme()" [class]="mobileItemClass">
+              @if (isDarkMode()) {
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+                </svg>
+                Light Mode
               } @else {
-                <a routerLink="/login" (click)="closeMenu()" class="rounded-lg px-3 py-2.5 text-sm font-semibold text-text-primary hover:bg-neutral-base transition-colors flex items-center gap-2">
-                  <svg style="width:15px;height:15px;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                  Login
-                </a>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
+                </svg>
+                Dark Mode
               }
-            </div>
+            </button>
           </nav>
         }
-
       </div>
     </header>
   `,
-  styles: [`.navbar-login--active { display: none !important; }`]
+  styles: [``],
 })
 export class NavbarComponent {
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly themeService = inject(ThemeService);
 
-  menuOpen = signal(false);
+  readonly menuOpen = signal(false);
 
   readonly authSession = computed(() => this.authService.session());
+  readonly userEmail = computed(() => this.authSession()?.user.email ?? '');
+  readonly userInitials = computed(() => this.deriveInitials(
+    this.authSession()?.user.displayName?.trim() ?? '',
+    this.userEmail(),
+  ));
 
-  readonly studentSession = computed(() => {
-    const s = this.authSession();
-    return s?.user.role === UserRole.STUDENT ? s : null;
-  });
+  readonly isStudent = computed(() =>
+    this.authSession()?.user.role === UserRole.STUDENT
+  );
 
-  readonly isAdminSession = computed(() => {
+  readonly isAdmin = computed(() => {
     const role = this.authSession()?.user.role;
     return role === UserRole.ADMIN || role === UserRole.SECURITY;
   });
 
-  readonly displayName = computed(() => {
-    const s = this.studentSession();
-    if (!s) return '';
-    return s.user.displayName || s.user.email.split('@')[0];
-  });
+  get headerClass(): string {
+    const bg = this.isDarkMode() ? 'bg-[#1E293B]' : 'bg-[var(--color-surface-2)]';
+    return `fixed left-0 right-0 top-0 z-[100] border-b border-[var(--color-border)] shadow-sm ${bg}`;
+  }
 
-  readonly initials = computed(() => {
-    const name = this.displayName();
-    const parts = name.split(/[\s._-]/);
-    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-    return name.slice(0, 2).toUpperCase();
-  });
+  // Nav link text adapts: brand crimson in light, near-white in dark (no red on hover in dark)
+  get navLinkClass(): string {
+    return 'rounded-full px-3.5 py-1.5 text-[13px] font-semibold tracking-[0.02em] text-[var(--color-nav-link)] transition-colors hover:bg-primary/12';
+  }
 
-  toggleMenu(): void { this.menuOpen.update(v => !v); }
-  closeMenu(): void { this.menuOpen.set(false); }
+  get mobileNavLinkClass(): string {
+    return 'rounded-lg px-3 py-2.5 text-[13px] font-semibold tracking-[0.02em] text-[var(--color-nav-link)] transition-colors hover:bg-primary/12';
+  }
+
+  get actionBtnClass(): string {
+    return 'inline-flex items-center gap-1.5 rounded-full border border-[var(--color-nav-action-border)] px-5 py-1.5 text-[13px] font-semibold tracking-[0.02em] text-[var(--color-nav-action-text)] transition-colors hover:border-primary hover:bg-primary hover:text-white';
+  }
+
+  get mobileActionBtnClass(): string {
+    return 'inline-flex items-center justify-center gap-1.5 rounded-full border border-[var(--color-nav-action-border)] px-5 py-2 text-[13px] font-semibold tracking-[0.02em] text-[var(--color-nav-action-text)] transition-colors hover:border-primary hover:bg-primary hover:text-white';
+  }
+
+  // Mobile list-row items (logout, theme toggle)
+  get mobileItemClass(): string {
+    const hoverColor = this.isDarkMode() ? '' : 'hover:text-primary';
+    return `flex items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm transition-colors hover:bg-primary/12 text-[var(--color-text-secondary)] ${hoverColor}`;
+  }
+
+  toggleMenu(): void {
+    this.menuOpen.update(v => !v);
+  }
+
+  closeMenu(): void {
+    this.menuOpen.set(false);
+  }
+
+  toggleTheme(): void {
+    this.themeService.toggleTheme();
+  }
+
+  isDarkMode(): boolean {
+    return this.themeService.isDarkMode();
+  }
+
+  private deriveInitials(name: string, email: string): string {
+    const normalizedName = name.trim();
+    if (normalizedName.length > 0) {
+      const parts = normalizedName.split(/\s+/).filter(Boolean);
+      if (parts.length >= 2) {
+        return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+      }
+    }
+
+    const local = email.split('@')[0] ?? '';
+    const emailParts = local.split(/[._-]/).filter(Boolean);
+    if (emailParts.length >= 2) {
+      return `${emailParts[0][0]}${emailParts[emailParts.length - 1][0]}`.toUpperCase();
+    }
+
+    return local.slice(0, 2).toUpperCase() || 'ST';
+  }
 
   logout(): void {
     this.authService.logoutStudent();
-    this.closeMenu();
+    this.menuOpen.set(false);
     void this.router.navigate(['/login']);
   }
 }

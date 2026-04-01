@@ -8,7 +8,7 @@ import { AbstractControl } from '@angular/forms';
   imports: [CommonModule],
   template: `
     <div class="mb-6">
-      <label [for]="id" class="block mb-1 font-medium text-sm text-text-primary">
+      <label [for]="id" class="block mb-1 font-medium text-sm text-[var(--color-text-primary)]">
         {{ label }}
         @if (required) {
           <span class="text-red-500 ml-1">*</span>
@@ -22,7 +22,7 @@ import { AbstractControl } from '@angular/forms';
       }
       
       @if (hint && !error) {
-        <p class="mt-1 text-xs text-text-secondary">{{ hint }}</p>
+        <p class="mt-1 text-xs text-[var(--color-text-secondary)]">{{ hint }}</p>
       }
     </div>
   `

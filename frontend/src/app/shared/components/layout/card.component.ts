@@ -8,10 +8,10 @@ import { CommonModule } from '@angular/common';
   template: `
     <div [class]="cardClasses">
       @if (cardTitle) {
-        <div class="px-6 py-4 border-b border-border bg-bg-secondary">
-          <h2 class="text-lg font-semibold text-text-primary">{{ cardTitle }}</h2>
+        <div class="border-b border-[var(--color-border)] bg-[var(--color-surface-2)] px-6 py-4">
+          <h2 class="text-lg font-semibold text-[var(--color-text-primary)]">{{ cardTitle }}</h2>
           @if (subtitle) {
-            <p class="mt-1 text-sm text-text-secondary">{{ subtitle }}</p>
+            <p class="mt-1 text-sm text-[var(--color-text-secondary)]">{{ subtitle }}</p>
           }
         </div>
       }
@@ -27,6 +27,6 @@ export class CardComponent {
   @Input() padding = true;
 
   get cardClasses(): string {
-    return 'bg-white rounded-xl shadow-sm overflow-hidden border border-border/50';
+    return 'bg-[var(--color-surface)] rounded-xl shadow-sm overflow-hidden border border-[var(--color-border)]';
   }
 }

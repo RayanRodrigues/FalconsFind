@@ -1,6 +1,6 @@
 import { CommonModule, Location } from '@angular/common';
 import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Subject, finalize, takeUntil, timeout } from 'rxjs';
 import { ItemService } from '../../../core/services/item.service';
 import type { ItemDetailsResponse, ItemStatus, ErrorResponse } from '../../../models';
@@ -10,7 +10,7 @@ import { AlertComponent } from '../../../shared/components/feedback/alert.compon
 @Component({
   selector: 'app-item-details',
   standalone: true,
-  imports: [CommonModule, ButtonComponent, AlertComponent],
+  imports: [CommonModule, RouterLink, ButtonComponent, AlertComponent],
   templateUrl: './item-details.component.html'
 })
 export class ItemDetailsComponent implements OnInit, OnDestroy {
@@ -98,9 +98,7 @@ export class ItemDetailsComponent implements OnInit, OnDestroy {
           }
 
           if (code === 'INVALID_ITEM_DATA') {
-            this.loadError =
-              apiError?.error?.message ??
-              'This item was incorrectly reported. Please submit it again or contact Campus Security.';
+            this.loadError = 'This item was incorrectly reported. Please submit it again or contact Campus Security.';
             this.refreshView();
             return;
           }
@@ -111,7 +109,7 @@ export class ItemDetailsComponent implements OnInit, OnDestroy {
             return;
           }
 
-          this.loadError = apiError?.error?.message ?? 'Could not load item details right now.';
+          this.loadError = 'Could not load item details right now.';
           this.refreshView();
         }
       });
@@ -187,6 +185,66 @@ export class ItemDetailsComponent implements OnInit, OnDestroy {
     return 'UNKNOWN_ERROR';
   }
 
+  isClaimed(): boolean {
+    return (this.item?.status ?? '').toUpperCase() === 'CLAIMED';
+  }
+
+  get availabilityLabel(): string {
+    return this.isClaimed() ? 'Claimed' : 'Available';
+  }
+
+  get availabilityClass(): string {
+    return this.isClaimed()
+      ? 'bg-error/10 text-error border-error/20'
+      : 'bg-success/10 text-success border-success/20';
+  }
+
+  getTimeSinceListed(date: string | null | undefined): string {
+    if (!date) return 'Listing date unavailable';
+
+    const listedTime = new Date(date).getTime();
+
+    if (Number.isNaN(listedTime)) {
+      return 'Listing date unavailable';
+    }
+
+    const now = Date.now();
+    const diffMs = Math.max(0, now - listedTime);
+
+    const minute = 60 * 1000;
+    const hour = 60 * minute;
+    const day = 24 * hour;
+    const week = 7 * day;
+    const month = 30 * day;
+
+    if (diffMs < minute) {
+      return 'Just now';
+    }
+
+    if (diffMs < hour) {
+      const minutes = Math.floor(diffMs / minute);
+      return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
+    }
+
+    if (diffMs < day) {
+      const hours = Math.floor(diffMs / hour);
+      return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+    }
+
+    if (diffMs < week) {
+      const days = Math.floor(diffMs / day);
+      return `${days} day${days === 1 ? '' : 's'} ago`;
+    }
+
+    if (diffMs < month) {
+      const weeks = Math.floor(diffMs / week);
+      return `${weeks} week${weeks === 1 ? '' : 's'} ago`;
+    }
+
+    const months = Math.floor(diffMs / month);
+    return `${months} month${months === 1 ? '' : 's'} ago`;
+  }
+
   get statusLabel(): string {
     return this.item?.status?.replace(/_/g, ' ') ?? '';
   }
@@ -195,17 +253,24 @@ export class ItemDetailsComponent implements OnInit, OnDestroy {
     const status = this.item?.status;
     const statusClasses: Record<ItemStatus, string> = {
       REPORTED: 'bg-info/10 text-info border-info/20',
-      PENDING_VALIDATION: 'bg-warning/20 text-text-primary border-warning/30',
+      PENDING_VALIDATION: 'bg-warning/20 text-[var(--color-text-primary)] border-warning/30',
       VALIDATED: 'bg-success/10 text-success border-success/30',
       CLAIMED: 'bg-primary/10 text-primary border-primary/30',
       RETURNED: 'bg-secondary/10 text-secondary border-secondary/30',
-      ARCHIVED: 'bg-border/30 text-text-secondary border-border'
+      ARCHIVED: 'bg-[var(--color-border)]/30 text-[var(--color-text-secondary)] border-[var(--color-border)]'
     };
 
-    return status ? statusClasses[status] : 'bg-border/30 text-text-secondary border-border';
+    return status ? statusClasses[status] : 'bg-[var(--color-border)]/30 text-[var(--color-text-secondary)] border-[var(--color-border)]';
   }
 
   get imageUrls(): string[] {
     return this.item?.imageUrls?.filter((url) => !!url.trim()) ?? [];
+  }
+
+  get claimQueryParams(): Record<string, string> {
+    return {
+      referenceCode: this.item?.referenceCode ?? '',
+      itemName: this.item?.title ?? '',
+    };
   }
 }

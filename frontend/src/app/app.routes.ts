@@ -9,6 +9,7 @@ import { ClaimCancel } from './features/claims/pages/claim-cancel/claim-cancel';
 import { EditReportPageComponent } from './features/public-reporting/edit-report-page/edit-report-page.component';
 import { LoginComponent } from './features/auth/login/login.component';
 import { RegisterComponent } from './features/auth/register/register.component';
+import { ForgotPasswordComponent } from './features/auth/forgot-password/forgot-password.component';
 import { AdminDashboardComponent } from './features/admin/admin-dashboard.component';
 import { NotFoundPageComponent } from './features/not-found/not-found-page.component';
 import { adminAuthGuard } from './core/guards/admin-auth.guard';
@@ -44,6 +45,11 @@ export const routes: Routes = [
     path: 'register',
     component: RegisterComponent,
     title: 'Create Account - FalconFind'
+  },
+  {
+    path: 'forgot-password',
+    component: ForgotPasswordComponent,
+    title: 'Forgot Password - FalconFind'
   },
   {
     path: 'claim-request',

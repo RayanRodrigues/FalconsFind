@@ -11,7 +11,16 @@ export type AdminReportResponse = {
   referenceCode: string;
   location?: string;
   dateReported: string;
+  archivedAt?: string | null;
   contactEmail?: string;
   photoUrl?: string;
   photoUrls?: string[];
+  isSuspicious: boolean;
+  flagReason?: string | null;
+  flaggedAt?: string | null;
+  suspiciousReason?: string | null;
+  suspiciousFlaggedByUid?: string | null;
+  suspiciousFlaggedByEmail?: string | null;
+  suspiciousFlaggedByRole?: string | null;
+  suspiciousFlaggedAt?: string | null;
 };

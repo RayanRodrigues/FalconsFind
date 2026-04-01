@@ -5,27 +5,40 @@ import { RouterLink } from '@angular/router';
   selector: 'app-home-hero',
   standalone: true,
   imports: [RouterLink],
-  styleUrl: './home-hero.component.css',
   template: `
-    <section class="bg-white border-b border-border/60">
-      <div class="max-w-2xl mx-auto px-4 sm:px-6 py-20 sm:py-28 text-center">
+    <section class="relative overflow-hidden border-b border-[var(--color-border)] bg-[var(--color-bg)]">
+
+      <!-- Background blobs -->
+      <div class="pointer-events-none absolute inset-0">
+        <div class="absolute left-1/2 top-16 h-64 w-64 -translate-x-1/2 rounded-full bg-primary/10 blur-3xl"></div>
+        <div class="absolute -left-10 bottom-10 h-48 w-48 rounded-full bg-primary/5 blur-3xl"></div>
+        <div class="absolute right-0 top-1/3 h-56 w-56 rounded-full bg-primary/8 blur-3xl"></div>
+      </div>
+
+      <div class="relative mx-auto max-w-2xl px-4 py-20 text-center sm:px-6 sm:py-28">
 
         <img
           src="/PNG/LogoPrincipalTwo.png"
           alt="FalconFind"
-          style="width: 140px; height: auto; margin: 0 auto 2.5rem;"
+          class="mx-auto mb-10 h-auto w-[140px]"
         />
 
-        <h1 class="text-4xl sm:text-5xl font-bold text-text-primary mb-5 leading-tight">
+        <h1 class="mb-5 text-4xl font-bold leading-tight text-[var(--color-text-primary)] sm:text-5xl">
           Your Campus Lost &amp; Found, Now Digital
         </h1>
-        <p class="text-base sm:text-lg text-text-secondary mx-auto mb-10 leading-relaxed">
+        <p class="mx-auto mb-10 text-base leading-relaxed text-[var(--color-text-secondary)] sm:text-lg">
           Report lost items, browse what's been turned in, and claim what's yours — all in one place.
         </p>
 
-        <div class="flex flex-col sm:flex-row items-center justify-center gap-3">
-          <a routerLink="/found-items" class="btn-primary w-full sm:w-auto">Browse Found Items</a>
-          <a routerLink="/report/lost" class="btn-outline w-full sm:w-auto">Report a Lost Item</a>
+        <div class="flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <a
+            routerLink="/found-items"
+            class="inline-flex w-full items-center justify-center rounded-full bg-primary px-8 py-3.5 text-base font-semibold text-white shadow-sm transition-colors hover:bg-secondary sm:w-auto"
+          >Browse Found Items</a>
+          <a
+            routerLink="/report/lost"
+            class="inline-flex w-full items-center justify-center rounded-full border border-[var(--color-border)] bg-transparent px-8 py-3.5 text-base font-semibold text-[var(--color-text-primary)] transition-colors hover:border-primary hover:text-primary sm:w-auto"
+          >Report a Lost Item</a>
         </div>
 
       </div>

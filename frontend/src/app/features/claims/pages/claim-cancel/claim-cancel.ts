@@ -1,6 +1,7 @@
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { ChangeDetectorRef, Component, Inject, OnInit, PLATFORM_ID, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { ClaimStatus } from '../../../../models';
 import type { Claim, ErrorResponse } from '../../../../models';
@@ -27,9 +28,9 @@ type ClaimRow = Claim & {
 @Component({
   selector: 'app-claim-cancel',
   standalone: true,
-  imports: [CommonModule, FormsModule, PhotoUploadFieldComponent],
+  imports: [CommonModule, FormsModule, RouterLink, PhotoUploadFieldComponent],
   templateUrl: './claim-cancel.html',
-  styleUrl: './claim-cancel.css'
+  styleUrls: ['./claim-cancel.css', './claim-cancel-conversation.css', './claim-cancel-edit.css']
 })
 export class ClaimCancel implements OnInit {
   readonly loading = signal(true);
@@ -305,7 +306,7 @@ export class ClaimCancel implements OnInit {
       case 'CLAIM_ITEM_NOT_FOUND':
         return 'This claim is no longer available.';
       case 'BAD_REQUEST':
-        return error.error.message || 'Please review your proof details and photos.';
+        return 'Please review your proof details and photos.';
       default:
         return 'There was an error submitting your additional proof.';
     }
@@ -320,7 +321,7 @@ export class ClaimCancel implements OnInit {
       case 'NOT_FOUND':
         return 'This claim could not be found anymore.';
       case 'BAD_REQUEST':
-        return error.error.message || 'Please review the updated claim details.';
+        return 'Please review the updated claim details.';
       default:
         return 'There was an error saving your claim changes.';
     }

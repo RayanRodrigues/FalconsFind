@@ -1,36 +1,46 @@
 import { Component, signal, inject, OnInit } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
-import { AdminReportsComponent } from './sections/admin-reports.component';
-import { AdminClaimsComponent } from './sections/admin-claims.component';
+import { AdminReportsComponent } from './reports/admin-reports.component';
+import { AdminClaimsComponent } from './claims/admin-claims.component';
+import { AdminStatisticsComponent } from './statistics/admin-statistics.component';
 import { AuthService } from '../../core/services/auth.service';
+import { ThemeService } from '../../core/services/theme.service';
 import { UserRole } from '../../models/enums/user-role.enum';
 
-type Tab = 'reports' | 'claims';
+type Tab = 'reports' | 'claims' | 'statistics';
 
 @Component({
   selector: 'app-admin-dashboard',
   standalone: true,
-  imports: [RouterLink, AdminReportsComponent, AdminClaimsComponent],
+  imports: [
+    RouterLink,
+    AdminReportsComponent,
+    AdminClaimsComponent,
+    AdminStatisticsComponent,
+  ],
   templateUrl: './admin-dashboard.component.html',
   styleUrls: ['./admin-dashboard.component.scss'],
 })
 export class AdminDashboardComponent implements OnInit {
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly themeService = inject(ThemeService);
 
   readonly activeTab = signal<Tab>('reports');
   readonly sidebarOpen = signal(false);
   readonly userEmail = signal<string>('');
   readonly userRole = signal<string>('');
   readonly userInitials = signal<string>('');
+  readonly isLoggingOut = signal(false);
 
   ngOnInit(): void {
     const session = this.authService.getStoredSession();
     if (session) {
+      const displayName = session.user.displayName?.trim() ?? '';
       const email = session.user.email;
       this.userEmail.set(email);
       this.userRole.set(session.user.role === UserRole.ADMIN ? 'Admin' : 'Campus Security');
-      this.userInitials.set(this.deriveInitials(email));
+      this.userInitials.set(this.deriveInitials(displayName || email));
     }
   }
 
@@ -43,10 +53,17 @@ export class AdminDashboardComponent implements OnInit {
     this.sidebarOpen.update(v => !v);
   }
 
-  readonly isLoggingOut = signal(false);
+  toggleTheme(): void {
+    this.themeService.toggleTheme();
+  }
+
+  isDarkMode(): boolean {
+    return this.themeService.isDarkMode();
+  }
 
   logout(): void {
     if (this.isLoggingOut()) return;
+
     this.isLoggingOut.set(true);
     this.authService.logout().subscribe({
       complete: () => this.router.navigate(['/login']),
@@ -54,12 +71,27 @@ export class AdminDashboardComponent implements OnInit {
     });
   }
 
-  private deriveInitials(email: string): string {
-    const local = email.split('@')[0];
-    const parts = local.split(/[._-]/);
+  getPageTitle(): string {
+    switch (this.activeTab()) {
+      case 'reports':
+        return 'Reports';
+      case 'claims':
+        return 'Claims';
+      case 'statistics':
+        return 'Statistics';
+      default:
+        return 'Admin Dashboard';
+    }
+  }
+
+  private deriveInitials(value: string): string {
+    const normalized = value.includes('@') ? value.split('@')[0] : value;
+    const parts = normalized.split(/[._\-\s]+/).filter(Boolean);
+
     if (parts.length >= 2) {
       return (parts[0][0] + parts[1][0]).toUpperCase();
     }
-    return local.slice(0, 2).toUpperCase();
+
+    return normalized.slice(0, 2).toUpperCase();
   }
 }

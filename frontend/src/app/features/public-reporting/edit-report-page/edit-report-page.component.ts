@@ -1,116 +1,165 @@
 import { Component } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-
-type EditableReport = {
-  referenceCode: string;
-  reportType: 'lost' | 'found';
-  title: string;
-  location: string;
-  date: string;
-  description: string;
-  contactEmail: string;
-};
+import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { finalize } from 'rxjs';
+import type { ErrorResponse } from '../../../models';
+import { ReportService } from '../../../core/services/report.service';
+import type { EditableReportResponse } from '../../../core/services/report.service';
 
 @Component({
   selector: 'app-edit-report-page',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [ReactiveFormsModule],
   templateUrl: './edit-report-page.component.html',
-  styleUrl: './edit-report-page.component.css',
 })
 export class EditReportPageComponent {
-  referenceCode = '';
+  private readonly fb = new FormBuilder();
+
+  readonly lookupForm = this.fb.group({
+    referenceCode: ['', [Validators.required]],
+  });
+
+  readonly editForm = this.fb.group({
+    title: ['', [Validators.required, Validators.minLength(2), Validators.maxLength(100)]],
+    location: ['', [Validators.required, Validators.minLength(2), Validators.maxLength(200)]],
+    date: ['', [Validators.required]],
+    description: ['', [Validators.required, Validators.minLength(10), Validators.maxLength(2000)]],
+    contactEmail: ['', [Validators.required, Validators.email, Validators.maxLength(254)]],
+  });
+
   loading = false;
+  saving = false;
   lookupAttempted = false;
   reportFound = false;
   saveSuccess = false;
   errorMessage = '';
 
-  report: EditableReport = {
-    referenceCode: '',
-    reportType: 'lost',
-    title: '',
-    location: '',
-    date: '',
-    description: '',
-    contactEmail: '',
-  };
+  private currentReferenceCode = '';
+  private currentDateReported = '';
+  reportType: 'lost' | 'found' = 'lost';
+  reportReferenceCode = '';
 
-  findReport() {
-    this.loading = true;
+  constructor(private readonly reportService: ReportService) {}
+
+  getFieldError(form: 'lookup' | 'edit', field: string): string | null {
+    const group: FormGroup = form === 'lookup' ? this.lookupForm : this.editForm;
+    const ctrl = group.get(field);
+    if (!ctrl?.touched || !ctrl.errors) return null;
+    if (ctrl.hasError('required')) return 'This field is required.';
+    if (ctrl.hasError('email')) return 'Enter a valid email address.';
+    if (ctrl.hasError('minlength')) return 'Please provide more detail.';
+    if (ctrl.hasError('maxlength')) return 'This field exceeds the maximum allowed length.';
+    return null;
+  }
+
+  isFieldInvalid(form: 'lookup' | 'edit', field: string): boolean {
+    const group: FormGroup = form === 'lookup' ? this.lookupForm : this.editForm;
+    const ctrl = group.get(field);
+    return !!ctrl && ctrl.touched && ctrl.invalid;
+  }
+
+  findReport(): void {
+    this.lookupForm.markAllAsTouched();
+    if (this.lookupForm.invalid) return;
+
+    const trimmedCode = (this.lookupForm.value.referenceCode ?? '').trim().toUpperCase();
     this.lookupAttempted = true;
     this.reportFound = false;
     this.saveSuccess = false;
     this.errorMessage = '';
 
-    const trimmedCode = this.referenceCode.trim().toUpperCase();
-
-    if (trimmedCode === 'FF-1001') {
-      this.report = {
-        referenceCode: 'FF-1001',
-        reportType: 'found',
-        title: 'Black Wallet',
-        location: 'Library',
-        date: '2026-03-10',
-        description: 'Black leather wallet found near the front desk.',
-        contactEmail: 'student@example.com',
-      };
-
-      this.reportFound = true;
-    } else if (trimmedCode === 'LF-2001') {
-      this.report = {
-        referenceCode: 'LF-2001',
-        reportType: 'lost',
-        title: 'Blue Backpack',
-        location: 'Student Centre',
-        date: '2026-03-09',
-        description: 'Blue backpack with notebooks and a charger inside.',
-        contactEmail: 'owner@example.com',
-      };
-
-      this.reportFound = true;
-    } else {
-      this.errorMessage =
-        'We could not find a report with that reference code. Please check the code and try again.';
-    }
-
-    this.loading = false;
+    this.loading = true;
+    this.reportService.getEditableReport(trimmedCode)
+      .pipe(finalize(() => { this.loading = false; }))
+      .subscribe({
+        next: (report) => {
+          this.currentReferenceCode = report.referenceCode;
+          this.currentDateReported = report.dateReported;
+          this.reportType = report.kind === 'FOUND' ? 'found' : 'lost';
+          this.reportReferenceCode = report.referenceCode;
+          this.editForm.patchValue({
+            title: report.title,
+            location: report.location ?? '',
+            date: report.dateReported.slice(0, 10),
+            description: report.description ?? '',
+            contactEmail: report.contactEmail ?? '',
+          });
+          this.editForm.markAsUntouched();
+          this.reportFound = true;
+        },
+        error: (error: ErrorResponse) => {
+          this.errorMessage = this.mapLookupError(error);
+        },
+      });
   }
 
-  saveChanges() {
+  saveChanges(): void {
+    this.editForm.markAllAsTouched();
+    if (this.editForm.invalid) return;
+
     this.saveSuccess = false;
     this.errorMessage = '';
 
-    if (
-      !this.report.title.trim() ||
-      !this.report.location.trim() ||
-      !this.report.date.trim() ||
-      !this.report.description.trim() ||
-      !this.report.contactEmail.trim()
-    ) {
-      this.errorMessage = 'Please complete all fields before saving your changes.';
-      return;
-    }
-
-    this.saveSuccess = true;
+    const v = this.editForm.value;
+    this.saving = true;
+    this.reportService.updateEditableReport(this.currentReferenceCode, {
+      title: (v.title ?? '').trim(),
+      location: (v.location ?? '').trim(),
+      dateReported: this.mergeDateWithExistingTimestamp(v.date ?? '', this.currentDateReported),
+      description: (v.description ?? '').trim(),
+      contactEmail: (v.contactEmail ?? '').trim(),
+    })
+      .pipe(finalize(() => { this.saving = false; }))
+      .subscribe({
+        next: (report) => {
+          this.currentDateReported = report.dateReported;
+          this.editForm.patchValue({
+            title: report.title,
+            location: report.location ?? '',
+            date: report.dateReported.slice(0, 10),
+            description: report.description ?? '',
+            contactEmail: report.contactEmail ?? '',
+          });
+          this.saveSuccess = true;
+        },
+        error: (error: ErrorResponse) => {
+          this.errorMessage = this.mapSaveError(error);
+        },
+      });
   }
 
-  resetSearch() {
-    this.referenceCode = '';
+  resetSearch(): void {
+    this.lookupForm.reset();
+    this.editForm.reset();
+    this.loading = false;
+    this.saving = false;
     this.lookupAttempted = false;
     this.reportFound = false;
     this.saveSuccess = false;
     this.errorMessage = '';
+    this.currentReferenceCode = '';
+    this.currentDateReported = '';
+    this.reportType = 'lost';
+    this.reportReferenceCode = '';
+  }
 
-    this.report = {
-      referenceCode: '',
-      reportType: 'lost',
-      title: '',
-      location: '',
-      date: '',
-      description: '',
-      contactEmail: '',
-    };
+  private mergeDateWithExistingTimestamp(date: string, currentDateReported: string): string {
+    const existingTime = currentDateReported.includes('T') ? currentDateReported.split('T')[1] : '12:00:00.000Z';
+    return `${date}T${existingTime}`;
+  }
+
+  private mapLookupError(error: ErrorResponse): string {
+    if (error?.error?.code === 'NOT_FOUND') {
+      return 'We could not find a report with that reference code. Please check the code and try again.';
+    }
+
+    return 'We could not load that report right now. Please try again.';
+  }
+
+  private mapSaveError(error: ErrorResponse): string {
+    if (error?.error?.code === 'REPORT_EDIT_CONFLICT') {
+      return 'This report can no longer be edited because it is no longer under review.';
+    }
+
+    return 'We could not save your changes right now. Please try again.';
   }
 }

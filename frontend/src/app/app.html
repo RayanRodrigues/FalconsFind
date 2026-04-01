@@ -1,11 +1,12 @@
-<div class="flex flex-col min-h-screen">
-
+<div
+  class="flex flex-col min-h-screen"
+  style="background-color: var(--color-bg); color: var(--color-text-primary);"
+>
   @if (showShell()) {
     <app-navbar />
   }
 
   @if (showFirebaseHealthTest()) {
-    <!-- Do not remove: this block is controlled by ENABLE_FIREBASE_HEALTH_TEST in .env -->
     <section class="firebase-test" aria-live="polite">
       <h2 class="firebase-test__title">Firebase Frontend Check</h2>
       <p
@@ -21,13 +22,15 @@
     </section>
   }
 
-  <!-- padding-top offsets the fixed navbar (72px) when shell is visible -->
-  <main class="flex-1" [style.paddingTop]="showShell() ? '72px' : '0'">
+  <main
+    class="flex-1"
+    [style.paddingTop]="showShell() ? '72px' : '0'"
+    style="background-color: var(--color-bg); color: var(--color-text-primary);"
+  >
     <router-outlet />
   </main>
 
   @if (showShell()) {
     <app-footer />
   }
-
 </div>

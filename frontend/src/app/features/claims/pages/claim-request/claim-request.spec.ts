@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ActivatedRoute } from '@angular/router';
 import { provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { vi } from 'vitest';
@@ -35,6 +36,7 @@ describe('ClaimRequest', () => {
   async function setup(
     createClaimReturn = of(successResult),
     session: LoginResponse | null = mockSession,
+    queryParams: Record<string, string> = {},
   ): Promise<void> {
     createClaimSpy = vi.fn().mockReturnValue(createClaimReturn);
     getStoredSessionSpy = vi.fn().mockReturnValue(session);
@@ -43,6 +45,16 @@ describe('ClaimRequest', () => {
       imports: [ClaimRequest],
       providers: [
         provideRouter([]),
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            snapshot: {
+              queryParamMap: {
+                get: (key: string) => queryParams[key] ?? null,
+              },
+            },
+          },
+        },
         { provide: ClaimsApiService, useValue: { createClaim: createClaimSpy } },
         { provide: AuthService, useValue: { getStoredSession: getStoredSessionSpy } },
       ],
@@ -75,6 +87,16 @@ describe('ClaimRequest', () => {
       await setup();
       expect(component.form.get('email')?.value).toBe('student@fanshaweonline.ca');
       expect(component.form.get('fullName')?.value).toBe('Jane Doe');
+    });
+
+    it('pre-fills referenceCode and itemName from query params', async () => {
+      await setup(of(successResult), mockSession, {
+        referenceCode: 'FND-20260319-KLZKXQMD',
+        itemName: 'Brown Wallet',
+      });
+
+      expect(component.form.get('referenceCode')?.value).toBe('FND-20260319-KLZKXQMD');
+      expect(component.form.get('itemName')?.value).toBe('Brown Wallet');
     });
 
     it('leaves email and fullName blank when no session exists', async () => {

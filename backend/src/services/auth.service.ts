@@ -3,6 +3,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import type { Firestore } from 'firebase-admin/firestore';
 import { UserRole } from '../contracts/index.js';
 import type {
+  ForgotPasswordRequest,
   LoginRequest,
   LoginResponse,
   RefreshSessionRequest,
@@ -29,6 +30,10 @@ type FirebaseRefreshSuccess = {
   refresh_token: string;
   id_token: string;
   expires_in: string;
+};
+
+type FirebasePasswordResetSuccess = {
+  email?: string;
 };
 
 export class InvalidLoginCredentialsError extends Error {
@@ -63,6 +68,13 @@ export class RegistrationError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'RegistrationError';
+  }
+}
+
+export class ForgotPasswordError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ForgotPasswordError';
   }
 }
 
@@ -211,6 +223,58 @@ export const refreshUserSession = async (
 
 export const revokeStaffSession = async (uid: string): Promise<void> => {
   await admin.auth().revokeRefreshTokens(uid);
+};
+
+export const forgotPassword = async (
+  payload: ForgotPasswordRequest,
+): Promise<void> => {
+  try {
+    const apiKey = getFirebaseApiKey();
+    const response = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${encodeURIComponent(apiKey)}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          requestType: 'PASSWORD_RESET',
+          email: payload.email,
+        }),
+      },
+    );
+
+    const responseBody = await response.json() as FirebasePasswordResetSuccess | FirebaseLoginError;
+    if (!response.ok) {
+      const errorCode = (responseBody as FirebaseLoginError).error?.message;
+
+      if (errorCode === 'EMAIL_NOT_FOUND') {
+        return;
+      }
+
+      if (errorCode === 'INVALID_EMAIL') {
+        throw new ForgotPasswordError('Enter a valid email address.');
+      }
+
+      if (errorCode === 'TOO_MANY_ATTEMPTS_TRY_LATER' || errorCode === 'RESET_PASSWORD_EXCEED_LIMIT') {
+        throw new ForgotPasswordError('Too many password reset attempts. Please try again later.');
+      }
+
+      if (errorCode === 'USER_DISABLED') {
+        return;
+      }
+
+      throw new LoginConfigurationError(
+        errorCode ? `Password reset provider is unavailable (${errorCode}).` : 'Password reset provider is unavailable',
+      );
+    }
+  } catch (error) {
+    if (error instanceof ForgotPasswordError || error instanceof LoginConfigurationError) {
+      throw error;
+    }
+
+    throw new LoginConfigurationError('Password reset provider is unavailable');
+  }
 };
 
 const TRUSTED_DOMAINS = ['fanshaweonline.ca', 'fanshawec.ca'] as const;

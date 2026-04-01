@@ -1,0 +1,282 @@
+<div class="space-y-6 pt-1 pb-5">
+  <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+    <app-admin-metric-card
+      label="Visible Reports"
+      [value]="stats.total"
+      hint="Based on the current report view"
+      tone="default"
+    />
+
+    <app-admin-metric-card
+      label="Pending"
+      [value]="stats.pending"
+      hint="Awaiting validation"
+      tone="warning"
+      valueClass="text-warning"
+    />
+
+    <app-admin-metric-card
+      label="Validated"
+      [value]="stats.validated"
+      hint="Ready for operational follow-up"
+      tone="success"
+      valueClass="text-success"
+    />
+
+    <app-admin-metric-card
+      label="Suspicious"
+      [value]="stats.suspicious"
+      hint="Flagged for review"
+      tone="primary"
+      valueClass="text-primary"
+    />
+
+    <app-admin-metric-card
+      label="Archived"
+      [value]="stats.archived"
+      hint="Hidden from active operational view"
+      tone="slate"
+      valueClass="text-slate-700"
+    />
+  </div>
+
+  <app-admin-list-toolbar
+    [viewOptions]="viewOptions"
+    [activeView]="viewFilter"
+    actionLabel="Merge Selected"
+    [actionDisabled]="!canMergeSelected()"
+    [searchValue]="searchTerm"
+    searchPlaceholder="Search reports…"
+    [statusValue]="statusFilter"
+    [statusOptions]="statusOptions"
+    [resultsCount]="filteredItems.length"
+    [selectedCount]="selectedItems().size"
+    (viewChange)="setViewFilter($any($event))"
+    (actionClick)="openMergeModal()"
+    (searchValueChange)="searchTerm = $event; applyFilters()"
+    (statusValueChange)="statusFilter = $event; applyFilters()"
+  />
+
+  @if (actionMessage()) {
+    <app-alert type="success">
+      <p class="mb-0 text-sm">{{ actionMessage() }}</p>
+    </app-alert>
+  }
+
+  @if (loading()) {
+    <div class="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-10 text-center shadow-sm">
+      <svg class="h-8 w-8 animate-spin text-primary mx-auto mb-3" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="9" class="opacity-25" stroke="currentColor" stroke-width="3" />
+        <path class="opacity-90" fill="currentColor" d="M12 3a9 9 0 0 1 9 9h-3a6 6 0 0 0-6-6V3Z" />
+      </svg>
+      <p class="text-[var(--color-text-secondary)] text-sm mb-0">Loading reports…</p>
+    </div>
+  }
+
+  @if (error()) {
+    <app-alert type="error">
+      <p class="mb-0 text-sm">{{ error() }}</p>
+    </app-alert>
+  }
+
+  @if (!loading() && !error() && filteredItems.length === 0) {
+    <div class="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-10 text-center shadow-sm">
+      <p class="text-[var(--color-text-primary)] font-medium mb-1">No reports match the current filters.</p>
+      <p class="text-[var(--color-text-secondary)] text-sm mb-0">Try switching views or clearing the current status/search filters.</p>
+    </div>
+  }
+
+  @if (!loading() && !error() && filteredItems.length > 0) {
+    <div class="pt-3">
+      <app-admin-report-table
+        [items]="filteredItems"
+        [selectedIds]="selectedItems()"
+        [rowClass]="rowClass.bind(this)"
+        [statusClass]="statusClass.bind(this)"
+        [statusLabel]="statusLabel.bind(this)"
+        [suspiciousBadgeClass]="suspiciousBadgeClass.bind(this)"
+        [isFlagged]="isFlagged.bind(this)"
+        [isArchived]="isArchived.bind(this)"
+        [canFlag]="canFlag.bind(this)"
+        [canManageFlag]="canManageFlag.bind(this)"
+        (toggleSelect)="toggleSelect($event)"
+        (copyReference)="copyReferenceCode($event)"
+        (copyEmail)="copyContactEmail($event)"
+        (flag)="handleFlagAction($event)"
+        (details)="openDetails($event)"
+      />
+    </div>
+  }
+</div>
+
+@if (mergeModalOpen()) {
+  <app-admin-modal-shell
+    widthClass="max-w-2xl"
+    zIndexClass="z-[96]"
+    (backdropClick)="closeMergeModal()"
+  >
+    <div class="p-6">
+      <p class="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)] mb-2">Merge Duplicate Reports</p>
+      <h4 class="text-lg font-bold text-[var(--color-text-primary)] mb-2">Choose the primary report to keep</h4>
+      <p class="text-sm text-[var(--color-text-secondary)] mb-5">
+        Select which report should remain as the main record. The other selected reports will be merged into it in the backend.
+      </p>
+
+      <div class="space-y-3 max-h-[320px] overflow-y-auto">
+        @for (item of getSelectedMergeItems(); track trackById($index, item)) {
+          <label class="flex items-start gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)] p-4 cursor-pointer">
+            <input
+              type="radio"
+              name="primaryMergeReport"
+              [checked]="selectedPrimaryMergeId() === item.id"
+              (change)="setPrimaryMergeId(item.id)"
+              class="mt-1 h-4 w-4 accent-[var(--color-primary)]"
+            />
+
+            <div class="min-w-0 flex-1">
+              <div class="flex flex-wrap items-center gap-2 mb-1">
+                <p class="font-semibold text-[var(--color-text-primary)] mb-0">{{ item.title || 'Untitled' }}</p>
+                <span
+                  class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide"
+                  [class]="statusClass(item.status)"
+                >
+                  {{ statusLabel(item.status) }}
+                </span>
+              </div>
+
+              <p class="text-xs text-[var(--color-text-secondary)] mb-1">{{ item.referenceCode }}</p>
+              <p class="text-xs text-[var(--color-text-secondary)] mb-0">
+                {{ item.location || 'No location' }} • {{ item.dateReported | date: 'mediumDate' }}
+              </p>
+            </div>
+          </label>
+        }
+      </div>
+
+      <div class="mt-6 flex items-center justify-end gap-3">
+        <app-button
+          type="button"
+          variant="secondary"
+          size="md"
+          [disabled]="merging()"
+          (buttonClick)="closeMergeModal()"
+        >
+          Cancel
+        </app-button>
+
+        <app-button
+          type="button"
+          variant="primary"
+          size="md"
+          [loading]="merging()"
+          [disabled]="merging() || !selectedPrimaryMergeId()"
+          (buttonClick)="confirmMerge()"
+        >
+          {{ merging() ? 'Merging…' : 'Confirm Merge' }}
+        </app-button>
+      </div>
+    </div>
+  </app-admin-modal-shell>
+}
+
+@if (selectedItem(); as item) {
+  <app-admin-report-details-modal
+    [item]="item"
+    [activeRowId]="activeRowId()"
+    [selectedPhotoIndex]="selectedPhotoIndex()"
+    [selectedStatusUpdate]="selectedStatusUpdate()"
+    [statusUpdateOptions]="getStatusUpdateOptions()"
+    [canUpdateStatus]="canUpdateStatus()"
+    [statusUpdating]="statusUpdating()"
+    [selectedRestoreStatus]="selectedRestoreStatus()"
+    [restoreOptions]="getRestoreOptions()"
+    [canRestore]="canRestore()"
+    [restoring]="restoring()"
+    [restoreModalOpen]="restoreModalOpen()"
+    [historyLoading]="historyLoading()"
+    [historyError]="historyError()"
+    [historyEvents]="getFullHistoryEvents()"
+    [statusClass]="statusClass.bind(this)"
+    [statusLabel]="statusLabel.bind(this)"
+    [suspiciousBadgeClass]="suspiciousBadgeClass.bind(this)"
+    [isFlagged]="isFlagged.bind(this)"
+    [isArchived]="isArchived.bind(this)"
+    [canValidate]="canValidate.bind(this)"
+    [canFlag]="canFlag.bind(this)"
+    [canOpenPhoto]="canOpenPhoto.bind(this)"
+    [getPhotoUrls]="getPhotoUrls.bind(this)"
+    [getSelectedPhoto]="getSelectedPhoto.bind(this)"
+    [getOperationalStatusLabel]="getOperationalStatusLabel.bind(this)"
+    [getHistoryEventLabel]="getHistoryEventLabel.bind(this)"
+    [getHistoryBadgeClass]="getHistoryBadgeClass.bind(this)"
+    [getHistoryActionLabel]="getHistoryActionLabel.bind(this)"
+    [getHistoryStatusChange]="getHistoryStatusChange.bind(this)"
+    [hasHistoryMetadata]="hasHistoryMetadata.bind(this)"
+    [getHistoryActorLabel]="getHistoryActorLabel.bind(this)"
+    (close)="closeDetails()"
+    (approve)="approve($event)"
+    (flag)="handleFlagAction($event)"
+    (viewPhoto)="openPhoto($event)"
+    (copyReference)="copyReferenceCode($event)"
+    (copyEmail)="copyContactEmail($event)"
+    (selectPhoto)="selectPhoto($event)"
+    (selectedStatusUpdateChange)="selectedStatusUpdate.set($event)"
+    (updateStatus)="updateStatus()"
+    (selectedRestoreStatusChange)="selectedRestoreStatus.set($event)"
+    (openRestoreModal)="openRestoreModal()"
+    (closeRestoreModal)="closeRestoreModal()"
+    (restoreStatus)="restoreStatus()"
+  />
+}
+
+@if (flagModalOpen()) {
+  <app-admin-modal-shell
+    widthClass="max-w-lg"
+    zIndexClass="z-[95]"
+    (backdropClick)="closeFlagModal()"
+  >
+    <div class="p-6">
+      <p class="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)] mb-2">Flag Suspicious Report</p>
+      <h4 class="text-lg font-bold text-[var(--color-text-primary)] mb-2">Flag this report for investigation?</h4>
+      <p class="text-sm text-[var(--color-text-secondary)] mb-5">
+        A reason is required for flagging.
+      </p>
+
+      <div class="space-y-2 mb-5">
+        <label for="suspiciousReason" class="text-sm font-semibold text-[var(--color-text-primary)]">
+          Reason for flagging
+        </label>
+
+        <app-textarea
+          id="suspiciousReason"
+          [(ngModel)]="suspiciousReason"
+          [rows]="4"
+          placeholder="Enter a short reason or justification for this suspicious flag."
+        ></app-textarea>
+      </div>
+
+      <div class="flex items-center justify-end gap-3">
+        <app-button
+          type="button"
+          variant="secondary"
+          size="md"
+          [disabled]="flagging()"
+          (buttonClick)="closeFlagModal()"
+        >
+          Cancel
+        </app-button>
+
+        <app-button
+          type="button"
+          variant="primary"
+          size="md"
+          [loading]="flagging()"
+          [disabled]="flagging()"
+          (buttonClick)="submitFlagReport()"
+        >
+          {{ flagging() ? 'Flagging…' : 'Confirm Flag' }}
+        </app-button>
+      </div>
+    </div>
+  </app-admin-modal-shell>
+}

@@ -43,10 +43,10 @@ export class InputComponent implements ControlValueAccessor {
   onTouched: any = () => {};
 
   get inputClasses() {
-    const baseClasses = 'w-full h-10 px-3 border rounded-lg text-sm transition-all duration-200 focus:outline-none';
+    const baseClasses = 'w-full h-10 px-3 border rounded-lg text-sm transition-all duration-200 focus:outline-none bg-[var(--color-surface)] text-[var(--color-text-primary)]';
     const stateClasses = this.invalid
       ? 'border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-200'
-      : 'border-border focus:border-primary focus:ring-2 focus:ring-primary/20';
+      : 'border-[var(--color-border)] focus:border-primary focus:ring-2 focus:ring-primary/20';
     
     return `${baseClasses} ${stateClasses}`;
   }

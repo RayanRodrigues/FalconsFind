@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { listValidatedItems } from './items.service.js';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { getPublicItemStatus, listValidatedItems } from './items.service.js';
+import { ClaimStatus, ItemStatus } from '../contracts/index.js';
 
 type FakeDoc = { id: string; data: () => unknown };
 type FakeSnap = { docs: FakeDoc[] };
@@ -9,7 +10,6 @@ describe('listValidatedItems', () => {
   let bucket: unknown;
 
   let collectionFn: ReturnType<typeof vi.fn>;
-  let whereFn: ReturnType<typeof vi.fn>;
   let countFn: ReturnType<typeof vi.fn>;
   let countGetFn: ReturnType<typeof vi.fn>;
 
@@ -20,8 +20,10 @@ describe('listValidatedItems', () => {
   let getPageFn: ReturnType<typeof vi.fn>;
   let getOrderedFn: ReturnType<typeof vi.fn>;
   let whereCalls: Array<[string, string, unknown]>;
+  let dateNowSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
+    dateNowSpy = vi.spyOn(Date, 'now').mockReturnValue(new Date('2026-02-02T10:00:00.000Z').getTime());
     const pageSnap: FakeSnap = {
       docs: [
         {
@@ -64,13 +66,12 @@ describe('listValidatedItems', () => {
         whereCalls.push([field, operator, value]);
         return query;
       }),
+      get: vi.fn().mockImplementation(() => { whereCalls = []; return Promise.resolve({ docs: [] }); }),
       count: countFn,
       orderBy: orderByFn,
     };
-    whereFn = query.where;
-    const collectionObj = { where: whereFn };
 
-    collectionFn = vi.fn().mockReturnValue(collectionObj);
+    collectionFn = vi.fn().mockReturnValue({ where: query.where });
     db = { collection: collectionFn };
     bucket = {
       name: 'test-bucket',
@@ -89,7 +90,11 @@ describe('listValidatedItems', () => {
     };
   });
 
-  it('filters FOUND + VALIDATED, returns total + paged items', async () => {
+  afterEach(() => {
+    dateNowSpy.mockRestore();
+  });
+
+  it('filters FOUND public items, returns total + paged items', async () => {
     const result = await listValidatedItems(db as never, bucket as never, null, { page: 1, limit: 10 });
 
     expect(result.total).toBe(2);
@@ -98,17 +103,18 @@ describe('listValidatedItems', () => {
     expect(result.items[0].title).toBe('B');
     expect(result.items[0].category).toBe('Accessories');
     expect(result.items[0].dateReported).toBe('2026-02-01T10:00:00.000Z');
+    expect(result.items[0].availability).toBe('AVAILABLE');
+    expect(result.items[0].listedDurationMs).toBe(24 * 60 * 60 * 1000);
     expect(result.items[0].thumbnailUrl).toBeUndefined();
 
     expect(collectionFn).toHaveBeenCalledWith('reports');
     expect(whereCalls).toEqual([
       ['kind', '==', 'FOUND'],
-      ['status', '==', 'VALIDATED'],
+      ['status', 'in', [ItemStatus.VALIDATED, ItemStatus.CLAIMED]],
     ]);
 
     expect(countFn).toHaveBeenCalledTimes(1);
     expect(countGetFn).toHaveBeenCalledTimes(1);
-
     expect(orderByFn).toHaveBeenCalledWith('dateReported', 'desc');
     expect(startAfterFn).not.toHaveBeenCalled();
     expect(orderedLimitFn).toHaveBeenCalledWith(10);
@@ -142,7 +148,7 @@ describe('listValidatedItems', () => {
 
     expect(whereCalls).toEqual([
       ['kind', '==', 'FOUND'],
-      ['status', '==', 'VALIDATED'],
+      ['status', 'in', [ItemStatus.VALIDATED, ItemStatus.CLAIMED]],
       ['category', '==', 'Accessories'],
       ['location', '==', 'Library'],
       ['dateReported', '>=', '2026-02-01T00:00:00.000Z'],
@@ -150,7 +156,17 @@ describe('listValidatedItems', () => {
     ]);
   });
 
-  it('filters validated items by keyword across title and description', async () => {
+  it('sorts by oldest first when requested', async () => {
+    await listValidatedItems(db as never, bucket as never, null, {
+      page: 1,
+      limit: 10,
+      sort: 'oldest',
+    });
+
+    expect(orderByFn).toHaveBeenCalledWith('dateReported', 'asc');
+  });
+
+  it('filters public items by keyword across title and description', async () => {
     getOrderedFn.mockResolvedValue({
       docs: [
         {
@@ -168,7 +184,7 @@ describe('listValidatedItems', () => {
           id: 'match-description',
           data: () => ({
             kind: 'FOUND',
-            status: 'VALIDATED',
+            status: 'CLAIMED',
             title: 'Laptop sleeve',
             description: 'Contains a silver macbook charger',
             referenceCode: 'REF-DESC',
@@ -199,9 +215,54 @@ describe('listValidatedItems', () => {
     expect(result.total).toBe(2);
     expect(result.items).toHaveLength(2);
     expect(result.items.map((item) => item.id)).toEqual(['match-title', 'match-description']);
+    expect(result.items.map((item) => item.availability)).toEqual(['AVAILABLE', 'CLAIMED']);
     expect(getOrderedFn).toHaveBeenCalledTimes(1);
     expect(orderedLimitFn).toHaveBeenCalledWith(10);
     expect(startAfterFn).not.toHaveBeenCalled();
     expect(countFn).not.toHaveBeenCalled();
+  });
+
+  it('skips items when dateReported is not parseable', async () => {
+    getOrderedFn.mockResolvedValue({
+      docs: [
+        {
+          id: 'invalid-date',
+          data: () => ({
+            kind: 'FOUND',
+            status: 'VALIDATED',
+            title: 'Broken item',
+            referenceCode: 'REF-BAD',
+            dateReported: 'not-a-real-date',
+          }),
+        },
+      ],
+    });
+
+    const result = await listValidatedItems(db as never, bucket as never, null, { page: 1, limit: 10 });
+
+    expect(result.total).toBe(2);
+    expect(result.items).toHaveLength(0);
+  });
+});
+
+describe('getPublicItemStatus', () => {
+  it('maps public item status into an availability response', () => {
+    const result = getPublicItemStatus({
+      id: 'item-claimed',
+      title: 'Headphones',
+      status: ItemStatus.CLAIMED,
+      availability: 'CLAIMED',
+      referenceCode: 'FND-20260201-CLAIMED1',
+      dateReported: '2026-02-01T10:00:00.000Z',
+      listedDurationMs: 1000,
+      claimStatus: ClaimStatus.APPROVED,
+    });
+
+    expect(result).toEqual({
+      id: 'item-claimed',
+      status: 'CLAIMED',
+      availability: 'CLAIMED',
+      claimStatus: 'APPROVED',
+    });
   });
 });

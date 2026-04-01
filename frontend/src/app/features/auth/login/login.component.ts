@@ -83,7 +83,7 @@ export class LoginComponent {
         return 'Invalid email or password.';
       case 'AUTH_LOCKED':
       case 'RATE_LIMITED':
-        return error.error.message;
+        return 'Too many sign-in attempts. Please try again later.';
       case 'FORBIDDEN':
         return 'This account is not authorized to sign in here.';
       case 'AUTH_PROVIDER_UNAVAILABLE':
