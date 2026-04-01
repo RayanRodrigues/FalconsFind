@@ -1,0 +1,201 @@
+.claim-conversation {
+  margin-bottom: 1rem;
+  border: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
+  border-radius: 1.25rem;
+  background: color-mix(in srgb, var(--color-surface-2) 80%, var(--color-surface));
+  overflow: hidden;
+}
+
+.claim-conversation__intro {
+  padding: 1rem 1rem 0.9rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 62%, transparent);
+}
+
+.claim-conversation__eyebrow {
+  margin: 0 0 0.35rem;
+  color: var(--color-text-secondary);
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.claim-conversation__description {
+  margin: 0;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+
+.claim-conversation__thread {
+  display: grid;
+  gap: 1rem;
+  max-height: 26rem;
+  overflow-y: auto;
+  padding: 1rem;
+}
+
+.claim-conversation__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.claim-conversation__row--security {
+  justify-content: flex-end;
+}
+
+.claim-conversation__bubble-group {
+  min-width: 0;
+}
+
+.claim-conversation__bubble-group--security {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.claim-conversation__bubble-group--student {
+  flex: 1;
+}
+
+.claim-conversation__speaker {
+  margin: 0 0 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.claim-conversation__speaker--security {
+  color: var(--color-info);
+}
+
+.claim-conversation__speaker--student {
+  color: var(--color-success);
+}
+
+.claim-conversation__avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.claim-conversation__avatar--security {
+  color: var(--color-info);
+  background: color-mix(in srgb, var(--color-info) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-info) 22%, transparent);
+}
+
+.claim-conversation__avatar--student {
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-success) 22%, transparent);
+}
+
+.claim-conversation__bubble {
+  max-width: min(40rem, 82%);
+  border-radius: 1.15rem;
+  padding: 0.95rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
+}
+
+.claim-conversation__bubble--security {
+  background: color-mix(in srgb, var(--color-info) 8%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-info) 24%, transparent);
+  border-top-right-radius: 0.45rem;
+}
+
+.claim-conversation__bubble--student {
+  background: color-mix(in srgb, var(--color-success) 8%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-success) 24%, transparent);
+  border-top-left-radius: 0.45rem;
+}
+
+.claim-conversation__bubble-label {
+  margin: 0 0 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.claim-conversation__message {
+  margin: 0;
+  color: var(--color-text-primary);
+  line-height: 1.7;
+}
+
+.claim-conversation__meta {
+  margin: 0.55rem 0 0;
+  color: var(--color-text-secondary);
+  font-size: 0.82rem;
+}
+
+.claim-conversation__gallery {
+  margin-top: 0.85rem;
+}
+
+.claim-conversation__composer {
+  padding: 1rem;
+  border-top: 1px solid color-mix(in srgb, var(--color-border) 62%, transparent);
+  background: color-mix(in srgb, var(--color-surface) 90%, transparent);
+}
+
+.claim-conversation__composer .claim-card__section {
+  margin-bottom: 0.85rem;
+}
+
+.claim-conversation__composer .claim-card__section h3 {
+  margin-bottom: 0.45rem;
+}
+
+.claim-conversation__empty {
+  padding: 1rem 1.1rem;
+  border: 1px dashed color-mix(in srgb, var(--color-border) 72%, transparent);
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--color-surface) 88%, transparent);
+}
+
+.claim-conversation__empty-title {
+  margin: 0 0 0.35rem;
+  color: var(--color-text-primary);
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.claim-conversation__empty-text {
+  margin: 0;
+  color: var(--color-text-secondary);
+  line-height: 1.65;
+}
+
+@media (max-width: 720px) {
+  .claim-conversation__thread {
+    max-height: none;
+  }
+
+  .claim-conversation__row,
+  .claim-conversation__row--security {
+    justify-content: flex-start;
+  }
+
+  .claim-conversation__row--security {
+    flex-direction: row-reverse;
+  }
+
+  .claim-conversation__bubble-group--security {
+    align-items: flex-start;
+  }
+
+  .claim-conversation__bubble {
+    max-width: 100%;
+  }
+}

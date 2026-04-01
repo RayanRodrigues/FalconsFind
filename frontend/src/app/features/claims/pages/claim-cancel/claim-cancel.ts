@@ -30,7 +30,7 @@ type ClaimRow = Claim & {
   standalone: true,
   imports: [CommonModule, FormsModule, RouterLink, PhotoUploadFieldComponent],
   templateUrl: './claim-cancel.html',
-  styleUrl: './claim-cancel.css'
+  styleUrls: ['./claim-cancel.css', './claim-cancel-conversation.css', './claim-cancel-edit.css']
 })
 export class ClaimCancel implements OnInit {
   readonly loading = signal(true);

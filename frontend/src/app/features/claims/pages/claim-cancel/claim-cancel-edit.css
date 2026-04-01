@@ -1,0 +1,137 @@
+.claim-edit-form {
+  margin-bottom: 1rem;
+  border: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
+  border-radius: 1.25rem;
+  background: color-mix(in srgb, var(--color-surface-2) 82%, var(--color-surface));
+  overflow: hidden;
+}
+
+.claim-edit-form__intro {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1rem 0.95rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 62%, transparent);
+}
+
+.claim-edit-form__eyebrow {
+  margin: 0 0 0.35rem;
+  color: var(--color-text-secondary);
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.claim-edit-form__title {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.claim-edit-form__description {
+  margin: 0.35rem 0 0;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+
+.claim-edit-form__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.5rem;
+  padding: 0.45rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 24%, transparent);
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  color: var(--color-primary);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.claim-edit-form__body {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.claim-edit-form__field {
+  min-width: 0;
+}
+
+.claim-edit-form__field--full {
+  grid-column: 1 / -1;
+}
+
+.claim-edit-form__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  border-top: 1px solid color-mix(in srgb, var(--color-border) 62%, transparent);
+  background: color-mix(in srgb, var(--color-surface) 90%, transparent);
+}
+
+.claim-edit-form__feedback {
+  flex: 1;
+  min-width: 0;
+}
+
+.claim-edit-form__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.claim-card__actions--split {
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.claim-card__actions-copy {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+.claim-card__actions-group {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 720px) {
+  .claim-edit-form__intro,
+  .claim-edit-form__footer,
+  .claim-card__actions--split {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .claim-edit-form__body {
+    grid-template-columns: 1fr;
+  }
+
+  .claim-edit-form__actions,
+  .claim-card__actions-group {
+    justify-content: stretch;
+  }
+
+  .claim-edit-form__actions > *,
+  .claim-card__actions-group > * {
+    width: 100%;
+  }
+}
