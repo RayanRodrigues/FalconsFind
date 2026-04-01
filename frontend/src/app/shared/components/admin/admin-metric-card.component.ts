@@ -96,6 +96,16 @@ import { Component, Input } from '@angular/core';
       border-color: color-mix(in srgb, var(--color-primary) 20%, var(--color-border));
     }
 
+    .admin-metric-card--info {
+      --metric-accent: var(--color-info);
+      border-color: color-mix(in srgb, var(--color-info) 20%, var(--color-border));
+    }
+
+    .admin-metric-card--error {
+      --metric-accent: var(--color-error);
+      border-color: color-mix(in srgb, var(--color-error) 20%, var(--color-border));
+    }
+
     .admin-metric-card--slate {
       --metric-accent: color-mix(in srgb, var(--color-text-secondary) 55%, transparent);
       border-color: color-mix(in srgb, var(--color-text-secondary) 20%, var(--color-border));
@@ -115,7 +125,7 @@ export class AdminMetricCardComponent {
   @Input() label = '';
   @Input() value: string | number = '';
   @Input() hint = '';
-  @Input() tone: 'default' | 'warning' | 'success' | 'primary' | 'slate' = 'default';
+  @Input() tone: 'default' | 'warning' | 'success' | 'primary' | 'info' | 'error' | 'slate' = 'default';
   @Input() valueClass = '';
 
   get toneClass(): string {

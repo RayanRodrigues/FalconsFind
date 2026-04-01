@@ -5,13 +5,14 @@ import { finalize } from 'rxjs';
 import { ClaimStatus } from '../../../models';
 import type { Claim, ErrorResponse } from '../../../models';
 import { AdminClaimsApiService } from '../../../core/services/admin-claims-api.service';
+import { AdminMetricCardComponent } from '../../../shared/components/admin/admin-metric-card.component';
 
 type ClaimRow = Claim & { proofInput?: string; isUpdating?: boolean };
 
 @Component({
   selector: 'app-admin-claims',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, AdminMetricCardComponent],
   templateUrl: './admin-claims.component.html',
 })
 export class AdminClaimsComponent implements OnInit, OnDestroy {
