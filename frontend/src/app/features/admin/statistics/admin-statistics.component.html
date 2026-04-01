@@ -1,4 +1,4 @@
-<div class="space-y-6">
+<div class="space-y-6 pt-1 pb-4">
   <app-admin-statistics-filters
     [latestReportedAt]="latestReportedAt()"
     [dateFrom]="dateFrom()"
@@ -37,64 +37,70 @@
   }
 
   @if (!loading() && !error()) {
-    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-      <app-admin-metric-card
-        label="Total Reported"
-        [value]="totalReported()"
-        hint="Items in the current analytics view"
-        tone="default"
-      />
+    <div class="pt-2">
+      <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <app-admin-metric-card
+          label="Total Reported"
+          [value]="totalReported()"
+          hint="Items in the current analytics view"
+          tone="default"
+        />
 
-      <app-admin-metric-card
-        label="Active"
-        [value]="activeCount()"
-        hint="Still in the active operational pipeline"
-        tone="info"
-        valueClass="text-info"
-      />
+        <app-admin-metric-card
+          label="Active"
+          [value]="activeCount()"
+          hint="Still in the active operational pipeline"
+          tone="info"
+          valueClass="text-info"
+        />
 
-      <app-admin-metric-card
-        label="Validated"
-        [value]="validatedCount()"
-        hint="Approved and available to claim"
-        tone="success"
-        valueClass="text-success"
-      />
+        <app-admin-metric-card
+          label="Validated"
+          [value]="validatedCount()"
+          hint="Approved and available to claim"
+          tone="success"
+          valueClass="text-success"
+        />
 
-      <app-admin-metric-card
-        label="Returned"
-        [value]="returnedCount()"
-        hint="Successfully resolved"
-        tone="primary"
-        valueClass="text-primary"
-      />
+        <app-admin-metric-card
+          label="Returned"
+          [value]="returnedCount()"
+          hint="Successfully resolved"
+          tone="primary"
+          valueClass="text-primary"
+        />
 
-      <app-admin-metric-card
-        label="Recovery Rate"
-        [value]="recoveryRate() + '%'"
-        hint="Share of reported items marked returned"
-        tone="warning"
-        valueClass="text-warning"
+        <app-admin-metric-card
+          label="Recovery Rate"
+          [value]="recoveryRate() + '%'"
+          hint="Share of reported items marked returned"
+          tone="warning"
+          valueClass="text-warning"
+        />
+      </div>
+    </div>
+
+    <div class="pt-2">
+      <app-admin-statistics-charts
+        [totalReported]="totalReported()"
+        [statusBars]="statusBars()"
+        [statusPieSlices]="statusPieSlices()"
+        [activityPoints]="activityPoints()"
+        [activityLinePath]="activityLinePath()"
+        [activityAreaPath]="activityAreaPath()"
+        [activityMaxValue]="activityMaxValue()"
+        [activityYAxis]="activityYAxis()"
       />
     </div>
 
-    <app-admin-statistics-charts
-      [totalReported]="totalReported()"
-      [statusBars]="statusBars()"
-      [statusPieSlices]="statusPieSlices()"
-      [activityPoints]="activityPoints()"
-      [activityLinePath]="activityLinePath()"
-      [activityAreaPath]="activityAreaPath()"
-      [activityMaxValue]="activityMaxValue()"
-      [activityYAxis]="activityYAxis()"
-    />
-
-    <app-admin-statistics-summary
-      [returnedCount]="returnedCount()"
-      [archivedCount]="archivedCount()"
-      [totalReported]="totalReported()"
-      [topLocations]="topLocations()"
-      [topCategories]="topCategories()"
-    />
+    <div class="pt-2">
+      <app-admin-statistics-summary
+        [returnedCount]="returnedCount()"
+        [archivedCount]="archivedCount()"
+        [totalReported]="totalReported()"
+        [topLocations]="topLocations()"
+        [topCategories]="topCategories()"
+      />
+    </div>
   }
 </div>
