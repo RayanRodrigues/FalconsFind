@@ -6,6 +6,12 @@ import type { ItemDetailsResponse, ItemPublicResponse, ItemStatusResponse, Repor
 import { normalizeDateReported } from '../../utils/date-normalization.js';
 import { archiveExpiredUnclaimedItems, archiveItemIfEligible } from './item-archive.service.js';
 import { InvalidItemDataError } from './item-errors.js';
+import {
+  buildPublicItemDetailCacheKey,
+  buildPublicItemsListCacheKey,
+  getCachedPublicItemQuery,
+  setCachedPublicItemQuery,
+} from './item-query-cache.service.js';
 import { isPublicItemStatus, isVisibleInCurrentEnvironment, toItemAvailability } from './item-shared.js';
 import { resolveImageUrls, toPublicImageUrl } from './item-media.service.js';
 import type { ListValidatedItemsParams, StoredItem } from './item-types.js';
@@ -69,6 +75,11 @@ export const getItemById = async (
   itemId: string,
 ): Promise<ItemDetailsResponse | null> => {
   await archiveItemIfEligible(db, itemId);
+  const cached = await getCachedPublicItemQuery<ItemDetailsResponse>(redis, buildPublicItemDetailCacheKey(itemId));
+  if (cached) {
+    return cached;
+  }
+
   const nowMs = Date.now();
   const itemsCollection = db.collection('items');
   const reportsCollection = db.collection('reports');
@@ -81,20 +92,26 @@ export const getItemById = async (
   if (itemSnapshot.exists) {
     const data = itemSnapshot.data() as DocumentData;
     if (!isVisibleInCurrentEnvironment((data as StoredItem).sourceEnv)) return null;
-    return mapItemDetails(bucket, itemSnapshot.id, data, redis, nowMs);
+    const item = await mapItemDetails(bucket, itemSnapshot.id, data, redis, nowMs);
+    await setCachedPublicItemQuery(redis, buildPublicItemDetailCacheKey(itemId), item);
+    return item;
   }
 
   if (!itemsByReportIdSnapshot.empty) {
     const snapshot = itemsByReportIdSnapshot.docs[0];
     const data = snapshot.data() as DocumentData;
     if (!isVisibleInCurrentEnvironment((data as StoredItem).sourceEnv)) return null;
-    return mapItemDetails(bucket, snapshot.id, data, redis, nowMs);
+    const item = await mapItemDetails(bucket, snapshot.id, data, redis, nowMs);
+    await setCachedPublicItemQuery(redis, buildPublicItemDetailCacheKey(itemId), item);
+    return item;
   }
 
   if (reportSnapshot.exists) {
     const data = reportSnapshot.data() as DocumentData;
     if (!isVisibleInCurrentEnvironment((data as StoredItem).sourceEnv)) return null;
-    return mapItemDetails(bucket, reportSnapshot.id, data, redis, nowMs);
+    const item = await mapItemDetails(bucket, reportSnapshot.id, data, redis, nowMs);
+    await setCachedPublicItemQuery(redis, buildPublicItemDetailCacheKey(itemId), item);
+    return item;
   }
 
   return null;
@@ -120,6 +137,21 @@ export const listValidatedItems = async (
   const limit = Math.max(1, Math.floor(params.limit));
   const keyword = typeof params.keyword === 'string' ? params.keyword.trim().toLowerCase() : '';
   const sort = params.sort === 'oldest' ? 'oldest' : 'most_recent';
+  const cacheKey = buildPublicItemsListCacheKey({
+    page,
+    limit,
+    keyword,
+    category: params.category,
+    location: params.location,
+    dateFrom: params.dateFrom,
+    dateTo: params.dateTo,
+    sort,
+  });
+  const cached = await getCachedPublicItemQuery<{ items: Array<ItemPublicResponse>; total: number }>(redis, cacheKey);
+  if (cached) {
+    return cached;
+  }
+
   const nowMs = Date.now();
 
   let baseQuery = db.collection('reports').where('kind', '==', 'FOUND').where('status', 'in', [ItemStatus.VALIDATED, ItemStatus.CLAIMED]);
@@ -200,5 +232,7 @@ export const listValidatedItems = async (
   const items = itemCandidates.filter((item): item is ItemPublicResponse => item !== null);
   const pagedItems = keyword.length > 0 ? items.slice((page - 1) * limit, page * limit) : items;
   if (keyword.length > 0) total = items.length;
-  return { items: pagedItems, total };
+  const result = { items: pagedItems, total };
+  await setCachedPublicItemQuery(redis, cacheKey, result);
+  return result;
 };
