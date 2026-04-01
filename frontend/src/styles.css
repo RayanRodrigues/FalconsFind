@@ -14,6 +14,9 @@
   --color-border: #d1d5db;
   --color-white: #ffffff;
   --color-neutral-base: #f3f4f6;
+  --color-nav-link: #b9375d;
+  --color-nav-action-text: #b9375d;
+  --color-nav-action-border: #b9375d;
 
   /* NEW */
   --color-button-text: #111827;
@@ -30,6 +33,9 @@ body.light-theme {
   --color-border: #d1d5db;
   --color-white: #ffffff;
   --color-neutral-base: #f3f4f6;
+  --color-nav-link: #b9375d;
+  --color-nav-action-text: #b9375d;
+  --color-nav-action-border: #b9375d;
 
 
   --color-button-text: #111827;
@@ -46,6 +52,9 @@ body.dark-theme {
   --color-border: #475569;
   --color-white: #1e293b;
   --color-neutral-base: #334155;
+  --color-nav-link: #f8fafc;
+  --color-nav-action-text: #f8fafc;
+  --color-nav-action-border: #475569;
 
   /* BUTTON */
   --color-button-text: #f8fafc;

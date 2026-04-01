@@ -1,38 +1,55 @@
-<div class="min-h-screen bg-neutral-base py-12 px-4 sm:px-6 lg:px-8">
-  <div class="max-w-3xl mx-auto">
-    <div class="text-center mb-8">
-      <h1 class="text-3xl font-semibold text-primary mb-2">Report Found Item</h1>
-      <p class="text-text-secondary">Share details so Campus Security can validate and publish safely.</p>
+<div class="min-h-screen bg-[var(--color-bg)] px-4 py-12 sm:px-6 lg:px-8">
+  <div class="mx-auto max-w-2xl">
+
+    <!-- Page header -->
+    <div class="mb-8 text-center">
+      <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
+        <svg class="h-7 w-7 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      </div>
+      <p class="mb-1 text-xs font-semibold uppercase tracking-widest text-primary">Found Something?</p>
+      <h1 class="text-2xl font-bold text-[var(--color-text-primary)]">Report a Found Item</h1>
+      <p class="mt-2 text-sm text-[var(--color-text-secondary)]">
+        Share the details below. Campus Security will review and publish the item so the owner can claim it.
+      </p>
     </div>
 
+    <!-- Success State -->
     @if (submitSuccess) {
-      <app-card>
-        <div class="text-center py-8">
-          <svg
-            class="w-16 h-16 text-success mx-auto mb-6"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.8"
-            aria-hidden="true"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M9 12.75 11.25 15 15 9.75M21 12A9 9 0 1 1 3 12a9 9 0 0 1 18 0Z"
-            />
+      <div class="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 text-center shadow-sm">
+        <div class="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-green-500/10">
+          <svg class="h-8 w-8 text-green-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12A9 9 0 1 1 3 12a9 9 0 0 1 18 0Z" />
           </svg>
-          <h2 class="text-2xl font-semibold text-success mb-4">Found Report Submitted</h2>
-          <p class="text-lg mb-2">Reference code:</p>
-          <p class="text-3xl font-bold text-primary mb-6">{{ referenceCode }}</p>
-          <div class="flex gap-4 justify-center">
-            <app-button variant="primary" (click)="resetForm()">Submit Another Report</app-button>
-            <app-button variant="secondary" (click)="navigateHome()">Return to Home</app-button>
-          </div>
         </div>
-      </app-card>
+        <h2 class="text-xl font-bold text-[var(--color-text-primary)]">Report Submitted!</h2>
+        <p class="mt-2 text-sm text-[var(--color-text-secondary)]">Thank you for helping someone find their belongings. Campus Security will review your report shortly.</p>
+
+        <div class="my-6 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)] px-6 py-4">
+          <p class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-secondary)]">Your Reference Code</p>
+          <p class="mt-1 text-3xl font-black tracking-wider text-primary">{{ referenceCode }}</p>
+          <p class="mt-1 text-xs text-[var(--color-text-secondary)]">Keep this code — you may need it to follow up.</p>
+        </div>
+
+        <div class="flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <button
+            (click)="resetForm()"
+            class="inline-flex items-center justify-center rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-secondary"
+          >
+            Submit Another Report
+          </button>
+          <button
+            (click)="navigateHome()"
+            class="inline-flex items-center justify-center rounded-full border border-[var(--color-border)] px-6 py-2.5 text-sm font-semibold text-[var(--color-text-primary)] transition-colors hover:border-primary hover:text-primary"
+          >
+            Back to Home
+          </button>
+        </div>
+      </div>
     }
 
+    <!-- Error -->
     @if (submitError && !submitSuccess) {
       <div class="mb-6">
         <app-alert type="error" [dismissible]="true">
@@ -42,209 +59,223 @@
       </div>
     }
 
+    <!-- Step indicator + Form -->
     @if (!submitSuccess) {
-      <app-card cardTitle="Found Item Report" subtitle="Photo and location are required">
-        <form [formGroup]="foundForm" (ngSubmit)="onSubmit()" class="space-y-8">
-          <app-report-steps [currentStep]="currentStep" />
 
-          <p class="text-sm text-text-secondary pt-5"><span class="text-red-500">*</span> Required fields</p>
+      <!-- Stepper (outside card) -->
+      <div class="mb-6 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-6 py-5 shadow-sm">
+        <app-report-steps [currentStep]="currentStep" />
+      </div>
 
-          @if (currentStep === 1) {
-            <div class="space-y-4">
-              <h3 class="text-lg font-semibold text-text-primary">Basic Information</h3>
+      <!-- Form card -->
+      <div class="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-sm">
+        <form [formGroup]="foundForm" (ngSubmit)="onSubmit()">
 
-              <app-form-field id="title" label="Item Title" [required]="true" [error]="getFieldError('title')">
-                <app-input
-                  id="title"
-                  formControlName="title"
-                  placeholder="e.g., Silver Water Bottle"
-                  [invalid]="isFieldInvalid('title')"
-                />
-              </app-form-field>
+          <div class="p-6 sm:p-8">
+            <p class="mb-6 text-xs text-[var(--color-text-secondary)]">
+              Fields marked <span class="font-semibold text-red-500">*</span> are required.
+            </p>
 
-              <app-form-field
-                id="categoryOption"
-                label="Category"
-                [required]="true"
-                [error]="getCategoryError()"
-              >
-                <app-select
-                  id="categoryOption"
-                  formControlName="categoryOption"
-                  placeholder="Select a category"
-                  [invalid]="isCategoryInvalid()"
-                >
-                  @for (category of categories; track category) {
-                    <option [value]="category">{{ category }}</option>
-                  }
-                </app-select>
-              </app-form-field>
+            <!-- STEP 1: Basic Info -->
+            @if (currentStep === 1) {
+              <div class="space-y-4">
+                <h3 class="text-base font-semibold text-[var(--color-text-primary)]">Basic Information</h3>
 
-              <div *ngIf="foundForm.get('categoryOption')?.value === 'Other'">
-                <app-form-field
-                  id="categoryCustom"
-                  label="Enter Category"
-                  [required]="true"
-                  [error]="getCategoryError()"
-                >
+                <app-form-field id="title" label="Item Title" [required]="true" [error]="getFieldError('title')">
                   <app-input
-                    id="categoryCustom"
-                    formControlName="categoryCustom"
-                    placeholder="e.g., Lab equipment"
+                    id="title"
+                    formControlName="title"
+                    placeholder="e.g., Silver Water Bottle"
+                    [invalid]="isFieldInvalid('title')"
+                  />
+                </app-form-field>
+
+                <app-form-field id="categoryOption" label="Category" [required]="true" [error]="getCategoryError()">
+                  <app-select
+                    id="categoryOption"
+                    formControlName="categoryOption"
+                    placeholder="Select a category"
                     [invalid]="isCategoryInvalid()"
+                  >
+                    @for (category of categories; track category) {
+                      <option [value]="category">{{ category }}</option>
+                    }
+                  </app-select>
+                </app-form-field>
+
+                <div *ngIf="foundForm.get('categoryOption')?.value === 'Other'">
+                  <app-form-field id="categoryCustom" label="Enter Category" [required]="true" [error]="getCategoryError()">
+                    <app-input
+                      id="categoryCustom"
+                      formControlName="categoryCustom"
+                      placeholder="e.g., Lab equipment"
+                      [invalid]="isCategoryInvalid()"
+                    />
+                  </app-form-field>
+                </div>
+
+                <app-form-field id="description" label="Description" [required]="true" [error]="getFieldError('description')">
+                  <app-textarea
+                    id="description"
+                    formControlName="description"
+                    [rows]="4"
+                    placeholder="Describe color, brand, and identifying details"
+                    [invalid]="isFieldInvalid('description')"
                   />
+                  <span hint class="text-xs text-[var(--color-text-secondary)]">
+                    {{ foundForm.get('description')?.value?.length || 0 }}/500 characters
+                  </span>
                 </app-form-field>
               </div>
+            }
 
-              <app-form-field id="description" label="Description" [required]="true" [error]="getFieldError('description')">
-                <app-textarea
-                  id="description"
-                  formControlName="description"
-                  [rows]="4"
-                  placeholder="Describe color, brand, and identifying details"
-                  [invalid]="isFieldInvalid('description')"
-                />
-                <span hint class="text-xs text-text-secondary">
-                  {{ foundForm.get('description')?.value?.length || 0 }}/500 characters
-                </span>
-              </app-form-field>
-            </div>
-          }
+            <!-- STEP 2: When & Where -->
+            @if (currentStep === 2) {
+              <div class="space-y-4">
+                <h3 class="text-base font-semibold text-[var(--color-text-primary)]">When and Where</h3>
 
-          @if (currentStep === 2) {
-            <div class="space-y-4">
-              <h3 class="text-lg font-semibold text-text-primary">When and Where</h3>
-
-              <app-form-field
-                id="foundLocationOption"
-                label="Found Location"
-                [required]="true"
-                [error]="getLocationError()"
-              >
-                <app-select
-                  id="foundLocationOption"
-                  formControlName="foundLocationOption"
-                  placeholder="Select a location"
-                  [invalid]="isLocationInvalid()"
-                >
-                  @for (location of locationOptions; track location) {
-                    <option [value]="location">{{ location }}</option>
-                  }
-                </app-select>
-              </app-form-field>
-
-              <div *ngIf="foundForm.get('foundLocationOption')?.value === 'Other'">
-                <app-form-field
-                  id="foundLocationCustom"
-                  label="Enter Found Location"
-                  [required]="true"
-                  [error]="getLocationError()"
-                >
-                  <app-input
-                    id="foundLocationCustom"
-                    formControlName="foundLocationCustom"
-                    placeholder="e.g., Building B, Room 204"
+                <app-form-field id="foundLocationOption" label="Found Location" [required]="true" [error]="getLocationError()">
+                  <app-select
+                    id="foundLocationOption"
+                    formControlName="foundLocationOption"
+                    placeholder="Select a location"
                     [invalid]="isLocationInvalid()"
-                  />
-                </app-form-field>
-              </div>
-
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <app-form-field id="foundDate" label="Date Found" [required]="true" [error]="getFieldError('foundDate')">
-                  <app-input
-                    id="foundDate"
-                    type="date"
-                    formControlName="foundDate"
-                    [max]="todayDate"
-                    [invalid]="isFieldInvalid('foundDate')"
-                  />
+                  >
+                    @for (location of locationOptions; track location) {
+                      <option [value]="location">{{ location }}</option>
+                    }
+                  </app-select>
                 </app-form-field>
 
-                <app-form-field id="foundTime" label="Approximate Time" [required]="true" [error]="getFieldError('foundTime')">
-                  <app-input
-                    id="foundTime"
-                    type="time"
-                    formControlName="foundTime"
-                    [invalid]="isFieldInvalid('foundTime')"
-                  />
-                </app-form-field>
-              </div>
+                <div *ngIf="foundForm.get('foundLocationOption')?.value === 'Other'">
+                  <app-form-field id="foundLocationCustom" label="Enter Found Location" [required]="true" [error]="getLocationError()">
+                    <app-input
+                      id="foundLocationCustom"
+                      formControlName="foundLocationCustom"
+                      placeholder="e.g., Building B, Room 204"
+                      [invalid]="isLocationInvalid()"
+                    />
+                  </app-form-field>
+                </div>
 
-              <app-photo-upload-field
-                id="photos"
-                inputId="photosInputFound"
-                label="Photos"
-                [required]="true"
-                [error]="getFieldError('photos')"
-                [photosCount]="foundForm.get('photos')?.value?.length || 0"
-                [photoPreviewUrls]="photoPreviewUrls"
-                (filesSelected)="onPhotosSelected($event)"
-                (removePhoto)="removePhoto($event)"
-              />
-            </div>
-          }
+                <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <app-form-field id="foundDate" label="Date Found" [required]="true" [error]="getFieldError('foundDate')">
+                    <app-input
+                      id="foundDate"
+                      type="date"
+                      formControlName="foundDate"
+                      [max]="todayDate"
+                      [invalid]="isFieldInvalid('foundDate')"
+                    />
+                  </app-form-field>
 
-          @if (currentStep === 3) {
-            <div class="space-y-4">
-              <h3 class="text-lg font-semibold text-text-primary">Contact Information</h3>
-              <p class="text-sm text-text-secondary">Optional. Helps campus security contact you quickly.</p>
+                  <app-form-field id="foundTime" label="Approximate Time" [required]="true" [error]="getFieldError('foundTime')">
+                    <app-input
+                      id="foundTime"
+                      type="time"
+                      formControlName="foundTime"
+                      [invalid]="isFieldInvalid('foundTime')"
+                    />
+                  </app-form-field>
+                </div>
 
-              <app-form-field id="contactEmail" label="Email Address" [error]="getFieldError('contactEmail')">
-                <app-input
-                  id="contactEmail"
-                  type="email"
-                  formControlName="contactEmail"
-                  placeholder="your.name@fanshaweonline.ca"
-                  [invalid]="isFieldInvalid('contactEmail')"
+                <app-photo-upload-field
+                  id="photos"
+                  inputId="photosInputFound"
+                  label="Photos"
+                  [required]="true"
+                  [error]="getFieldError('photos')"
+                  [photosCount]="foundForm.get('photos')?.value?.length || 0"
+                  [photoPreviewUrls]="photoPreviewUrls"
+                  (filesSelected)="onPhotosSelected($event)"
+                  (removePhoto)="removePhoto($event)"
                 />
-              </app-form-field>
-            </div>
-          }
+              </div>
+            }
 
-          <div class="flex flex-row justify-end gap-3 pt-6 border-t border-border">
+            <!-- STEP 3: Contact -->
+            @if (currentStep === 3) {
+              <div class="space-y-4">
+                <h3 class="text-base font-semibold text-[var(--color-text-primary)]">Contact Information</h3>
+                <p class="text-sm text-[var(--color-text-secondary)]">Optional — helps Campus Security contact you quickly if needed.</p>
+
+                <app-form-field id="contactEmail" label="Email Address" [error]="getFieldError('contactEmail')">
+                  <app-input
+                    id="contactEmail"
+                    type="email"
+                    formControlName="contactEmail"
+                    placeholder="your.name@fanshaweonline.ca"
+                    [invalid]="isFieldInvalid('contactEmail')"
+                  />
+                </app-form-field>
+              </div>
+            }
+          </div>
+
+          <!-- Navigation buttons -->
+          <div class="flex items-center justify-between border-t border-[var(--color-border)] px-6 py-4 sm:px-8">
             <button
               type="button"
               (click)="navigateHome()"
               [disabled]="isSubmitting"
-              class="inline-flex items-center justify-center rounded-lg border border-border bg-white px-6 py-2.5 text-sm font-medium text-text-primary hover:bg-bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              class="text-sm font-medium text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-text-primary)] disabled:opacity-50"
             >
               Cancel
             </button>
 
-            @if (currentStep > 1) {
-              <button
-                type="button"
-                (click)="previousStep()"
-                [disabled]="isSubmitting"
-                class="inline-flex items-center justify-center rounded-lg border border-border bg-white px-6 py-2.5 text-sm font-medium text-text-primary hover:bg-bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Back
-              </button>
-            }
+            <div class="flex gap-3">
+              @if (currentStep > 1) {
+                <button
+                  type="button"
+                  (click)="previousStep()"
+                  [disabled]="isSubmitting"
+                  class="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border)] px-5 py-2 text-sm font-semibold text-[var(--color-text-primary)] transition-colors hover:border-primary hover:text-primary disabled:opacity-50"
+                >
+                  <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+                  </svg>
+                  Back
+                </button>
+              }
 
-            @if (currentStep < totalSteps) {
-              <button
-                type="button"
-                (click)="nextStep()"
-                [disabled]="isSubmitting"
-                class="inline-flex items-center justify-center rounded-lg bg-primary px-6 py-2.5 text-sm font-medium text-white hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Next
-              </button>
-            }
+              @if (currentStep < totalSteps) {
+                <button
+                  type="button"
+                  (click)="nextStep()"
+                  [disabled]="isSubmitting"
+                  class="inline-flex items-center gap-1.5 rounded-full bg-primary px-6 py-2 text-sm font-semibold text-white transition-colors hover:bg-secondary disabled:opacity-50"
+                >
+                  Continue
+                  <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              }
 
-            @if (currentStep === totalSteps) {
-              <button
-                type="submit"
-                [disabled]="isSubmitting"
-                class="inline-flex items-center justify-center rounded-lg bg-primary px-6 py-2.5 text-sm font-medium text-white hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {{ isSubmitting ? 'Submitting...' : 'Submit Found Report' }}
-              </button>
-            }
+              @if (currentStep === totalSteps) {
+                <button
+                  type="submit"
+                  [disabled]="isSubmitting"
+                  class="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-2 text-sm font-semibold text-white transition-colors hover:bg-secondary disabled:opacity-60"
+                >
+                  @if (isSubmitting) {
+                    <svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                    </svg>
+                    Submitting…
+                  } @else {
+                    Submit Report
+                  }
+                </button>
+              }
+            </div>
           </div>
+
         </form>
-      </app-card>
+      </div>
+
     }
+
   </div>
 </div>

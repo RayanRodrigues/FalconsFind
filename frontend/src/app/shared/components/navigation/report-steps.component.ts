@@ -6,46 +6,46 @@ import { Component, Input } from '@angular/core';
   standalone: true,
   imports: [CommonModule],
   template: `
-    <div class="grid grid-cols-3 gap-2">
-      <button
-        type="button"
-        class="min-h-9 px-2 py-1 rounded-md border text-xs sm:text-sm leading-tight text-center whitespace-normal break-words font-medium transition-all"
-        [ngClass]="currentStep === 1 ? 'border-primary text-primary bg-primary/5' : 'border-border text-text-secondary'"
-      >
-        <span class="inline-flex w-full items-center justify-center gap-1.5">
-          <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-8.25A2.25 2.25 0 0 0 17.25 3.75H6.75A2.25 2.25 0 0 0 4.5 6v12A2.25 2.25 0 0 0 6.75 20.25h6.75" />
-            <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 8.25h7.5M8.25 11.25h7.5M8.25 14.25h4.5" />
-          </svg>
-          <span>{{ labels[0] }}</span>
-        </span>
-      </button>
-      <button
-        type="button"
-        class="min-h-9 px-2 py-1 rounded-md border text-xs sm:text-sm leading-tight text-center whitespace-normal break-words font-medium transition-all"
-        [ngClass]="currentStep === 2 ? 'border-primary text-primary bg-primary/5' : 'border-border text-text-secondary'"
-      >
-        <span class="inline-flex w-full items-center justify-center gap-1.5">
-          <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3.75v3M17.25 3.75v3M3.75 9.75h16.5" />
-            <rect x="3.75" y="5.25" width="16.5" height="15" rx="2.25" ry="2.25"></rect>
-            <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 13.5h3.75" />
-          </svg>
-          <span>{{ labels[1] }}</span>
-        </span>
-      </button>
-      <button
-        type="button"
-        class="min-h-9 px-2 py-1 rounded-md border text-xs sm:text-sm leading-tight text-center whitespace-normal break-words font-medium transition-all"
-        [ngClass]="currentStep === 3 ? 'border-primary text-primary bg-primary/5' : 'border-border text-text-secondary'"
-      >
-        <span class="inline-flex w-full items-center justify-center gap-1.5">
-          <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6.75a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 19.5a7.5 7.5 0 0 1 15 0" />
-          </svg>
-          <span>{{ labels[2] }}</span>
-        </span>
-      </button>
+    <div class="flex items-center">
+      @for (step of [1, 2, 3]; track step; let i = $index) {
+
+        <!-- Step -->
+        <div class="flex flex-col items-center gap-1.5">
+          <div
+            class="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all"
+            [ngClass]="{
+              'bg-primary text-white': currentStep === step,
+              'bg-primary/15 text-primary': currentStep > step,
+              'border-2 border-[var(--color-border)] text-[var(--color-text-secondary)] bg-[var(--color-surface)]': currentStep < step
+            }"
+          >
+            @if (currentStep > step) {
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            } @else {
+              {{ step }}
+            }
+          </div>
+          <span
+            class="hidden text-[10px] font-medium sm:block"
+            [ngClass]="{
+              'text-primary': currentStep === step,
+              'text-primary/70': currentStep > step,
+              'text-[var(--color-text-secondary)]': currentStep < step
+            }"
+          >{{ labels[i] }}</span>
+        </div>
+
+        <!-- Connector line (not after last step) -->
+        @if (i < 2) {
+          <div
+            class="mx-2 mb-5 h-0.5 flex-1 transition-all sm:mx-3"
+            [ngClass]="currentStep > step ? 'bg-primary/40' : 'bg-[var(--color-border)]'"
+          ></div>
+        }
+
+      }
     </div>
   `
 })

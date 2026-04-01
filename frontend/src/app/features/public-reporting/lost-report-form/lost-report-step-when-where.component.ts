@@ -25,7 +25,7 @@ import { SelectComponent } from '../../../shared/components/forms/select.compone
   viewProviders: [{ provide: ControlContainer, useExisting: FormGroupDirective }],
   template: `
     <div class="space-y-4">
-      <h3 class="text-lg font-semibold text-text-primary">When and Where</h3>
+      <h3 class="text-lg font-semibold text-[var(--color-text-primary)]">When and Where</h3>
 
       <app-form-field
         id="locationOption"

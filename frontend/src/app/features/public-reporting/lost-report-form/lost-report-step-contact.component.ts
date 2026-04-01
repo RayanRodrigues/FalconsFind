@@ -23,8 +23,8 @@ import { TextareaComponent } from '../../../shared/components/forms/textarea.com
   viewProviders: [{ provide: ControlContainer, useExisting: FormGroupDirective }],
   template: `
     <div class="space-y-4">
-      <h3 class="text-lg font-semibold text-text-primary">Contact Information</h3>
-      <p class="text-sm text-text-secondary">How can we reach you if your item is found?</p>
+      <h3 class="text-lg font-semibold text-[var(--color-text-primary)]">Contact Information</h3>
+      <p class="text-sm text-[var(--color-text-secondary)]">How can we reach you if your item is found?</p>
 
       <app-form-field id="contactName" label="Your Name" [required]="true" [error]="getFieldError('contactName')">
         <app-input
@@ -58,12 +58,12 @@ import { TextareaComponent } from '../../../shared/components/forms/textarea.com
           placeholder="(519) 555-0123"
           [invalid]="isFieldInvalid('contactPhone')"
         />
-        <span hint class="text-xs text-text-secondary">Format: 5195550123 or (519) 555-0123</span>
+        <span hint class="text-xs text-[var(--color-text-secondary)]">Format: 5195550123 or (519) 555-0123</span>
       </app-form-field>
     </div>
 
     <div class="space-y-4">
-      <h3 class="text-lg font-semibold text-text-primary">Additional Information</h3>
+      <h3 class="text-lg font-semibold text-[var(--color-text-primary)]">Additional Information</h3>
 
       <app-form-field id="additionalInfo" label="Additional Details">
         <app-textarea
@@ -72,7 +72,7 @@ import { TextareaComponent } from '../../../shared/components/forms/textarea.com
           [rows]="3"
           placeholder="Any other information that might help identify your item"
         />
-        <span hint class="text-xs text-text-secondary">{{ form.get('additionalInfo')?.value?.length || 0 }}/200 characters</span>
+        <span hint class="text-xs text-[var(--color-text-secondary)]">{{ form.get('additionalInfo')?.value?.length || 0 }}/200 characters</span>
       </app-form-field>
     </div>
   `

@@ -35,6 +35,12 @@
   <meta name="twitter:image" content="/PNG/LogoPrincipal.png">
 </head>
 <body>
+  <script>
+    (function () {
+      var theme = localStorage.getItem('falconfind-theme');
+      document.body.classList.add(theme === 'dark' ? 'dark-theme' : 'light-theme');
+    })();
+  </script>
   <app-root></app-root>
 </body>
 </html>

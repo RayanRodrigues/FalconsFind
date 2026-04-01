@@ -192,30 +192,19 @@ export class NavbarComponent {
 
   // Nav link text adapts: brand crimson in light, near-white in dark (no red on hover in dark)
   get navLinkClass(): string {
-    const color = this.isDarkMode()
-      ? 'text-[var(--color-text-primary)]'
-      : 'text-primary';
-    return `rounded-full px-3.5 py-1.5 text-sm transition-colors hover:bg-primary/12 ${color}`;
+    return 'rounded-full px-3.5 py-1.5 text-sm text-[var(--color-nav-link)] transition-colors hover:bg-primary/12';
   }
 
   get mobileNavLinkClass(): string {
-    const color = this.isDarkMode()
-      ? 'text-[var(--color-text-primary)]'
-      : 'text-primary';
-    return `rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-primary/12 ${color}`;
+    return 'rounded-lg px-3 py-2.5 text-sm text-[var(--color-nav-link)] transition-colors hover:bg-primary/12';
   }
 
-  // Outlined pill button: toned-down border/text in dark, brand crimson in light
   get actionBtnClass(): string {
-    return this.isDarkMode()
-      ? 'inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border)] px-5 py-1.5 text-sm font-semibold text-[var(--color-text-primary)] transition-colors hover:border-primary hover:bg-primary hover:text-white'
-      : 'inline-flex items-center gap-1.5 rounded-full border border-primary px-5 py-1.5 text-sm font-semibold text-primary transition-colors hover:bg-primary hover:text-white';
+    return 'inline-flex items-center gap-1.5 rounded-full border border-[var(--color-nav-action-border)] px-5 py-1.5 text-sm font-semibold text-[var(--color-nav-action-text)] transition-colors hover:border-primary hover:bg-primary hover:text-white';
   }
 
   get mobileActionBtnClass(): string {
-    return this.isDarkMode()
-      ? 'inline-flex items-center justify-center gap-1.5 rounded-full border border-[var(--color-border)] px-5 py-2 text-sm font-semibold text-[var(--color-text-primary)] transition-colors hover:border-primary hover:bg-primary hover:text-white'
-      : 'inline-flex items-center justify-center gap-1.5 rounded-full border border-primary px-5 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary hover:text-white';
+    return 'inline-flex items-center justify-center gap-1.5 rounded-full border border-[var(--color-nav-action-border)] px-5 py-2 text-sm font-semibold text-[var(--color-nav-action-text)] transition-colors hover:border-primary hover:bg-primary hover:text-white';
   }
 
   // Mobile list-row items (logout, theme toggle)

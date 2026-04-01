@@ -25,7 +25,7 @@ import { TextareaComponent } from '../../../shared/components/forms/textarea.com
   viewProviders: [{ provide: ControlContainer, useExisting: FormGroupDirective }],
   template: `
     <div class="space-y-4">
-      <h3 class="text-lg font-semibold text-text-primary">Basic Information</h3>
+      <h3 class="text-lg font-semibold text-[var(--color-text-primary)]">Basic Information</h3>
 
       <app-form-field id="title" label="Item Title" [required]="true" [error]="getFieldError('title')">
         <app-input
@@ -34,7 +34,7 @@ import { TextareaComponent } from '../../../shared/components/forms/textarea.com
           placeholder="e.g., Black Laptop in Sleeve"
           [invalid]="isFieldInvalid('title')"
         />
-        <span hint class="text-xs text-text-secondary">Be specific but concise (5-100 characters)</span>
+        <span hint class="text-xs text-[var(--color-text-secondary)]">Be specific but concise (5-100 characters)</span>
       </app-form-field>
 
       <app-form-field
@@ -79,7 +79,7 @@ import { TextareaComponent } from '../../../shared/components/forms/textarea.com
           placeholder="Describe your item in detail (color, brand, distinguishing features, etc.)"
           [invalid]="isFieldInvalid('description')"
         />
-        <span hint class="text-xs text-text-secondary">
+        <span hint class="text-xs text-[var(--color-text-secondary)]">
           {{ form.get('description')?.value?.length || 0 }}/500 characters
         </span>
       </app-form-field>

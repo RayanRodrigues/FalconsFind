@@ -8,7 +8,7 @@ import { FormFieldComponent } from './form-field.component';
   imports: [CommonModule, FormFieldComponent],
   template: `
     <app-form-field [id]="id" [label]="label" [required]="required" [error]="error">
-      <div class="border-2 border-dashed border-border rounded-lg bg-bg-secondary hover:border-primary hover:bg-primary/5 transition-all duration-200 p-4">
+      <div class="rounded-lg border-2 border-dashed border-[var(--color-border)] bg-[var(--color-surface-2)] p-4 transition-all duration-200 hover:border-primary hover:bg-primary/5">
         
         <input
           #photosInput
@@ -22,14 +22,14 @@ import { FormFieldComponent } from './form-field.component';
 
         @if (hasPhotos) {
           <div class="flex items-center justify-between mb-3">
-            <div class="text-sm text-text-secondary">
+            <div class="text-sm text-[var(--color-text-secondary)]">
               JPEG, PNG up to 5MB each (max 5)
             </div>
 
             <button
               type="button"
               (click)="photosInput.click()"
-              class="px-3 py-2 rounded-md border border-border text-sm font-medium hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 transition"
+              class="rounded-full border border-[var(--color-border)] px-3 py-1.5 text-sm font-medium text-[var(--color-text-primary)] transition hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
             >
               Add More
             </button>
@@ -47,7 +47,7 @@ import { FormFieldComponent } from './form-field.component';
                       class="absolute inset-0 w-full h-full object-cover opacity-20"
                     />
                     <div class="absolute inset-0 flex items-center justify-center">
-                      <span class="text-xs text-text-secondary font-medium text-center px-2">Preview not available</span>
+                      <span class="text-xs text-[var(--color-text-secondary)] font-medium text-center px-2">Preview not available</span>
                     </div>
                   </div>
                 } @else {
@@ -63,7 +63,7 @@ import { FormFieldComponent } from './form-field.component';
                   type="button"
                   (click)="removePhoto.emit($index)"
                   aria-label="Remove photo"
-                  class="absolute top-2 right-2 z-30 rounded-md bg-white/95 border border-black text-black p-2 shadow-md hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 transition"
+                  class="absolute right-2 top-2 z-30 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] p-1.5 shadow-md transition hover:border-red-500 hover:text-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                 >
                   <svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M6 6l12 12M18 6l-12 12" />
@@ -81,19 +81,19 @@ import { FormFieldComponent } from './form-field.component';
             (dragleave)="onDragLeave($event)"
             (drop)="onDrop($event)"
           >
-            <div class="text-sm text-text-secondary mb-3">
+            <div class="text-sm text-[var(--color-text-secondary)] mb-3">
               JPEG, PNG up to 5MB each (max 5)
             </div>
 
-            <svg class="w-8 h-8 text-text-secondary mx-auto mb-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <svg class="w-8 h-8 text-[var(--color-text-secondary)] mx-auto mb-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
               <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5V8.25a2.25 2.25 0 0 1 2.25-2.25h2.379a1.5 1.5 0 0 0 1.06-.44l.622-.62a1.5 1.5 0 0 1 1.06-.44h3.258a1.5 1.5 0 0 1 1.06.44l.622.62a1.5 1.5 0 0 0 1.06.44h2.379A2.25 2.25 0 0 1 21 8.25v8.25A2.25 2.25 0 0 1 18.75 18.75H5.25A2.25 2.25 0 0 1 3 16.5Z" />
               <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />
             </svg>
 
-            <span class="font-medium text-text-primary block">
+            <span class="font-medium text-[var(--color-text-primary)] block">
               Click to upload or drag and drop
             </span>
-            <span class="text-xs text-text-secondary block mt-1">
+            <span class="text-xs text-[var(--color-text-secondary)] block mt-1">
               No photos selected
             </span>
           </div>

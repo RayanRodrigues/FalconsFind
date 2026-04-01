@@ -45,9 +45,6 @@ export class App implements OnInit {
       return;
     }
 
-    // Initialize saved theme
-    this.themeService.initTheme();
-
     const healthTestEnabled = publicEnv.enableFirebaseHealthTest;
     this.showFirebaseHealthTest.set(healthTestEnabled);
     if (!healthTestEnabled) {
