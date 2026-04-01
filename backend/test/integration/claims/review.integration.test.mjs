@@ -4,7 +4,7 @@ import request from '../request-helper.mjs';
 import { buildClaimsTestApp, createFakeDb } from './test-utils.mjs';
 
 test('PATCH /api/v1/claims/:id/status approves a pending claim and marks the item as claimed', async () => {
-  const { db, claims, items } = createFakeDb({
+  const { db, claims, items, itemStatusHistory } = createFakeDb({
     items: {
       'item-1': {
         status: 'VALIDATED',
@@ -32,6 +32,12 @@ test('PATCH /api/v1/claims/:id/status approves a pending claim and marks the ite
   assert.equal(items['item-1'].status, 'CLAIMED');
   assert.equal(items['item-1'].claimStatus, 'APPROVED');
   assert.match(items['item-1'].updatedAt, /^\d{4}-\d{2}-\d{2}T/);
+
+  const [statusHistoryEntry] = Object.values(itemStatusHistory);
+  assert.ok(statusHistoryEntry);
+  assert.equal(statusHistoryEntry.itemId, 'item-1');
+  assert.equal(statusHistoryEntry.previousStatus, 'VALIDATED');
+  assert.equal(statusHistoryEntry.nextStatus, 'CLAIMED');
 });
 
 test('PATCH /api/v1/claims/:id/status approves a claim after additional proof was requested', async () => {

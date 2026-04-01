@@ -6,16 +6,26 @@ import { errorHandler, notFoundHandler } from '../../../dist/src/middleware/erro
 
 export { test, assert };
 
-export const createFakeDb = (initialReports = {}) => {
+export const createFakeDb = (initialData = {}) => {
+  const usesStructuredInput = (
+    Object.prototype.hasOwnProperty.call(initialData, 'reports')
+    || Object.prototype.hasOwnProperty.call(initialData, 'items')
+    || Object.prototype.hasOwnProperty.call(initialData, 'itemHistory')
+    || Object.prototype.hasOwnProperty.call(initialData, 'itemStatusHistory')
+  );
   const savedReports = [];
-  const itemHistory = {};
+  const reports = usesStructuredInput ? { ...(initialData.reports ?? {}) } : { ...initialData };
+  const items = usesStructuredInput ? { ...(initialData.items ?? {}) } : {};
+  const itemHistory = usesStructuredInput ? { ...(initialData.itemHistory ?? {}) } : {};
+  const itemStatusHistory = usesStructuredInput ? { ...(initialData.itemStatusHistory ?? {}) } : {};
   let counter = 0;
-  const reports = { ...initialReports };
 
   const createReportDoc = (id, data) => ({
     id,
     ref: {
       id,
+      collectionName: 'reports',
+      path: `reports/${id}`,
       update: async (patch) => {
         reports[id] = { ...reports[id], ...patch };
       },
@@ -35,6 +45,67 @@ export const createFakeDb = (initialReports = {}) => {
                 id: generatedId,
                 set: async (data) => {
                   itemHistory[generatedId] = data;
+                },
+              };
+            },
+          };
+        }
+
+        if (collectionName === 'itemStatusHistory') {
+          return {
+            doc: (id) => ({
+              id,
+              collectionName,
+              set: async (data) => {
+                itemStatusHistory[id] = data;
+              },
+            }),
+          };
+        }
+
+        if (collectionName === 'items') {
+          return {
+            doc: (id) => ({
+              id,
+              collectionName,
+              path: `${collectionName}/${id}`,
+              update: async (patch) => {
+                items[id] = { ...items[id], ...patch };
+              },
+              get: async () => ({
+                id,
+                exists: items[id] !== undefined,
+                data: () => items[id],
+              }),
+            }),
+            where: (field, operator, value) => {
+              assert.equal(field, 'reportId');
+              assert.equal(operator, '==');
+
+              const matches = Object.entries(items)
+                .filter(([, item]) => item[field] === value)
+                .map(([id, data]) => ({
+                  id,
+                  ref: {
+                    id,
+                    collectionName,
+                    path: `${collectionName}/${id}`,
+                    update: async (patch) => {
+                      items[id] = { ...items[id], ...patch };
+                    },
+                  },
+                  data: () => data,
+                }));
+
+              return {
+                limit: (limitValue) => {
+                  assert.equal(limitValue, 1);
+                  return {
+                    get: async () => ({
+                      empty: matches.length === 0,
+                      docs: matches.slice(0, limitValue),
+                    }),
+                  };
                 },
               };
             },
@@ -75,6 +146,8 @@ export const createFakeDb = (initialReports = {}) => {
             if (id) {
               return {
                 id,
+                collectionName,
+                path: `${collectionName}/${id}`,
                 get: async () => ({
                   id,
                   exists: reports[id] !== undefined,
@@ -102,7 +175,13 @@ export const createFakeDb = (initialReports = {}) => {
         const transaction = {
           get: async (target) => target.get(),
           update: (target, patch) => target.update(patch),
-          set: (target, data) => target.set(data),
+          set: (target, data) => {
+            if (target.collectionName === 'itemStatusHistory') {
+              itemStatusHistory[target.id] = data;
+              return;
+            }
+            target.set(data);
+          },
         };
 
         return handler(transaction);
@@ -110,6 +189,8 @@ export const createFakeDb = (initialReports = {}) => {
     },
     savedReports,
     itemHistory,
+    itemStatusHistory,
+    items,
     reports,
   };
 };
@@ -138,8 +219,8 @@ const createFakeBucket = () => {
   };
 };
 
-export const buildReportsTestApp = (initialReports = {}) => {
-  const { db, savedReports, itemHistory, reports } = createFakeDb(initialReports);
+export const buildReportsTestApp = (initialData = {}) => {
+  const { db, savedReports, itemHistory, itemStatusHistory, items, reports } = createFakeDb(initialData);
   const { bucket, uploads } = createFakeBucket();
 
   const app = express();
@@ -157,5 +238,5 @@ export const buildReportsTestApp = (initialReports = {}) => {
   app.use(notFoundHandler);
   app.use(errorHandler);
 
-  return { app, savedReports, uploads, itemHistory, reports };
+  return { app, savedReports, uploads, itemHistory, itemStatusHistory, items, reports };
 };

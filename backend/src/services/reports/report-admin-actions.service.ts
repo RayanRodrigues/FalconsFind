@@ -2,6 +2,7 @@ import type { Firestore, Transaction } from 'firebase-admin/firestore';
 import type { AdminReportResponse, FlagReportRequest, MergeDuplicateReportsResponse, Report } from '../../contracts/index.js';
 import { ItemStatus } from '../../contracts/index.js';
 import { createChangesFromPatch, recordItemHistoryEvent } from '../item-history.service.js';
+import { getStatusSyncTargets, writeStatusHistoryRecord } from '../items/item-shared.js';
 import { ReportMergeConflictError, ReportNotFoundError, ReportValidationConflictError } from './report-errors.js';
 import { buildPrimaryMergePatch } from './report-shared.js';
 import type { ReportFlagActor, ReportMergeActor, ReportValidationActor } from './report-types.js';
@@ -24,13 +25,25 @@ export const validateFoundReport = async (
       throw new ReportValidationConflictError('Only pending validation found-item reports can be validated.');
     }
 
-    transaction.update(reportRef, { status: ItemStatus.VALIDATED });
+    const validatedAt = new Date().toISOString();
+    const { primaryRef, targetRefs } = await getStatusSyncTargets(transaction, db, reportId);
+    for (const targetRef of targetRefs) transaction.update(targetRef, { status: ItemStatus.VALIDATED });
+    writeStatusHistoryRecord(
+      db,
+      transaction,
+      primaryRef.id,
+      report.status,
+      ItemStatus.VALIDATED,
+      actor ? { uid: actor.uid, email: actor.email ?? null, role: actor.role } : { type: 'SYSTEM', role: 'SYSTEM' },
+      validatedAt,
+    );
+
     await recordItemHistoryEvent(db, {
       itemId: reportId,
       entityType: 'REPORT',
       entityId: reportId,
       actionType: 'REPORT_VALIDATED',
-      timestamp: new Date().toISOString(),
+      timestamp: validatedAt,
       summary: 'Found-item report validated by staff.',
       actor: actor
         ? { type: actor.role, uid: actor.uid, email: actor.email ?? undefined, role: actor.role }

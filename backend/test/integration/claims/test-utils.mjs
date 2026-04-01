@@ -10,7 +10,7 @@ const createDocSnapshot = (ref, source) => ({
   data: () => source,
 });
 
-export const createFakeDb = ({ claims = {}, items = {}, reports = {}, itemHistory = {} } = {}) => {
+export const createFakeDb = ({ claims = {}, items = {}, reports = {}, itemHistory = {}, itemStatusHistory = {} } = {}) => {
   const savedClaims = [];
   let counter = 0;
 
@@ -80,6 +80,18 @@ export const createFakeDb = ({ claims = {}, items = {}, reports = {}, itemHistor
               },
             };
           },
+        };
+      }
+
+      if (collectionName === 'itemStatusHistory') {
+        return {
+          doc: (id) => ({
+            id,
+            collectionName,
+            set: async (data) => {
+              itemStatusHistory[id] = data;
+            },
+          }),
         };
       }
 
@@ -167,6 +179,10 @@ export const createFakeDb = ({ claims = {}, items = {}, reports = {}, itemHistor
             itemHistory[ref.id] = data;
             return;
           }
+          if (ref.collectionName === 'itemStatusHistory') {
+            itemStatusHistory[ref.id] = data;
+            return;
+          }
 
           throw new Error(`Cannot set unexpected collection ${ref.collectionName}`);
         },
@@ -176,7 +192,7 @@ export const createFakeDb = ({ claims = {}, items = {}, reports = {}, itemHistor
     },
   };
 
-  return { db, itemHistory, savedClaims, claims, items, reports };
+  return { db, itemHistory, itemStatusHistory, savedClaims, claims, items, reports };
 };
 
 const createFakeBucket = () => {

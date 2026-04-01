@@ -142,3 +142,47 @@ test('POST /api/v1/admin/items/:id/restore-status returns 409 when the selected 
   assert.equal(response.status, 409);
   assert.equal(response.body.error.code, 'ITEM_STATUS_RESTORE_NOT_ALLOWED');
 });
+
+test('POST /api/v1/admin/items/:id/restore-status accepts statuses present in persisted item history when status-history records are missing', async () => {
+  const items = {
+    'item-restore-history': {
+      reportId: 'report-restore-history',
+      title: 'Wallet',
+      status: 'VALIDATED',
+      referenceCode: 'FND-20260320-RESTORE4',
+      dateReported: '2026-03-20T09:00:00.000Z',
+    },
+  };
+  const reports = {
+    'report-restore-history': {
+      kind: 'FOUND',
+      title: 'Wallet',
+      status: 'VALIDATED',
+      referenceCode: 'FND-20260320-RESTORE4',
+      dateReported: '2026-03-20T09:00:00.000Z',
+    },
+  };
+  const itemHistory = {
+    'history-event-1': {
+      itemId: 'report-restore-history',
+      entityType: 'REPORT',
+      entityId: 'report-restore-history',
+      actionType: 'REPORT_VALIDATED',
+      timestamp: '2026-03-20T10:00:00.000Z',
+      summary: 'Found-item report validated by staff.',
+      actor: { type: 'SECURITY' },
+      metadata: { referenceCode: 'FND-20260320-RESTORE4', itemStatus: 'VALIDATED' },
+      changes: [{ field: 'status', previousValue: 'PENDING_VALIDATION', newValue: 'VALIDATED' }],
+    },
+  };
+  const app = buildItemsTestApp({ items, reports, itemHistory });
+
+  const response = await request(app)
+    .post('/api/v1/admin/items/report-restore-history/restore-status')
+    .send({ status: 'PENDING_VALIDATION' });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.status, 'PENDING_VALIDATION');
+  assert.equal(items['item-restore-history'].status, 'PENDING_VALIDATION');
+  assert.equal(reports['report-restore-history'].status, 'PENDING_VALIDATION');
+});

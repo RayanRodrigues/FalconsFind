@@ -1,4 +1,5 @@
-import type { DocumentData, DocumentReference, Firestore } from 'firebase-admin/firestore';
+import type { DocumentData, DocumentReference, Firestore, Transaction } from 'firebase-admin/firestore';
+import { randomUUID } from 'node:crypto';
 import { ItemStatus } from '../../contracts/index.js';
 import type {
   ItemStatusResponse,
@@ -75,6 +76,30 @@ export const getStatusHistoryEntries = async (
   return snapshot.docs
     .map((doc) => doc.data() as ItemStatusHistoryRecord)
     .filter((entry) => Object.values(ItemStatus).includes(entry.previousStatus) && Object.values(ItemStatus).includes(entry.nextStatus));
+};
+
+export const writeStatusHistoryRecord = (
+  db: Firestore,
+  transaction: Transaction,
+  itemId: string,
+  previousStatus: ItemStatus,
+  nextStatus: ItemStatus,
+  actor: StatusChangeActor,
+  changedAt: string,
+) => {
+  const historyRef = db.collection('itemStatusHistory').doc(randomUUID());
+  const record: ItemStatusHistoryRecord = {
+    itemId,
+    previousStatus,
+    nextStatus,
+    changedAt,
+  };
+
+  if (actor.uid) record.changedByUid = actor.uid;
+  if (actor.email !== undefined) record.changedByEmail = actor.email ?? null;
+  if (actor.role) record.changedByRole = actor.role;
+
+  transaction.set(historyRef, record);
 };
 
 export const allowedStatusTransitions: Record<ItemStatus, ItemStatus[]> = {

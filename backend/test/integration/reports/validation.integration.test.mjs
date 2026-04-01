@@ -2,14 +2,26 @@ import request from '../request-helper.mjs';
 import { assert, buildReportsTestApp, test } from './test-utils.mjs';
 
 test('PATCH /api/v1/reports/found/:id/validate validates a pending found-item report', async () => {
-  const { app, reports, itemHistory } = buildReportsTestApp({
-    'found-1': {
-      kind: 'FOUND',
-      title: 'Found wallet',
-      status: 'PENDING_VALIDATION',
-      referenceCode: 'FND-20260317-FOUND001',
-      location: 'Gym',
-      dateReported: '2026-03-17T10:00:00.000Z',
+  const { app, items, reports, itemHistory, itemStatusHistory } = buildReportsTestApp({
+    reports: {
+      'found-1': {
+        kind: 'FOUND',
+        title: 'Found wallet',
+        status: 'PENDING_VALIDATION',
+        referenceCode: 'FND-20260317-FOUND001',
+        location: 'Gym',
+        dateReported: '2026-03-17T10:00:00.000Z',
+      },
+    },
+    items: {
+      'item-found-1': {
+        reportId: 'found-1',
+        title: 'Found wallet',
+        status: 'PENDING_VALIDATION',
+        referenceCode: 'FND-20260317-FOUND001',
+        location: 'Gym',
+        dateReported: '2026-03-17T10:00:00.000Z',
+      },
     },
   });
 
@@ -21,6 +33,7 @@ test('PATCH /api/v1/reports/found/:id/validate validates a pending found-item re
   assert.equal(response.body.id, 'found-1');
   assert.equal(response.body.referenceCode, 'FND-20260317-FOUND001');
   assert.equal(response.body.status, 'VALIDATED');
+  assert.equal(items['item-found-1'].status, 'VALIDATED');
   assert.equal(reports['found-1'].status, 'VALIDATED');
 
   const [historyEvent] = Object.values(itemHistory);
@@ -29,6 +42,12 @@ test('PATCH /api/v1/reports/found/:id/validate validates a pending found-item re
   assert.equal(historyEvent.actor.uid, 'security-1');
   assert.equal(historyEvent.actor.email, 'security@example.com');
   assert.equal(historyEvent.actor.role, 'SECURITY');
+
+  const [statusHistoryEntry] = Object.values(itemStatusHistory);
+  assert.ok(statusHistoryEntry);
+  assert.equal(statusHistoryEntry.itemId, 'item-found-1');
+  assert.equal(statusHistoryEntry.previousStatus, 'PENDING_VALIDATION');
+  assert.equal(statusHistoryEntry.nextStatus, 'VALIDATED');
 });
 
 test('PATCH /api/v1/reports/found/:id/validate returns 404 when report does not exist', async () => {

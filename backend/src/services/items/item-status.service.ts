@@ -1,5 +1,4 @@
 import type { Firestore, Transaction } from 'firebase-admin/firestore';
-import { randomUUID } from 'node:crypto';
 import { ItemStatus } from '../../contracts/index.js';
 import type {
   RestoreItemStatusRequest,
@@ -13,8 +12,9 @@ import {
   createStatusPatch,
   getStatusHistoryEntries,
   getStatusSyncTargets,
+  writeStatusHistoryRecord,
 } from './item-shared.js';
-import type { ItemStatusHistoryRecord, ItemStatusUpdateActor } from './item-types.js';
+import type { ItemStatusUpdateActor } from './item-types.js';
 
 export const recordArchivedHistory = async (
   db: Firestore,
@@ -68,25 +68,38 @@ export const recordStatusRestoredHistory = async (
   }, options);
 };
 
-const writeStatusHistoryRecord = (
+const isKnownItemStatus = (value: unknown): value is ItemStatus => (
+  typeof value === 'string' && Object.values(ItemStatus).includes(value as ItemStatus)
+);
+
+const getStatusesFromPersistedHistory = async (
+  reader: Transaction,
   db: Firestore,
-  transaction: Transaction,
-  itemId: string,
-  previousStatus: ItemStatus,
-  nextStatus: ItemStatus,
-  actor: ItemStatusUpdateActor,
-  changedAt: string,
-) => {
-  const historyRef = db.collection('itemStatusHistory').doc(randomUUID());
-  transaction.set(historyRef, {
-    itemId,
-    previousStatus,
-    nextStatus,
-    changedAt,
-    changedByUid: actor.uid,
-    changedByEmail: actor.email ?? null,
-    changedByRole: actor.role,
-  } satisfies ItemStatusHistoryRecord);
+  itemIds: string[],
+  currentStatus: ItemStatus,
+): Promise<Set<ItemStatus>> => {
+  const availableStatuses = new Set<ItemStatus>();
+  const uniqueItemIds = Array.from(new Set(itemIds.filter((value) => value.trim().length > 0)));
+  const snapshots = await Promise.all(
+    uniqueItemIds.map((historyItemId) => reader.get(db.collection('itemHistory').where('itemId', '==', historyItemId))),
+  );
+
+  for (const snapshot of snapshots) {
+    for (const doc of snapshot.docs) {
+      const event = (doc.data() as { changes?: Array<{ field?: unknown; previousValue?: unknown; newValue?: unknown }>; metadata?: { itemStatus?: unknown } } | undefined) ?? {};
+      for (const change of event.changes ?? []) {
+        if (change.field !== 'status' && change.field !== 'item.status') continue;
+        if (isKnownItemStatus(change.previousValue) && change.previousValue !== currentStatus) availableStatuses.add(change.previousValue);
+        if (isKnownItemStatus(change.newValue) && change.newValue !== currentStatus) availableStatuses.add(change.newValue);
+      }
+
+      if (isKnownItemStatus(event.metadata?.itemStatus) && event.metadata.itemStatus !== currentStatus) {
+        availableStatuses.add(event.metadata.itemStatus);
+      }
+    }
+  }
+
+  return availableStatuses;
 };
 
 export const updateItemStatus = async (
@@ -146,6 +159,13 @@ export const restoreItemStatus = async (
       availablePreviousStatuses.add(entry.previousStatus);
       if (entry.nextStatus !== currentStatus) availablePreviousStatuses.add(entry.nextStatus);
     }
+    const persistedHistoryStatuses = await getStatusesFromPersistedHistory(
+      transaction,
+      db,
+      [primaryRef.id, canonicalItemId, itemId],
+      currentStatus,
+    );
+    for (const status of persistedHistoryStatuses) availablePreviousStatuses.add(status);
     availablePreviousStatuses.delete(currentStatus);
 
     if (!availablePreviousStatuses.has(payload.status)) {

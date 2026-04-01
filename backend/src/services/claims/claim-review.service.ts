@@ -2,6 +2,7 @@ import type { Firestore, Transaction } from 'firebase-admin/firestore';
 import { ClaimStatus, ItemStatus, UserRole } from '../../contracts/index.js';
 import type { RequestAdditionalProofRequest } from '../../contracts/index.js';
 import { recordItemHistoryEvent } from '../item-history.service.js';
+import { writeStatusHistoryRecord } from '../items/item-shared.js';
 import {
   ClaimConflictError,
   ClaimForbiddenError,
@@ -57,6 +58,17 @@ export const updateClaimStatus = async (
       claimStatus: targetStatus,
       updatedAt: reviewedAt,
     } satisfies StoredItemReviewPatch);
+    if (item.status && item.status !== nextItemStatus) {
+      writeStatusHistoryRecord(
+        db,
+        transaction,
+        itemRef.id,
+        item.status,
+        nextItemStatus,
+        { type: 'SYSTEM', role: 'SYSTEM' },
+        reviewedAt,
+      );
+    }
 
     await recordItemHistoryEvent(db, {
       itemId,
