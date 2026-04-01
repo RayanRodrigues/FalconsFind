@@ -6,6 +6,7 @@ import { AdminStatisticsFiltersComponent } from '../../../shared/components/admi
 import { AdminStatisticsChartsComponent } from '../../../shared/components/admin/admin-statistics-charts.component';
 import { AdminStatisticsSummaryComponent } from '../../../shared/components/admin/admin-statistics-summary.component';
 import type { ActivityPoint, DashboardItem, PieSlice, StatusBar } from './admin-statistics.types';
+import { normalizeStatus, formatLocationLabel, resolveChartColor, toDateKey, buildDateWindow } from './admin-statistics.helpers';
 
 @Component({
   selector: 'app-admin-statistics',
@@ -87,25 +88,25 @@ export class AdminStatisticsComponent implements OnInit {
 
   readonly validatedCount = computed(() =>
     this.filteredItems().filter((item) => {
-      const status = this.normalizeStatus(item.status);
+      const status = normalizeStatus(item.status);
       return status === 'validated' || status === 'approved';
     }).length,
   );
 
   readonly claimedCount = computed(() =>
-    this.filteredItems().filter((item) => this.normalizeStatus(item.status) === 'claimed').length,
+    this.filteredItems().filter((item) => normalizeStatus(item.status) === 'claimed').length,
   );
 
   readonly returnedCount = computed(() =>
-    this.filteredItems().filter((item) => this.normalizeStatus(item.status) === 'returned').length,
+    this.filteredItems().filter((item) => normalizeStatus(item.status) === 'returned').length,
   );
 
   readonly archivedCount = computed(() =>
-    this.filteredItems().filter((item) => this.normalizeStatus(item.status) === 'archived').length,
+    this.filteredItems().filter((item) => normalizeStatus(item.status) === 'archived').length,
   );
 
   readonly activeCount = computed(() =>
-    this.filteredItems().filter((item) => this.normalizeStatus(item.status) !== 'archived').length,
+    this.filteredItems().filter((item) => normalizeStatus(item.status) !== 'archived').length,
   );
 
   readonly recoveryRate = computed(() => {
@@ -160,7 +161,7 @@ export class AdminStatisticsComponent implements OnInit {
         value: this.archivedCount(),
         percent: makePercent(this.archivedCount()),
         description: 'Closed and removed from active operations',
-        toneClass: 'text-text-secondary',
+        toneClass: 'text-[var(--color-text-secondary)]',
         barClass: 'bg-[var(--color-text-secondary)]',
       },
     ];
@@ -171,7 +172,7 @@ export class AdminStatisticsComponent implements OnInit {
 
     for (const item of this.filteredItems()) {
       const rawLocation = String(item.location ?? '').trim();
-      const normalizedLocation = this.formatLocationLabel(rawLocation || 'Unknown');
+      const normalizedLocation = formatLocationLabel(rawLocation || 'Unknown');
 
       counts.set(normalizedLocation, (counts.get(normalizedLocation) ?? 0) + 1);
     }
@@ -223,7 +224,7 @@ export class AdminStatisticsComponent implements OnInit {
         label: bar.label,
         value: bar.value,
         percent: bar.percent,
-        color: this.resolveChartColor(bar.label),
+        color: resolveChartColor(bar.label),
         toneClass: bar.toneClass,
         dashArray: `${sliceLength} ${circumference - sliceLength}`,
         dashOffset: -cumulative,
@@ -239,13 +240,13 @@ export class AdminStatisticsComponent implements OnInit {
     const dailyCounts = new Map<string, number>();
 
     for (const item of items) {
-      const dateKey = this.toDateKey(item.dateReported);
+      const dateKey = toDateKey(item.dateReported);
       if (!dateKey) continue;
       dailyCounts.set(dateKey, (dailyCounts.get(dateKey) ?? 0) + 1);
     }
 
     const latestDate = this.latestReportedAt() ?? new Date();
-    const chartDates = this.buildDateWindow(latestDate, 7);
+    const chartDates = buildDateWindow(latestDate, 7);
     const maxValue = Math.max(1, ...chartDates.map((date) => dailyCounts.get(date) ?? 0));
 
     return chartDates.map((dateKey, index) => {
@@ -308,59 +309,4 @@ export class AdminStatisticsComponent implements OnInit {
     this.locationFilter.set('');
   }
 
-  private formatLocationLabel(location: string): string {
-    return location
-      .replace(/\bflor\b/gi, 'Floor')
-      .replace(/\bfloor\b/gi, 'Floor')
-      .replace(/\s+/g, ' ')
-      .trim();
-  }
-
-  private normalizeStatus(status?: string): string {
-    return String(status ?? '').trim().toLowerCase();
-  }
-
-  private resolveChartColor(label: string): string {
-    switch (label.toLowerCase()) {
-      case 'validated':
-        return '#70e07d';
-      case 'claimed':
-        return '#4ea1ff';
-      case 'returned':
-        return '#d04d74';
-      case 'archived':
-        return '#94a3b8';
-      default:
-        return '#c13f63';
-    }
-  }
-
-  private toDateKey(value?: string): string | null {
-    if (!value) return null;
-
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return null;
-
-    const year = date.getFullYear();
-    const month = `${date.getMonth() + 1}`.padStart(2, '0');
-    const day = `${date.getDate()}`.padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  }
-
-  private buildDateWindow(latestDate: Date, totalDays: number): string[] {
-    const dates: string[] = [];
-    const end = new Date(latestDate);
-    end.setHours(0, 0, 0, 0);
-
-    for (let index = totalDays - 1; index >= 0; index -= 1) {
-      const date = new Date(end);
-      date.setDate(end.getDate() - index);
-      const year = date.getFullYear();
-      const month = `${date.getMonth() + 1}`.padStart(2, '0');
-      const day = `${date.getDate()}`.padStart(2, '0');
-      dates.push(`${year}-${month}-${day}`);
-    }
-
-    return dates;
-  }
 }

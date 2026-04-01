@@ -221,10 +221,10 @@ export class AdminClaimsComponent implements OnInit, OnDestroy {
       [ClaimStatus.APPROVED]: 'bg-success/10 text-success border-success/30',
       [ClaimStatus.REJECTED]: 'bg-error/10 text-error border-error/30',
       [ClaimStatus.NEEDS_PROOF]: 'bg-info/10 text-info border-info/30',
-      [ClaimStatus.CANCELLED]: 'bg-border/20 text-text-secondary border-border',
+      [ClaimStatus.CANCELLED]: 'bg-[var(--color-border)]/20 text-[var(--color-text-secondary)] border-[var(--color-border)]',
     };
 
-    return map[status] ?? 'bg-border/20 text-text-secondary border-border';
+    return map[status] ?? 'bg-[var(--color-border)]/20 text-[var(--color-text-secondary)] border-[var(--color-border)]';
   }
 
   statusLabel(status: ClaimStatus): string {

@@ -13,6 +13,14 @@ import { AdminReportDetailsModalComponent } from '../../../shared/components/adm
 import { ErrorService } from '../../../core/services/error.service';
 import type { ErrorResponse } from '../../../models';
 import type { AdminReport, AdminReportsResponse, ItemHistoryEvent, ItemHistoryResponse, ViewFilter } from './admin-reports.types';
+import {
+  normalizeStatus, extractSuspiciousValue, statusClass, statusLabel,
+  isArchived, isFlagged, suspiciousBadgeClass, rowClass,
+  canValidate, canFlag, getPhotoUrls,
+  getStatusTimeline, getFullHistoryEvents,
+  getHistoryBadgeClass, getHistoryActorLabel, getHistoryActionLabel,
+  hasHistoryMetadata, getHistoryEventLabel, getHistoryStatusChange,
+} from './admin-reports.helpers';
 
 @Component({
   selector: 'app-admin-reports',
@@ -92,15 +100,15 @@ export class AdminReportsComponent implements OnInit, OnDestroy {
     const visibleItems = this.getViewFilteredItems();
 
     const countByStatus = (statuses: string[]) =>
-      visibleItems.filter((item) => statuses.includes(this.normalizeStatus(item.status))).length;
+      visibleItems.filter((item) => statuses.includes(normalizeStatus(item.status))).length;
 
     return {
       total: visibleItems.length,
       pending: countByStatus(['pending_validation', 'pending']),
       validated: countByStatus(['validated', 'approved']),
       rejected: countByStatus(['rejected']),
-      archived: visibleItems.filter((item) => this.isArchived(item)).length,
-      suspicious: visibleItems.filter((item) => this.isFlagged(item)).length,
+      archived: visibleItems.filter((item) => isArchived(item)).length,
+      suspicious: visibleItems.filter((item) => isFlagged(item)).length,
     };
   }
 
@@ -122,8 +130,8 @@ export class AdminReportsComponent implements OnInit, OnDestroy {
       next: (res) => {
         this.allItems = (res.reports ?? []).map((item) => ({
           ...item,
-          status: this.normalizeStatus(item.status || 'pending_validation'),
-          isSuspicious: this.extractSuspiciousValue(item),
+          status: normalizeStatus(item.status || 'pending_validation'),
+          isSuspicious: extractSuspiciousValue(item),
           flagReason: item.flagReason ?? null,
           flaggedAt: item.flaggedAt ?? null,
         }));
@@ -149,10 +157,10 @@ export class AdminReportsComponent implements OnInit, OnDestroy {
     this.filteredItems = this.getViewFilteredItems().filter((item) => {
       const name = (item.title || '').toLowerCase();
       const loc = (item.location || '').toLowerCase();
-      const status = this.normalizeStatus(item.status);
+      const status = normalizeStatus(item.status);
       const ref = (item.referenceCode || '').toLowerCase();
       const flagReason = (item.flagReason || '').toLowerCase();
-      const suspiciousText = this.isFlagged(item) ? 'suspicious flagged' : '';
+      const suspiciousText = isFlagged(item) ? 'suspicious flagged' : '';
 
       const kwMatch =
         !kw ||
@@ -289,7 +297,7 @@ export class AdminReportsComponent implements OnInit, OnDestroy {
   }
 
   openFlagModal(item: AdminReport): void {
-    if (this.isFlagged(item) || this.flagging()) return;
+    if (isFlagged(item) || this.flagging()) return;
 
     this.flagTargetItem.set(item);
     this.suspiciousReason = item.flagReason ?? '';
@@ -446,124 +454,19 @@ export class AdminReportsComponent implements OnInit, OnDestroy {
     });
   }
 
-  getStatusTimeline(): ItemHistoryEvent[] {
-    const history = this.itemHistory();
-    if (!history) return [];
-
-    return history.events.filter((event) =>
-      (event.changes ?? []).some((change) => change.field === 'status') ||
-      typeof event.metadata?.itemStatus === 'string',
-    );
-  }
-
   getFullHistoryEvents(): ItemHistoryEvent[] {
-    const history = this.itemHistory();
-    if (!history) return [];
-
-    return [...history.events].sort((a, b) => {
-      const aTime = new Date(a.timestamp).getTime();
-      const bTime = new Date(b.timestamp).getTime();
-      return bTime - aTime;
-    });
+    return getFullHistoryEvents(this.itemHistory());
   }
 
-  getHistoryBadgeClass(event: ItemHistoryEvent): string {
-    const type = this.normalizeHistoryActionType(event.actionType);
-
-    if (
-      type.includes('flag') ||
-      type.includes('suspicious')
-    ) {
-      return 'bg-primary/10 text-primary border-primary/30';
-    }
-
-    if (
-      type.includes('restore') ||
-      type.includes('status') ||
-      type.includes('validate') ||
-      type.includes('approved') ||
-      type.includes('update')
-    ) {
-      return 'bg-info/10 text-info border-info/30';
-    }
-
-    if (
-      type.includes('claim')
-    ) {
-      return 'bg-success/10 text-success border-success/30';
-    }
-
-    if (
-      type.includes('archive')
-    ) {
-      return 'bg-slate-100 text-slate-700 border-slate-300';
-    }
-
-    return 'bg-border/20 text-text-secondary border-border';
-  }
-
-  getHistoryActorLabel(event: ItemHistoryEvent): string {
-    if (event.actor?.email?.trim()) {
-      return event.actor.email.trim();
-    }
-
-    if (event.actor?.type?.trim()) {
-      return event.actor.type.trim();
-    }
-
-    return 'System';
-  }
-
-  getHistoryActionLabel(event: ItemHistoryEvent): string {
-    const actionType = this.normalizeHistoryActionType(event.actionType);
-
-    if (actionType.includes('flag') || actionType.includes('suspicious')) {
-      return 'Flagged';
-    }
-
-    if (actionType.includes('restore')) {
-      return 'Restored';
-    }
-
-    if (actionType.includes('validate') || actionType.includes('approved')) {
-      return 'Validated';
-    }
-
-    if (actionType.includes('archive')) {
-      return 'Archived';
-    }
-
-    if (actionType.includes('claim')) {
-      return 'Claim Activity';
-    }
-
-    if (actionType.includes('report') || actionType.includes('create')) {
-      return 'Report Activity';
-    }
-
-    if (actionType.includes('status') || actionType.includes('update')) {
-      return 'Status Update';
-    }
-
-    return event.actionType
-      ? event.actionType.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
-      : 'History Event';
-  }
-
-  hasHistoryMetadata(event: ItemHistoryEvent): boolean {
-    return Boolean(
-      event.actor?.email ||
-      event.actor?.type ||
-      event.entityType ||
-      event.metadata?.referenceCode ||
-      event.metadata?.claimStatus ||
-      event.metadata?.reportKind ||
-      event.metadata?.flagReason
-    );
-  }
+  readonly getHistoryBadgeClass = getHistoryBadgeClass;
+  readonly getHistoryActorLabel = getHistoryActorLabel;
+  readonly getHistoryActionLabel = getHistoryActionLabel;
+  readonly hasHistoryMetadata = hasHistoryMetadata;
+  readonly getHistoryEventLabel = getHistoryEventLabel;
+  readonly getHistoryStatusChange = getHistoryStatusChange;
 
   private getAllowedRestoreTargetsForCurrentStatus(): Set<string> {
-    const currentStatus = this.normalizeStatus(this.selectedItem()?.status);
+    const currentStatus = normalizeStatus(this.selectedItem()?.status);
 
     const allowedByCurrent: Record<string, string[]> = {
       pending_validation: ['validated'],
@@ -580,8 +483,8 @@ export class AdminReportsComponent implements OnInit, OnDestroy {
 
   getRestoreOptions(): string[] {
     const selected = this.selectedItem();
-    const currentStatus = this.normalizeStatus(selected?.status);
-    const timeline = this.getStatusTimeline();
+    const currentStatus = normalizeStatus(selected?.status);
+    const timeline = getStatusTimeline(this.itemHistory());
     const allowedTargets = this.getAllowedRestoreTargetsForCurrentStatus();
 
     const rawStatuses = timeline.flatMap((event) => {
@@ -600,7 +503,7 @@ export class AdminReportsComponent implements OnInit, OnDestroy {
       new Set(
         rawStatuses
           .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
-          .map((value) => this.normalizeStatus(value))
+          .map((value) => normalizeStatus(value))
           .filter((value) =>
             value.length > 0 &&
             value !== currentStatus &&
@@ -639,7 +542,7 @@ export class AdminReportsComponent implements OnInit, OnDestroy {
       next: () => {
         this.restoring.set(false);
         this.restoreModalOpen.set(false);
-        this.setActionMessage(`Item restored to ${this.statusLabel(status)}.`);
+        this.setActionMessage(`Item restored to ${statusLabel(status)}.`);
         this.closeDetails();
         this.load();
       },
@@ -656,133 +559,23 @@ export class AdminReportsComponent implements OnInit, OnDestroy {
     window.open(photoUrl, '_blank', 'noopener,noreferrer');
   }
 
-  statusClass(status?: string): string {
-    const normalized = this.normalizeStatus(status);
-
-    const map: Record<string, string> = {
-      pending: 'bg-warning/15 text-warning border-warning/30',
-      pending_validation: 'bg-warning/15 text-warning border-warning/30',
-      approved: 'bg-success/10 text-success border-success/30',
-      validated: 'bg-success/10 text-success border-success/30',
-      rejected: 'bg-error/10 text-error border-error/30',
-      claimed: 'bg-info/10 text-info border-info/30',
-      returned: 'bg-info/10 text-info border-info/30',
-      archived: 'bg-[var(--color-surface-2)] text-text-secondary border-border',
-      reported: 'bg-warning/15 text-warning border-warning/30',
-    };
-
-    return map[normalized] ?? 'bg-border/20 text-text-secondary border-border';
-  }
-
-  suspiciousBadgeClass(item: AdminReport): string {
-    return this.isFlagged(item)
-      ? 'bg-primary/10 text-primary border-primary/30'
-      : 'bg-border/20 text-text-secondary border-border';
-  }
-
-  statusLabel(status?: string): string {
-    const normalized = this.normalizeStatus(status);
-
-    switch (normalized) {
-      case 'pending_validation':
-        return 'Pending';
-      case 'validated':
-      case 'approved':
-        return 'Validated';
-      case 'claimed':
-        return 'Claimed';
-      case 'returned':
-        return 'Returned';
-      case 'rejected':
-        return 'Rejected';
-      case 'archived':
-        return 'Archived';
-      case 'reported':
-        return 'Reported';
-      default:
-        return normalized
-          ? normalized.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
-          : 'Unknown';
-    }
-  }
-
-  getHistoryEventLabel(event: ItemHistoryEvent): string {
-    return event.summary || event.actionType.replace(/_/g, ' ');
-  }
-
-  getHistoryStatusChange(event: ItemHistoryEvent): { previous?: string; next?: string } | null {
-    const statusChange = (event.changes ?? []).find((change) => change.field === 'status');
-
-    if (statusChange) {
-      return {
-        previous: typeof statusChange.previousValue === 'string' ? statusChange.previousValue : undefined,
-        next: typeof statusChange.newValue === 'string' ? statusChange.newValue : undefined,
-      };
-    }
-
-    if (typeof event.metadata?.itemStatus === 'string') {
-      return {
-        next: event.metadata.itemStatus,
-      };
-    }
-
-    return null;
-  }
-
-  isArchived(item: AdminReport): boolean {
-    return this.normalizeStatus(item.status) === 'archived';
-  }
-
-  isFlagged(item: AdminReport): boolean {
-    return Boolean(item.isSuspicious);
-  }
-
-  rowClass(item: AdminReport): string {
-    if (this.isArchived(item)) {
-      return 'border-b border-border/40 bg-[var(--color-surface-2)]/80 hover:bg-[var(--color-surface-2)] transition-colors';
-    }
-
-    if (this.isFlagged(item)) {
-      return 'border-b border-border/40 bg-primary/5 hover:bg-primary/10 transition-colors';
-    }
-
-    return 'border-b border-border/40 hover:bg-[var(--color-surface-2)]/70 transition-colors';
-  }
-
-  canValidate(item: AdminReport): boolean {
-    const status = this.normalizeStatus(item.status);
-    return status === 'pending_validation' || status === 'pending' || status === 'reported';
-  }
-
-  canFlag(item: AdminReport): boolean {
-    return !this.isArchived(item) && !this.isFlagged(item);
-  }
+  readonly statusClass = statusClass;
+  readonly statusLabel = statusLabel;
+  readonly suspiciousBadgeClass = suspiciousBadgeClass;
+  readonly isArchived = isArchived;
+  readonly isFlagged = isFlagged;
+  readonly rowClass = rowClass;
+  readonly canValidate = canValidate;
+  readonly canFlag = canFlag;
+  readonly getPhotoUrls = getPhotoUrls;
 
   canOpenPhoto(item: AdminReport): boolean {
-    return this.getPhotoUrls(item).length > 0;
-  }
-
-  getPhotoUrls(item: AdminReport): string[] {
-    const urls = [
-      ...(Array.isArray(item.photoUrls) ? item.photoUrls : []),
-      ...(item.photoUrl ? [item.photoUrl] : []),
-    ].filter(
-      (value, index, all) =>
-        typeof value === 'string' &&
-        value.trim().length > 0 &&
-        all.indexOf(value) === index,
-    );
-
-    return urls;
+    return getPhotoUrls(item).length > 0;
   }
 
   getSelectedPhoto(item: AdminReport): string | null {
-    const urls = this.getPhotoUrls(item);
-    if (urls.length === 0) {
-      return null;
-    }
-
-    return urls[this.selectedPhotoIndex()] ?? urls[0];
+    const urls = getPhotoUrls(item);
+    return urls.length === 0 ? null : (urls[this.selectedPhotoIndex()] ?? urls[0]);
   }
 
   selectPhoto(index: number): void {
@@ -793,20 +586,16 @@ export class AdminReportsComponent implements OnInit, OnDestroy {
     return item.id;
   }
 
-  trackHistoryEvent(_index: number, event: ItemHistoryEvent): string {
-    return event.id;
-  }
-
   private getViewFilteredItems(): AdminReport[] {
     if (this.viewFilter === 'archived') {
-      return this.allItems.filter((item) => this.isArchived(item));
+      return this.allItems.filter((item) => isArchived(item));
     }
 
     if (this.viewFilter === 'all') {
       return [...this.allItems];
     }
 
-    return this.allItems.filter((item) => !this.isArchived(item));
+    return this.allItems.filter((item) => !isArchived(item));
   }
 
   private pruneSelectedItems(): void {
@@ -820,18 +609,6 @@ export class AdminReportsComponent implements OnInit, OnDestroy {
     if (this.selectedPrimaryMergeId() && !next.has(this.selectedPrimaryMergeId())) {
       this.selectedPrimaryMergeId.set(Array.from(next)[0] ?? '');
     }
-  }
-
-  private normalizeStatus(status?: string): string {
-    return (status || '').trim().toLowerCase();
-  }
-
-  private normalizeHistoryActionType(actionType?: string): string {
-    return (actionType || '').trim().toLowerCase();
-  }
-
-  private extractSuspiciousValue(item: Partial<AdminReport>): boolean {
-    return Boolean(item.isSuspicious);
   }
 
   private getFriendlyErrorMessage(err: unknown, fallback: string): string {

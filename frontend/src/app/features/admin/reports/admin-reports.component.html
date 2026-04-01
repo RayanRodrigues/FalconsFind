@@ -64,12 +64,12 @@
   }
 
   @if (loading()) {
-    <div class="bg-[var(--color-surface)] rounded-xl border border-border/60 p-10 text-center shadow-sm">
+    <div class="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-10 text-center shadow-sm">
       <svg class="h-8 w-8 animate-spin text-primary mx-auto mb-3" viewBox="0 0 24 24" fill="none">
         <circle cx="12" cy="12" r="9" class="opacity-25" stroke="currentColor" stroke-width="3" />
         <path class="opacity-90" fill="currentColor" d="M12 3a9 9 0 0 1 9 9h-3a6 6 0 0 0-6-6V3Z" />
       </svg>
-      <p class="text-text-secondary text-sm mb-0">Loading reports…</p>
+      <p class="text-[var(--color-text-secondary)] text-sm mb-0">Loading reports…</p>
     </div>
   }
 
@@ -80,9 +80,9 @@
   }
 
   @if (!loading() && !error() && filteredItems.length === 0) {
-    <div class="bg-[var(--color-surface)] rounded-xl border border-border/60 p-10 text-center shadow-sm">
-      <p class="text-text-primary font-medium mb-1">No reports match the current filters.</p>
-      <p class="text-text-secondary text-sm mb-0">Try switching views or clearing the current status/search filters.</p>
+    <div class="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-10 text-center shadow-sm">
+      <p class="text-[var(--color-text-primary)] font-medium mb-1">No reports match the current filters.</p>
+      <p class="text-[var(--color-text-secondary)] text-sm mb-0">Try switching views or clearing the current status/search filters.</p>
     </div>
   }
 
@@ -115,15 +115,15 @@
     (backdropClick)="closeMergeModal()"
   >
     <div class="p-6">
-      <p class="text-xs font-semibold uppercase tracking-[0.18em] text-text-secondary mb-2">Merge Duplicate Reports</p>
-      <h4 class="text-lg font-bold text-text-primary mb-2">Choose the primary report to keep</h4>
-      <p class="text-sm text-text-secondary mb-5">
+      <p class="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)] mb-2">Merge Duplicate Reports</p>
+      <h4 class="text-lg font-bold text-[var(--color-text-primary)] mb-2">Choose the primary report to keep</h4>
+      <p class="text-sm text-[var(--color-text-secondary)] mb-5">
         Select which report should remain as the main record. The other selected reports will be removed from the current frontend view.
       </p>
 
       <div class="space-y-3 max-h-[320px] overflow-y-auto">
         @for (item of getSelectedMergeItems(); track trackById($index, item)) {
-          <label class="flex items-start gap-3 rounded-xl border border-border/60 bg-neutral-base/30 p-4 cursor-pointer">
+          <label class="flex items-start gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)] p-4 cursor-pointer">
             <input
               type="radio"
               name="primaryMergeReport"
@@ -134,7 +134,7 @@
 
             <div class="min-w-0 flex-1">
               <div class="flex flex-wrap items-center gap-2 mb-1">
-                <p class="font-semibold text-text-primary mb-0">{{ item.title || 'Untitled' }}</p>
+                <p class="font-semibold text-[var(--color-text-primary)] mb-0">{{ item.title || 'Untitled' }}</p>
                 <span
                   class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide"
                   [class]="statusClass(item.status)"
@@ -143,8 +143,8 @@
                 </span>
               </div>
 
-              <p class="text-xs text-text-secondary mb-1">{{ item.referenceCode }}</p>
-              <p class="text-xs text-text-secondary mb-0">
+              <p class="text-xs text-[var(--color-text-secondary)] mb-1">{{ item.referenceCode }}</p>
+              <p class="text-xs text-[var(--color-text-secondary)] mb-0">
                 {{ item.location || 'No location' }} • {{ item.dateReported | date: 'mediumDate' }}
               </p>
             </div>
@@ -228,14 +228,14 @@
     (backdropClick)="closeFlagModal()"
   >
     <div class="p-6">
-      <p class="text-xs font-semibold uppercase tracking-[0.18em] text-text-secondary mb-2">Flag Suspicious Report</p>
-      <h4 class="text-lg font-bold text-text-primary mb-2">Flag this report for investigation?</h4>
-      <p class="text-sm text-text-secondary mb-5">
+      <p class="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)] mb-2">Flag Suspicious Report</p>
+      <h4 class="text-lg font-bold text-[var(--color-text-primary)] mb-2">Flag this report for investigation?</h4>
+      <p class="text-sm text-[var(--color-text-secondary)] mb-5">
         A reason is required for flagging.
       </p>
 
       <div class="space-y-2 mb-5">
-        <label for="suspiciousReason" class="text-sm font-semibold text-text-primary">
+        <label for="suspiciousReason" class="text-sm font-semibold text-[var(--color-text-primary)]">
           Reason for flagging
         </label>
 
