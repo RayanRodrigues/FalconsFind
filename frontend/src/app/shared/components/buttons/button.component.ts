@@ -32,7 +32,7 @@ export class ButtonComponent {
   @Output() buttonClick = new EventEmitter<MouseEvent>();
 
   get buttonClasses(): string {
-    const baseClasses = 'inline-flex items-center justify-center text-center whitespace-normal break-words leading-tight font-medium rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 shadow-sm';
+    const baseClasses = 'inline-flex items-center justify-center text-center whitespace-normal break-words leading-tight font-medium rounded-full transition-all duration-200 focus:outline-none focus:ring-2 shadow-sm';
 
     const sizeClasses = {
       sm: 'px-3 py-1.5 text-xs min-h-8',

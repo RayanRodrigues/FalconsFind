@@ -1,5 +1,5 @@
 import { Component, signal, inject, computed } from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
+import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
 import { ThemeService } from '../../../core/services/theme.service';
 import { UserRole } from '../../../models';
@@ -7,80 +7,160 @@ import { UserRole } from '../../../models';
 @Component({
   selector: 'app-navbar',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, RouterLinkActive],
   template: `
-    <header
-      class="fixed top-0 left-0 right-0 z-[100] border-b shadow-sm"
-      style="background-color: var(--color-bg); border-color: var(--color-border); color: var(--color-text-primary);"
-    >
-      <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+    <header class="fixed left-0 right-0 top-0 z-[100] border-b border-[var(--color-border)] bg-[var(--color-surface)] shadow-sm">
+      <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <div class="flex h-[72px] items-center justify-between gap-4">
 
+          <!-- Logo: white version in dark mode -->
           <a routerLink="/" class="shrink-0" aria-label="FalconFind – Home">
-            <img src="/PNG/LogoPrincipal.png" alt="FalconFind" style="height: 30px;" />
+            <img
+              [src]="isDarkMode() ? '/PNG/LogoBranco.png' : '/PNG/LogoPrincipal.png'"
+              alt="FalconFind"
+              class="h-[30px] w-auto"
+            />
           </a>
 
-          <nav class="hidden sm:flex items-center gap-2">
-            <a routerLink="/found-items" class="px-3 py-1.5 text-sm" style="color: var(--color-text-primary);">Browse</a>
-            <a routerLink="/report/lost" class="px-3 py-1.5 text-sm" style="color: var(--color-text-primary);">Lost</a>
-            <a routerLink="/report/found" class="px-3 py-1.5 text-sm" style="color: var(--color-text-primary);">Found</a>
+          <!-- Desktop nav links -->
+          <nav class="hidden items-center gap-0.5 sm:flex" aria-label="Main navigation">
+            <a routerLink="/found-items" routerLinkActive="font-semibold !bg-primary !text-white" [class]="navLinkClass">Browse Found Items</a>
+            <a routerLink="/report/lost"  routerLinkActive="font-semibold !bg-primary !text-white" [class]="navLinkClass">Report Lost</a>
+            <a routerLink="/report/found" routerLinkActive="font-semibold !bg-primary !text-white" [class]="navLinkClass">Report Found</a>
+            <a routerLink="/claim-request" routerLinkActive="font-semibold !bg-primary !text-white" [class]="navLinkClass">Claim Request</a>
           </nav>
 
-          <div class="hidden sm:flex items-center gap-2">
+          <!-- Desktop right side -->
+          <div class="hidden items-center gap-2 sm:flex">
+
+            <!-- Admin/Security session -->
+            @if (isAdmin()) {
+              <a routerLink="/admin/dashboard" [class]="actionBtnClass">Dashboard</a>
+              <button
+                type="button"
+                (click)="logout()"
+                aria-label="Logout"
+                class="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-text-secondary)] transition-colors hover:border-primary hover:text-primary"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/>
+                </svg>
+              </button>
+
+            <!-- Student session -->
+            } @else if (isStudent()) {
+              <a routerLink="/my-claims" routerLinkActive="font-semibold !bg-primary !text-white" [class]="navLinkClass">My Claims</a>
+              <button
+                type="button"
+                (click)="logout()"
+                aria-label="Logout"
+                class="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-text-secondary)] transition-colors hover:border-primary hover:text-primary"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/>
+                </svg>
+              </button>
+
+            <!-- Not authenticated -->
+            } @else {
+              <a routerLink="/login" [class]="actionBtnClass">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                </svg>
+                Login
+              </a>
+            }
+
+            <!-- Theme toggle icon -->
             <button
               type="button"
               (click)="toggleTheme()"
-              style="
-                padding: 6px 10px;
-                border-radius: 8px;
-                border: 1px solid var(--color-border);
-                background: var(--color-bg);
-                color: var(--color-text-primary);
-              "
+              class="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-text-secondary)] transition-colors hover:border-primary hover:text-primary"
+              [attr.aria-label]="isDarkMode() ? 'Switch to light mode' : 'Switch to dark mode'"
             >
-              {{ isDarkMode() ? 'Light Mode' : 'Dark Mode' }}
+              @if (isDarkMode()) {
+                <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+                </svg>
+              } @else {
+                <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
+                </svg>
+              }
             </button>
-
-            @if (studentSession()) {
-              <span style="color: var(--color-text-primary);">{{ displayName() }}</span>
-              <button type="button" (click)="logout()" style="color: var(--color-text-primary);">Logout</button>
-            } @else {
-              <a routerLink="/login" style="color: var(--color-text-primary);">Login</a>
-            }
           </div>
 
+          <!-- Mobile hamburger -->
           <button
             type="button"
             (click)="toggleMenu()"
-            class="sm:hidden"
-            style="color: var(--color-text-primary);"
+            class="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-text-secondary)] transition-colors hover:border-primary hover:text-primary sm:hidden"
+            [attr.aria-label]="menuOpen() ? 'Close menu' : 'Open menu'"
+            [attr.aria-expanded]="menuOpen()"
           >
-            ☰
+            @if (menuOpen()) {
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M18 6 6 18M6 6l12 12"/>
+              </svg>
+            } @else {
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="18" y2="18"/>
+              </svg>
+            }
           </button>
         </div>
 
+        <!-- Mobile menu -->
         @if (menuOpen()) {
-          <div
-            class="sm:hidden flex flex-col gap-2 p-3"
-            style="border-top: 1px solid var(--color-border); background: var(--color-bg);"
-          >
-            <a routerLink="/found-items" (click)="closeMenu()" style="color: var(--color-text-primary);">Browse</a>
-            <a routerLink="/report/lost" (click)="closeMenu()" style="color: var(--color-text-primary);">Lost</a>
-            <a routerLink="/report/found" (click)="closeMenu()" style="color: var(--color-text-primary);">Found</a>
+          <nav class="flex flex-col gap-0.5 border-t border-[var(--color-border)] py-3 sm:hidden" aria-label="Mobile navigation">
+            <a routerLink="/found-items"  (click)="closeMenu()" routerLinkActive="font-semibold !bg-primary !text-white" [class]="mobileNavLinkClass">Browse Found Items</a>
+            <a routerLink="/report/lost"  (click)="closeMenu()" routerLinkActive="font-semibold !bg-primary !text-white" [class]="mobileNavLinkClass">Report Lost</a>
+            <a routerLink="/report/found" (click)="closeMenu()" routerLinkActive="font-semibold !bg-primary !text-white" [class]="mobileNavLinkClass">Report Found</a>
+            <a routerLink="/claim-request" (click)="closeMenu()" routerLinkActive="font-semibold !bg-primary !text-white" [class]="mobileNavLinkClass">Claim Request</a>
 
-            <button type="button" (click)="toggleTheme()" style="text-align:left; color: var(--color-text-primary);">
-              {{ isDarkMode() ? 'Light Mode' : 'Dark Mode' }}
-            </button>
+            <div class="my-1.5 border-t border-[var(--color-border)]"></div>
 
-            @if (studentSession()) {
-              <span style="color: var(--color-text-primary);">{{ displayName() }}</span>
-              <button type="button" (click)="logout()" style="text-align:left; color: var(--color-text-primary);">
+            @if (isAdmin()) {
+              <a routerLink="/admin/dashboard" (click)="closeMenu()" [class]="mobileActionBtnClass">Dashboard</a>
+              <button type="button" (click)="logout()" [class]="mobileItemClass">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/>
+                </svg>
+                Logout
+              </button>
+            } @else if (isStudent()) {
+              <a routerLink="/my-claims" (click)="closeMenu()" routerLinkActive="font-semibold !bg-primary !text-white" [class]="mobileNavLinkClass">My Claims</a>
+              <button type="button" (click)="logout()" [class]="mobileItemClass">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/>
+                </svg>
                 Logout
               </button>
             } @else {
-              <a routerLink="/login" (click)="closeMenu()" style="color: var(--color-text-primary);">Login</a>
+              <a routerLink="/login" (click)="closeMenu()" [class]="mobileActionBtnClass">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                </svg>
+                Login
+              </a>
             }
-          </div>
+
+            <div class="my-1.5 border-t border-[var(--color-border)]"></div>
+
+            <button type="button" (click)="toggleTheme()" [class]="mobileItemClass">
+              @if (isDarkMode()) {
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+                </svg>
+                Light Mode
+              } @else {
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
+                </svg>
+                Dark Mode
+              }
+            </button>
+          </nav>
         }
       </div>
     </header>
@@ -92,22 +172,57 @@ export class NavbarComponent {
   private readonly router = inject(Router);
   private readonly themeService = inject(ThemeService);
 
-  menuOpen = signal(false);
+  readonly menuOpen = signal(false);
 
   readonly authSession = computed(() => this.authService.session());
 
-  readonly studentSession = computed(() => {
-    const session = this.authSession();
-    return session?.user.role === UserRole.STUDENT ? session : null;
+  readonly isStudent = computed(() =>
+    this.authSession()?.user.role === UserRole.STUDENT
+  );
+
+  readonly isAdmin = computed(() => {
+    const role = this.authSession()?.user.role;
+    return role === UserRole.ADMIN || role === UserRole.SECURITY;
   });
 
-  readonly displayName = computed(() => {
-    const session = this.studentSession();
-    return session?.user.displayName || '';
-  });
+  // Nav link text adapts: brand crimson in light, near-white in dark
+  get navLinkClass(): string {
+    const color = this.isDarkMode()
+      ? 'text-[var(--color-text-primary)] hover:text-primary'
+      : 'text-primary';
+    return `rounded-full px-3.5 py-1.5 text-sm transition-colors hover:bg-primary/12 ${color}`;
+  }
+
+  get mobileNavLinkClass(): string {
+    const color = this.isDarkMode()
+      ? 'text-[var(--color-text-primary)] hover:text-primary'
+      : 'text-primary';
+    return `rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-primary/12 ${color}`;
+  }
+
+  // Outlined pill button: toned-down border/text in dark, brand crimson in light
+  get actionBtnClass(): string {
+    return this.isDarkMode()
+      ? 'inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border)] px-5 py-1.5 text-sm font-semibold text-[var(--color-text-primary)] transition-colors hover:border-primary hover:bg-primary hover:text-white'
+      : 'inline-flex items-center gap-1.5 rounded-full border border-primary px-5 py-1.5 text-sm font-semibold text-primary transition-colors hover:bg-primary hover:text-white';
+  }
+
+  get mobileActionBtnClass(): string {
+    return this.isDarkMode()
+      ? 'inline-flex items-center justify-center gap-1.5 rounded-full border border-[var(--color-border)] px-5 py-2 text-sm font-semibold text-[var(--color-text-primary)] transition-colors hover:border-primary hover:bg-primary hover:text-white'
+      : 'inline-flex items-center justify-center gap-1.5 rounded-full border border-primary px-5 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary hover:text-white';
+  }
+
+  // Mobile list-row items (logout, theme toggle)
+  get mobileItemClass(): string {
+    const color = this.isDarkMode()
+      ? 'text-[var(--color-text-secondary)] hover:text-primary'
+      : 'text-[var(--color-text-secondary)] hover:text-primary';
+    return `flex items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm transition-colors hover:bg-primary/12 ${color}`;
+  }
 
   toggleMenu(): void {
-    this.menuOpen.update(value => !value);
+    this.menuOpen.update(v => !v);
   }
 
   closeMenu(): void {
