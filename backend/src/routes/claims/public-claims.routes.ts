@@ -2,6 +2,7 @@ import { API_PREFIX, HttpError } from '../route-utils.js';
 import { parseBodyOrThrow } from '../schema-validation.js';
 import { createPhotoArrayUpload, getValidatedUploadedPhotos } from '../report-photo-upload.js';
 import type { UserRole } from '../../contracts/index.js';
+import { invalidatePublicItemsCache } from '../../services/items/item-query-cache.service.js';
 import type { ClaimsRouterDeps } from './claims-router-modules.js';
 import { getSingleRouteParam } from './claims-router-modules.js';
 
@@ -9,6 +10,7 @@ export const registerPublicClaimsRoutes = ({
   router,
   db,
   bucket,
+  redis,
   requireAuthenticatedUser,
   requireClaimAccessUser,
   schemaModule,
@@ -97,7 +99,9 @@ export const registerPublicClaimsRoutes = ({
     if (!uid || !role) throw new HttpError(401, 'AUTHENTICATION_REQUIRED', 'Authentication is required.');
 
     try {
-      res.status(200).json(await claimsServiceModule.cancelClaim(db, claimId, { uid, role }));
+      const result = await claimsServiceModule.cancelClaim(db, claimId, { uid, role });
+      await invalidatePublicItemsCache(redis, result.itemId);
+      res.status(200).json(result);
     } catch (error) {
       if (error instanceof claimsServiceModule.ClaimNotFoundError) throw new HttpError(404, 'NOT_FOUND', error.message);
       if (error instanceof claimsServiceModule.ClaimItemNotFoundError) throw new HttpError(404, 'CLAIM_ITEM_NOT_FOUND', error.message);

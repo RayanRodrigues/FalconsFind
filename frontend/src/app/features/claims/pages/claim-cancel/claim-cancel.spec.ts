@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 import { vi } from 'vitest';
 import { ClaimsApiService } from '../../../../core/services/claims-api.service';
@@ -12,6 +13,7 @@ describe('ClaimCancel', () => {
     await TestBed.configureTestingModule({
       imports: [ClaimCancel],
       providers: [
+        provideRouter([]),
         {
           provide: ClaimsApiService,
           useValue: {

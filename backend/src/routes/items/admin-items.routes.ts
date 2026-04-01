@@ -1,3 +1,4 @@
+import { invalidatePublicItemsCache } from '../../services/items/item-query-cache.service.js';
 import { API_PREFIX, HttpError } from '../route-utils.js';
 import { parseBodyOrThrow } from '../schema-validation.js';
 import { getSingleRouteParam, itemsServiceModule, schemaModule } from './items-router-modules.js';
@@ -6,6 +7,7 @@ import type { ItemsRouterDeps } from './items-router-modules.js';
 export const registerAdminItemRoutes = ({
   router,
   db,
+  redis,
   requireStaffUser,
 }: ItemsRouterDeps): void => {
   router.get(`${API_PREFIX}/admin/items/:id/history`, requireStaffUser, async (req, res) => {
@@ -43,6 +45,7 @@ export const registerAdminItemRoutes = ({
         email: actor.email,
         role: actor.role,
       });
+      await invalidatePublicItemsCache(redis, itemId);
       res.status(200).json(result);
     } catch (error) {
       if (error instanceof itemsServiceModule.ItemNotFoundError) {
@@ -76,6 +79,7 @@ export const registerAdminItemRoutes = ({
         email: actor.email,
         role: actor.role,
       });
+      await invalidatePublicItemsCache(redis, itemId);
       res.status(200).json(result);
     } catch (error) {
       if (error instanceof itemsServiceModule.ItemNotFoundError) {

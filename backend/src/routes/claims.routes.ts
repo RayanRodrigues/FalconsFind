@@ -2,6 +2,7 @@ import { Router } from 'express';
 import type { RequestHandler } from 'express';
 import type { Firestore } from 'firebase-admin/firestore';
 import type { Bucket } from '@google-cloud/storage';
+import type { RedisClient } from '../bootstrap/redis.js';
 import { UserRole } from '../contracts/index.js';
 import { createRequireStaffRoles } from '../middleware/require-staff-user.js';
 import { registerAdminClaimsRoutes } from './claims/admin-claims.routes.js';
@@ -17,6 +18,7 @@ type ClaimsRouterOptions = {
 export const createClaimsRouter = (
   db: Firestore,
   bucket: Bucket,
+  redis: RedisClient | null,
   options: ClaimsRouterOptions = {},
 ): Router => {
   const router = Router();
@@ -27,6 +29,7 @@ export const createClaimsRouter = (
     router,
     db,
     bucket,
+    redis,
     requireStaffUser,
     requireAuthenticatedUser,
     requireClaimAccessUser,

@@ -1,6 +1,7 @@
 import type { RequestHandler, Router } from 'express';
 import type { Bucket } from '@google-cloud/storage';
 import type { Firestore } from 'firebase-admin/firestore';
+import type { RedisClient } from '../../bootstrap/redis.js';
 import type {
   CreateFoundReportRequest,
   CreateLostReportRequest,
@@ -138,6 +139,7 @@ export type ReportsRouterDeps = {
   router: Router;
   db: Firestore;
   bucket: Bucket;
+  redis: RedisClient | null;
   requireStaffUser: RequestHandler;
   schemaModule: ReportsSchemaModule;
   reportsServiceModule: ReportsServiceModule;

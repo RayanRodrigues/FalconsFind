@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { listValidatedItems } from '../items.service.js';
-import { ItemStatus } from '../../contracts/index.js';
+import { invalidatePublicItemsCache } from './item-query-cache.service.js';
 
 describe('listValidatedItems cache', () => {
   let countFn: ReturnType<typeof vi.fn>;
@@ -10,7 +10,12 @@ describe('listValidatedItems cache', () => {
   let getOrderedFn: ReturnType<typeof vi.fn>;
   let db: unknown;
   let bucket: unknown;
-  let redis: { get: ReturnType<typeof vi.fn>; set: ReturnType<typeof vi.fn> };
+  let redis: {
+    get: ReturnType<typeof vi.fn>;
+    set: ReturnType<typeof vi.fn>;
+    keys: ReturnType<typeof vi.fn>;
+    del: ReturnType<typeof vi.fn>;
+  };
 
   beforeEach(() => {
     const pageSnap = {
@@ -69,6 +74,8 @@ describe('listValidatedItems cache', () => {
     redis = {
       get: vi.fn().mockResolvedValue(null),
       set: vi.fn().mockResolvedValue('OK'),
+      keys: vi.fn().mockResolvedValue([]),
+      del: vi.fn().mockResolvedValue(0),
     };
   });
 
@@ -115,5 +122,21 @@ describe('listValidatedItems cache', () => {
     expect(redis.set).toHaveBeenCalledTimes(2);
     expect(orderByFn).toHaveBeenNthCalledWith(1, 'dateReported', 'desc');
     expect(orderByFn).toHaveBeenNthCalledWith(2, 'dateReported', 'asc');
+  });
+
+  it('invalidates detail and list caches together after item writes', async () => {
+    redis.keys.mockResolvedValueOnce([
+      'items_public:list:v1:{"page":1,"limit":10}',
+      'items_public:list:v1:{"page":2,"limit":10}',
+    ]);
+
+    await invalidatePublicItemsCache(redis as never, 'item-123');
+
+    expect(redis.keys).toHaveBeenCalledWith('items_public:list:v1:*');
+    expect(redis.del).toHaveBeenCalledWith([
+      'items_public:detail:v1:item-123',
+      'items_public:list:v1:{"page":1,"limit":10}',
+      'items_public:list:v1:{"page":2,"limit":10}',
+    ]);
   });
 });

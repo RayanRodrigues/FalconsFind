@@ -1,6 +1,7 @@
 import type { RedisClient } from '../../bootstrap/redis.js';
 
 const PUBLIC_ITEMS_CACHE_TTL_SECONDS = 30;
+const PUBLIC_ITEMS_LIST_CACHE_PREFIX = 'items_public:list:v1:';
 
 type PublicItemsListCacheKeyParams = {
   page: number;
@@ -18,7 +19,7 @@ export const buildPublicItemDetailCacheKey = (itemId: string): string => (
 );
 
 export const buildPublicItemsListCacheKey = (params: PublicItemsListCacheKeyParams): string => (
-  `items_public:list:v1:${JSON.stringify({
+  `${PUBLIC_ITEMS_LIST_CACHE_PREFIX}${JSON.stringify({
     page: params.page,
     limit: params.limit,
     keyword: params.keyword ?? '',
@@ -63,5 +64,33 @@ export const setCachedPublicItemQuery = async <T>(
     await redis.set(cacheKey, JSON.stringify(value), { EX: PUBLIC_ITEMS_CACHE_TTL_SECONDS });
   } catch {
     // Ignore cache write failures and continue serving live data.
+  }
+};
+
+export const invalidatePublicItemsCache = async (
+  redis: RedisClient | null,
+  itemId?: string,
+): Promise<void> => {
+  if (!redis) {
+    return;
+  }
+
+  try {
+    const keysToDelete = new Set<string>();
+
+    if (itemId?.trim()) {
+      keysToDelete.add(buildPublicItemDetailCacheKey(itemId));
+    }
+
+    const listKeys = await redis.keys(`${PUBLIC_ITEMS_LIST_CACHE_PREFIX}*`);
+    for (const key of listKeys) {
+      keysToDelete.add(key);
+    }
+
+    if (keysToDelete.size > 0) {
+      await redis.del([...keysToDelete]);
+    }
+  } catch {
+    // Ignore cache invalidation failures and continue serving live data.
   }
 };

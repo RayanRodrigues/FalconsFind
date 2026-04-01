@@ -1,4 +1,5 @@
 import { ItemStatus, UserRole } from '../../contracts/index.js';
+import { invalidatePublicItemsCache } from '../../services/items/item-query-cache.service.js';
 import { API_PREFIX, HttpError } from '../route-utils.js';
 import { parseOptionalString, parsePositiveInt } from '../request-parsers.js';
 import { parseBodyOrThrow } from '../schema-validation.js';
@@ -9,6 +10,7 @@ export const registerAdminReportRoutes = ({
   router,
   db,
   bucket,
+  redis,
   requireStaffUser,
   schemaModule,
   reportsServiceModule,
@@ -30,6 +32,7 @@ export const registerAdminReportRoutes = ({
 
     try {
       const result = await reportsServiceModule.validateFoundReport(db, reportId, actor);
+      await invalidatePublicItemsCache(redis, reportId);
       res.status(200).json({
         id: result.id,
         referenceCode: result.report.referenceCode,

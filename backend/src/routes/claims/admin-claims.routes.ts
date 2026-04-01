@@ -1,3 +1,4 @@
+import { invalidatePublicItemsCache } from '../../services/items/item-query-cache.service.js';
 import { API_PREFIX, HttpError } from '../route-utils.js';
 import { parseBodyOrThrow } from '../schema-validation.js';
 import type { ClaimsRouterDeps } from './claims-router-modules.js';
@@ -7,6 +8,7 @@ export const registerAdminClaimsRoutes = ({
   router,
   db,
   bucket,
+  redis,
   requireStaffUser,
   schemaModule,
   claimsServiceModule,
@@ -21,7 +23,9 @@ export const registerAdminClaimsRoutes = ({
 
     const payload = parseBodyOrThrow(schemaModule.updateClaimStatusSchema, req.body);
     try {
-      res.status(200).json(await claimsServiceModule.updateClaimStatus(db, claimId, payload.status));
+      const result = await claimsServiceModule.updateClaimStatus(db, claimId, payload.status);
+      await invalidatePublicItemsCache(redis, result.itemId);
+      res.status(200).json(result);
     } catch (error) {
       if (error instanceof claimsServiceModule.ClaimNotFoundError) throw new HttpError(404, 'NOT_FOUND', error.message);
       if (error instanceof claimsServiceModule.ClaimItemNotFoundError) throw new HttpError(404, 'CLAIM_ITEM_NOT_FOUND', error.message);

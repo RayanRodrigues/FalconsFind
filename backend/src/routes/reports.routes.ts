@@ -2,6 +2,7 @@ import { Router } from 'express';
 import type { RequestHandler } from 'express';
 import type { Firestore } from 'firebase-admin/firestore';
 import type { Bucket } from '@google-cloud/storage';
+import type { RedisClient } from '../bootstrap/redis.js';
 import { UserRole } from '../contracts/index.js';
 import { createRequireStaffRoles } from '../middleware/require-staff-user.js';
 import { registerPublicReportRoutes } from './reports/public-reports.routes.js';
@@ -15,6 +16,7 @@ type ReportsRouterOptions = {
 export const createReportsRouter = (
   db: Firestore,
   bucket: Bucket,
+  redis: RedisClient | null,
   options: ReportsRouterOptions = {},
 ): Router => {
   const router = Router();
@@ -24,6 +26,7 @@ export const createReportsRouter = (
     router,
     db,
     bucket,
+    redis,
     requireStaffUser,
     schemaModule,
     reportsServiceModule,
