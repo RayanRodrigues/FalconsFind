@@ -23,35 +23,35 @@
   </div>
 
   <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-    <div class="relative overflow-hidden bg-white rounded-xl border border-border/60 p-4 shadow-sm">
+    <div class="relative overflow-hidden rounded-xl border border-border/60 bg-[var(--color-surface)] p-4 shadow-sm">
       <img src="/SVG/Icon2.svg" alt="" aria-hidden="true" class="absolute -right-[10%] top-1/2 h-[140%] w-[30%] -translate-y-1/2 object-contain opacity-[0.08] pointer-events-none select-none" />
       <div class="relative z-10">
         <p class="text-xs text-text-secondary font-medium mb-1">Total Claims</p>
         <p class="text-2xl font-bold text-text-primary mb-0">{{ stats.total }}</p>
       </div>
     </div>
-    <div class="relative overflow-hidden bg-white rounded-xl border border-warning/30 p-4 shadow-sm">
+    <div class="relative overflow-hidden rounded-xl border border-warning/30 bg-[var(--color-surface)] p-4 shadow-sm">
       <img src="/SVG/Icon2.svg" alt="" aria-hidden="true" class="absolute -right-[10%] top-1/2 h-[140%] w-[30%] -translate-y-1/2 object-contain opacity-[0.08] pointer-events-none select-none" />
       <div class="relative z-10">
         <p class="text-xs text-text-secondary font-medium mb-1">Pending</p>
         <p class="text-2xl font-bold text-warning mb-0">{{ stats.pending }}</p>
       </div>
     </div>
-    <div class="relative overflow-hidden bg-white rounded-xl border border-success/30 p-4 shadow-sm">
+    <div class="relative overflow-hidden rounded-xl border border-success/30 bg-[var(--color-surface)] p-4 shadow-sm">
       <img src="/SVG/Icon2.svg" alt="" aria-hidden="true" class="absolute -right-[10%] top-1/2 h-[140%] w-[30%] -translate-y-1/2 object-contain opacity-[0.08] pointer-events-none select-none" />
       <div class="relative z-10">
         <p class="text-xs text-text-secondary font-medium mb-1">Approved</p>
         <p class="text-2xl font-bold text-success mb-0">{{ stats.approved }}</p>
       </div>
     </div>
-    <div class="relative overflow-hidden bg-white rounded-xl border border-info/30 p-4 shadow-sm">
+    <div class="relative overflow-hidden rounded-xl border border-info/30 bg-[var(--color-surface)] p-4 shadow-sm">
       <img src="/SVG/Icon2.svg" alt="" aria-hidden="true" class="absolute -right-[10%] top-1/2 h-[140%] w-[30%] -translate-y-1/2 object-contain opacity-[0.08] pointer-events-none select-none" />
       <div class="relative z-10">
         <p class="text-xs text-text-secondary font-medium mb-1">Needs Proof</p>
         <p class="text-2xl font-bold text-info mb-0">{{ stats.needsProof }}</p>
       </div>
     </div>
-    <div class="relative overflow-hidden bg-white rounded-xl border border-error/30 p-4 shadow-sm">
+    <div class="relative overflow-hidden rounded-xl border border-error/30 bg-[var(--color-surface)] p-4 shadow-sm">
       <img src="/SVG/Icon2.svg" alt="" aria-hidden="true" class="absolute -right-[10%] top-1/2 h-[140%] w-[30%] -translate-y-1/2 object-contain opacity-[0.08] pointer-events-none select-none" />
       <div class="relative z-10">
         <p class="text-xs text-text-secondary font-medium mb-1">Rejected</p>
@@ -61,7 +61,7 @@
   </div>
 
   @if (error()) {
-    <div class="mb-4 flex items-center justify-between gap-3 rounded-xl border border-error/30 bg-white px-4 py-3 text-sm text-error">
+    <div class="mb-4 flex items-center justify-between gap-3 rounded-xl border border-error/30 bg-[var(--color-surface)] px-4 py-3 text-sm text-error">
       <span>{{ error() }}</span>
       <button type="button" (click)="load()" class="rounded-lg border border-error/30 px-3 py-1.5 font-semibold hover:bg-error/10 transition-colors">
         Retry
@@ -86,7 +86,7 @@
 
   <!-- Claims list -->
   @if (!loading() && claims.length === 0 && !error()) {
-    <div class="bg-white rounded-xl border border-border/60 p-10 text-center shadow-sm">
+    <div class="rounded-xl border border-border/60 bg-[var(--color-surface)] p-10 text-center shadow-sm">
       <p class="text-text-secondary text-sm mb-0">No claim requests at the moment.</p>
     </div>
   }
@@ -94,7 +94,7 @@
   @if (loading()) {
     <div class="flex flex-col gap-3">
       @for (_ of [1,2,3]; track $index) {
-        <div class="bg-white rounded-xl border border-border/60 shadow-sm overflow-hidden animate-pulse">
+        <div class="overflow-hidden rounded-xl border border-border/60 bg-[var(--color-surface)] shadow-sm animate-pulse">
           <div class="px-5 py-4 flex items-center justify-between gap-3">
             <div class="space-y-2 flex-1">
               <div class="h-4 w-48 rounded bg-neutral-base"></div>
@@ -109,7 +109,7 @@
 
   <div class="flex flex-col gap-3" [hidden]="loading() || visibleClaims.length === 0">
     @for (claim of visibleClaims; track claim.id) {
-      <div class="bg-white rounded-xl border shadow-sm overflow-hidden transition-colors"
+      <div class="rounded-xl border bg-[var(--color-surface)] shadow-sm overflow-hidden transition-colors"
         [class]="claim.status === 'PENDING' ? 'border-border/60' : 'border-border/40'">
 
         <!-- Claim header row -->
@@ -168,7 +168,7 @@
                   @if ((claim.proofResponsePhotoUrls?.length ?? 0) > 0) {
                     <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       @for (photoUrl of claim.proofResponsePhotoUrls ?? []; track photoUrl) {
-                        <a [href]="photoUrl" target="_blank" rel="noreferrer" class="block overflow-hidden rounded-lg border border-border/60 bg-white">
+                        <a [href]="photoUrl" target="_blank" rel="noreferrer" class="block overflow-hidden rounded-lg border border-border/60 bg-[var(--color-surface)]">
                           <img [src]="photoUrl" alt="Claim proof response photo" class="w-full aspect-square object-cover" />
                         </a>
                       }
@@ -183,7 +183,7 @@
                 <div>
                   <label [for]="'proof-' + claim.id" class="block text-xs font-medium text-text-secondary mb-1.5">Request Additional Proof</label>
                   <div class="flex gap-2">
-                    <textarea [id]="'proof-' + claim.id" [(ngModel)]="claim.proofInput" rows="2" placeholder="Describe what proof you need…" class="flex-1 rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary transition resize-none"></textarea>
+                    <textarea [id]="'proof-' + claim.id" [(ngModel)]="claim.proofInput" rows="2" placeholder="Describe what proof you need…" class="flex-1 rounded-lg border border-border bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-secondary)] focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary transition resize-none"></textarea>
                     <button type="button" (click)="requestProof(claim)" [disabled]="claim.isUpdating" class="self-end rounded-lg border border-info/30 bg-info/10 px-3 py-2 text-xs font-semibold text-info hover:bg-info/20 transition-colors whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed">Request Proof</button>
                   </div>
                 </div>

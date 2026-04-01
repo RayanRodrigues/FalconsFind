@@ -8,7 +8,7 @@
     </div>
 
     <!-- Lookup card -->
-    <div class="rounded-xl border border-border/60 bg-white p-6 shadow-sm mb-6">
+    <div class="mb-6 rounded-xl border border-border/60 bg-[var(--color-surface)] p-6 shadow-sm">
       <label for="referenceCode" class="block text-sm font-medium text-text-primary mb-2">
         Reference Code
       </label>
@@ -19,7 +19,7 @@
           type="text"
           [(ngModel)]="referenceCode"
           placeholder="Enter your reference code (e.g. FF-1001)"
-          class="flex-1 rounded-lg border border-border px-4 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+          class="flex-1 rounded-lg border border-border bg-[var(--color-surface)] px-4 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
         />
 
         <button
@@ -33,19 +33,19 @@
     </div>
 
     <!-- Loading -->
-    <div *ngIf="loading" class="rounded-xl border border-border/60 bg-white p-8 shadow-sm text-center mb-6">
+    <div *ngIf="loading" class="mb-6 rounded-xl border border-border/60 bg-[var(--color-surface)] p-8 text-center shadow-sm">
       <p class="text-text-primary font-medium mb-1">Searching for your report...</p>
       <p class="text-text-secondary text-sm mb-0">Please wait a moment.</p>
     </div>
 
     <!-- Error -->
-    <div *ngIf="errorMessage" class="rounded-xl border border-error/30 bg-white p-5 shadow-sm mb-6">
+    <div *ngIf="errorMessage" class="mb-6 rounded-xl border border-error/30 bg-[var(--color-surface)] p-5 shadow-sm">
       <p class="text-error font-medium mb-1">Something went wrong</p>
       <p class="text-text-secondary text-sm mb-0">{{ errorMessage }}</p>
     </div>
 
     <!-- Edit form -->
-    <div *ngIf="reportFound" class="rounded-xl border border-border/60 bg-white p-6 shadow-sm">
+    <div *ngIf="reportFound" class="rounded-xl border border-border/60 bg-[var(--color-surface)] p-6 shadow-sm">
       <div class="mb-6">
         <p class="text-xs uppercase tracking-wide text-text-secondary mb-1">Editing report</p>
         <p class="text-sm text-text-primary font-medium mb-0">{{ report.referenceCode }}</p>
@@ -56,7 +56,7 @@
           <label class="block text-sm font-medium text-text-primary mb-2">Report Type</label>
           <select
             [(ngModel)]="report.reportType"
-            class="w-full rounded-lg border border-border px-4 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+            class="w-full rounded-lg border border-border bg-[var(--color-surface)] px-4 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
           >
             <option value="lost">Lost</option>
             <option value="found">Found</option>
@@ -68,7 +68,7 @@
           <input
             type="date"
             [(ngModel)]="report.date"
-            class="w-full rounded-lg border border-border px-4 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+            class="w-full rounded-lg border border-border bg-[var(--color-surface)] px-4 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
           />
         </div>
 
@@ -77,7 +77,7 @@
           <input
             type="text"
             [(ngModel)]="report.title"
-            class="w-full rounded-lg border border-border px-4 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+            class="w-full rounded-lg border border-border bg-[var(--color-surface)] px-4 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
           />
         </div>
 
@@ -86,7 +86,7 @@
           <input
             type="text"
             [(ngModel)]="report.location"
-            class="w-full rounded-lg border border-border px-4 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+            class="w-full rounded-lg border border-border bg-[var(--color-surface)] px-4 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
           />
         </div>
 
@@ -95,7 +95,7 @@
           <textarea
             rows="5"
             [(ngModel)]="report.description"
-            class="w-full rounded-lg border border-border px-4 py-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+            class="w-full rounded-lg border border-border bg-[var(--color-surface)] px-4 py-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
           ></textarea>
         </div>
 
@@ -104,7 +104,7 @@
           <input
             type="email"
             [(ngModel)]="report.contactEmail"
-            class="w-full rounded-lg border border-border px-4 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+            class="w-full rounded-lg border border-border bg-[var(--color-surface)] px-4 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
           />
         </div>
       </div>
@@ -121,7 +121,7 @@
         <button
           type="button"
           (click)="resetSearch()"
-          class="inline-flex items-center justify-center rounded-lg border border-border px-4 py-2 text-sm font-medium text-text-primary bg-white hover:bg-bg-secondary transition-colors"
+          class="inline-flex items-center justify-center rounded-lg border border-border bg-[var(--color-surface)] px-4 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-[var(--color-surface-2)]"
         >
           Reset
         </button>
@@ -135,7 +135,7 @@
     <!-- Not found helper -->
     <div
       *ngIf="lookupAttempted && !loading && !reportFound && !errorMessage"
-      class="rounded-xl border border-border/60 bg-white p-8 shadow-sm text-center"
+      class="rounded-xl border border-border/60 bg-[var(--color-surface)] p-8 text-center shadow-sm"
     >
       <p class="text-text-primary font-medium mb-1">No report loaded</p>
       <p class="text-text-secondary text-sm mb-0">
