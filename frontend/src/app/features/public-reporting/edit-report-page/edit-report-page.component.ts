@@ -1,58 +1,89 @@
 import { Component } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { finalize } from 'rxjs';
 import type { ErrorResponse } from '../../../models';
 import { ReportService } from '../../../core/services/report.service';
 import type { EditableReportResponse } from '../../../core/services/report.service';
 
-type EditableReport = {
-  id: string;
-  referenceCode: string;
-  reportType: 'lost' | 'found';
-  title: string;
-  location: string;
-  date: string;
-  dateReported: string;
-  description: string;
-  contactEmail: string;
-};
-
 @Component({
   selector: 'app-edit-report-page',
   standalone: true,
-  imports: [FormsModule],
+  imports: [ReactiveFormsModule],
   templateUrl: './edit-report-page.component.html',
 })
 export class EditReportPageComponent {
-  referenceCode = '';
+  private readonly fb = new FormBuilder();
+
+  readonly lookupForm = this.fb.group({
+    referenceCode: ['', [Validators.required]],
+  });
+
+  readonly editForm = this.fb.group({
+    title: ['', [Validators.required, Validators.minLength(2), Validators.maxLength(100)]],
+    location: ['', [Validators.required, Validators.minLength(2), Validators.maxLength(200)]],
+    date: ['', [Validators.required]],
+    description: ['', [Validators.required, Validators.minLength(10), Validators.maxLength(2000)]],
+    contactEmail: ['', [Validators.required, Validators.email, Validators.maxLength(254)]],
+  });
+
   loading = false;
   saving = false;
   lookupAttempted = false;
   reportFound = false;
   saveSuccess = false;
   errorMessage = '';
-  report: EditableReport = this.createEmptyReport();
+
+  private currentReferenceCode = '';
+  private currentDateReported = '';
+  reportType: 'lost' | 'found' = 'lost';
+  reportReferenceCode = '';
 
   constructor(private readonly reportService: ReportService) {}
 
+  getFieldError(form: 'lookup' | 'edit', field: string): string | null {
+    const group = form === 'lookup' ? this.lookupForm : this.editForm;
+    const ctrl = group.get(field);
+    if (!ctrl?.touched || !ctrl.errors) return null;
+    if (ctrl.hasError('required')) return 'This field is required.';
+    if (ctrl.hasError('email')) return 'Enter a valid email address.';
+    if (ctrl.hasError('minlength')) return 'Please provide more detail.';
+    if (ctrl.hasError('maxlength')) return 'This field exceeds the maximum allowed length.';
+    return null;
+  }
+
+  isFieldInvalid(form: 'lookup' | 'edit', field: string): boolean {
+    const group = form === 'lookup' ? this.lookupForm : this.editForm;
+    const ctrl = group.get(field);
+    return !!ctrl && ctrl.touched && ctrl.invalid;
+  }
+
   findReport(): void {
-    const trimmedCode = this.referenceCode.trim().toUpperCase();
+    this.lookupForm.markAllAsTouched();
+    if (this.lookupForm.invalid) return;
+
+    const trimmedCode = (this.lookupForm.value.referenceCode ?? '').trim().toUpperCase();
     this.lookupAttempted = true;
     this.reportFound = false;
     this.saveSuccess = false;
     this.errorMessage = '';
-
-    if (!trimmedCode) {
-      this.errorMessage = 'Enter a reference code before searching.';
-      return;
-    }
 
     this.loading = true;
     this.reportService.getEditableReport(trimmedCode)
       .pipe(finalize(() => { this.loading = false; }))
       .subscribe({
         next: (report) => {
-          this.report = this.mapEditableReport(report);
+          this.currentReferenceCode = report.referenceCode;
+          this.currentDateReported = report.dateReported;
+          this.reportType = report.kind === 'FOUND' ? 'found' : 'lost';
+          this.reportReferenceCode = report.referenceCode;
+          this.editForm.patchValue({
+            title: report.title,
+            location: report.location ?? '',
+            date: report.dateReported.slice(0, 10),
+            description: report.description ?? '',
+            contactEmail: report.contactEmail ?? '',
+          });
+          this.editForm.markAsUntouched();
           this.reportFound = true;
         },
         error: (error: ErrorResponse) => {
@@ -62,32 +93,32 @@ export class EditReportPageComponent {
   }
 
   saveChanges(): void {
+    this.editForm.markAllAsTouched();
+    if (this.editForm.invalid) return;
+
     this.saveSuccess = false;
     this.errorMessage = '';
 
-    if (
-      !this.report.title.trim()
-      || !this.report.location.trim()
-      || !this.report.date.trim()
-      || !this.report.description.trim()
-      || !this.report.contactEmail.trim()
-    ) {
-      this.errorMessage = 'Please complete all fields before saving your changes.';
-      return;
-    }
-
+    const v = this.editForm.value;
     this.saving = true;
-    this.reportService.updateEditableReport(this.report.referenceCode, {
-      title: this.report.title.trim(),
-      location: this.report.location.trim(),
-      dateReported: this.mergeDateWithExistingTimestamp(this.report.date, this.report.dateReported),
-      description: this.report.description.trim(),
-      contactEmail: this.report.contactEmail.trim(),
+    this.reportService.updateEditableReport(this.currentReferenceCode, {
+      title: (v.title ?? '').trim(),
+      location: (v.location ?? '').trim(),
+      dateReported: this.mergeDateWithExistingTimestamp(v.date ?? '', this.currentDateReported),
+      description: (v.description ?? '').trim(),
+      contactEmail: (v.contactEmail ?? '').trim(),
     })
       .pipe(finalize(() => { this.saving = false; }))
       .subscribe({
         next: (report) => {
-          this.report = this.mapEditableReport(report);
+          this.currentDateReported = report.dateReported;
+          this.editForm.patchValue({
+            title: report.title,
+            location: report.location ?? '',
+            date: report.dateReported.slice(0, 10),
+            description: report.description ?? '',
+            contactEmail: report.contactEmail ?? '',
+          });
           this.saveSuccess = true;
         },
         error: (error: ErrorResponse) => {
@@ -97,42 +128,18 @@ export class EditReportPageComponent {
   }
 
   resetSearch(): void {
-    this.referenceCode = '';
+    this.lookupForm.reset();
+    this.editForm.reset();
     this.loading = false;
     this.saving = false;
     this.lookupAttempted = false;
     this.reportFound = false;
     this.saveSuccess = false;
     this.errorMessage = '';
-    this.report = this.createEmptyReport();
-  }
-
-  private createEmptyReport(): EditableReport {
-    return {
-      id: '',
-      referenceCode: '',
-      reportType: 'lost',
-      title: '',
-      location: '',
-      date: '',
-      dateReported: '',
-      description: '',
-      contactEmail: '',
-    };
-  }
-
-  private mapEditableReport(report: EditableReportResponse): EditableReport {
-    return {
-      id: report.id,
-      referenceCode: report.referenceCode,
-      reportType: report.kind === 'FOUND' ? 'found' : 'lost',
-      title: report.title,
-      location: report.location ?? '',
-      date: report.dateReported.slice(0, 10),
-      dateReported: report.dateReported,
-      description: report.description ?? '',
-      contactEmail: report.contactEmail ?? '',
-    };
+    this.currentReferenceCode = '';
+    this.currentDateReported = '';
+    this.reportType = 'lost';
+    this.reportReferenceCode = '';
   }
 
   private mergeDateWithExistingTimestamp(date: string, currentDateReported: string): string {

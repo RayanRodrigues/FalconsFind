@@ -9,27 +9,36 @@
 
     <!-- Lookup card -->
     <div class="mb-6 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-sm">
-      <label for="referenceCode" class="mb-2 block text-sm font-medium text-[var(--color-text-primary)]">
-        Reference Code
-      </label>
+      <form [formGroup]="lookupForm" (ngSubmit)="findReport()">
+        <label for="referenceCode" class="mb-2 block text-sm font-medium text-[var(--color-text-primary)]">
+          Reference Code
+        </label>
 
-      <div class="flex flex-col gap-3 sm:flex-row">
-        <input
-          id="referenceCode"
-          type="text"
-          [(ngModel)]="referenceCode"
-          placeholder="Enter your reference code (e.g. FND-20260319-KLZKXQMD)"
-          class="flex-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2 text-sm text-[var(--color-text-primary)] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-        />
-        <button
-          type="button"
-          (click)="findReport()"
-          [disabled]="loading"
-          class="inline-flex items-center justify-center rounded-full bg-primary px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-secondary"
-        >
-          {{ loading ? 'Finding…' : 'Find Report' }}
-        </button>
-      </div>
+        <div class="flex flex-col gap-3 sm:flex-row">
+          <input
+            id="referenceCode"
+            type="text"
+            formControlName="referenceCode"
+            placeholder="Enter your reference code (e.g. FND-20260319-KLZKXQMD)"
+            class="flex-1 rounded-lg border px-4 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-primary/30"
+            [class.border-red-500]="isFieldInvalid('lookup', 'referenceCode')"
+            [class.border-[var(--color-border)]]="!isFieldInvalid('lookup', 'referenceCode')"
+            [class.bg-[var(--color-surface)]]="true"
+            [class.focus:border-primary]="!isFieldInvalid('lookup', 'referenceCode')"
+          />
+          <button
+            type="submit"
+            [disabled]="loading"
+            class="inline-flex items-center justify-center rounded-full bg-primary px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-secondary"
+          >
+            {{ loading ? 'Finding…' : 'Find Report' }}
+          </button>
+        </div>
+
+        @if (getFieldError('lookup', 'referenceCode')) {
+          <p class="mt-1 text-xs text-red-500">{{ getFieldError('lookup', 'referenceCode') }}</p>
+        }
+      </form>
     </div>
 
     <!-- Loading -->
@@ -53,81 +62,117 @@
       <div class="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-sm">
         <div class="mb-6">
           <p class="mb-1 text-xs uppercase tracking-wide text-[var(--color-text-secondary)]">Editing report</p>
-          <p class="text-sm font-medium text-[var(--color-text-primary)]">{{ report.referenceCode }}</p>
+          <p class="text-sm font-medium text-[var(--color-text-primary)]">{{ reportReferenceCode }}</p>
         </div>
 
-        <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
-          <div>
-            <label class="mb-2 block text-sm font-medium text-[var(--color-text-primary)]">Report Type</label>
-            <div class="flex min-h-10 items-center rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-4 py-2 text-sm font-medium text-[var(--color-text-primary)]">
-              {{ report.reportType === 'found' ? 'Found' : 'Lost' }}
+        <form [formGroup]="editForm" (ngSubmit)="saveChanges()">
+          <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
+            <div>
+              <label class="mb-2 block text-sm font-medium text-[var(--color-text-primary)]">Report Type</label>
+              <div class="flex min-h-10 items-center rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-4 py-2 text-sm font-medium text-[var(--color-text-primary)]">
+                {{ reportType === 'found' ? 'Found' : 'Lost' }}
+              </div>
+            </div>
+
+            <div>
+              <label for="date" class="mb-2 block text-sm font-medium text-[var(--color-text-primary)]">Date</label>
+              <input
+                id="date"
+                type="date"
+                formControlName="date"
+                class="w-full rounded-lg border px-4 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-primary/30"
+                [class.border-red-500]="isFieldInvalid('edit', 'date')"
+                [class.border-[var(--color-border)]]="!isFieldInvalid('edit', 'date')"
+                [class.bg-[var(--color-surface)]]="true"
+              />
+              @if (getFieldError('edit', 'date')) {
+                <p class="mt-1 text-xs text-red-500">{{ getFieldError('edit', 'date') }}</p>
+              }
+            </div>
+
+            <div class="md:col-span-2">
+              <label for="title" class="mb-2 block text-sm font-medium text-[var(--color-text-primary)]">Item Title</label>
+              <input
+                id="title"
+                type="text"
+                formControlName="title"
+                class="w-full rounded-lg border px-4 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-primary/30"
+                [class.border-red-500]="isFieldInvalid('edit', 'title')"
+                [class.border-[var(--color-border)]]="!isFieldInvalid('edit', 'title')"
+                [class.bg-[var(--color-surface)]]="true"
+              />
+              @if (getFieldError('edit', 'title')) {
+                <p class="mt-1 text-xs text-red-500">{{ getFieldError('edit', 'title') }}</p>
+              }
+            </div>
+
+            <div class="md:col-span-2">
+              <label for="location" class="mb-2 block text-sm font-medium text-[var(--color-text-primary)]">Location</label>
+              <input
+                id="location"
+                type="text"
+                formControlName="location"
+                class="w-full rounded-lg border px-4 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-primary/30"
+                [class.border-red-500]="isFieldInvalid('edit', 'location')"
+                [class.border-[var(--color-border)]]="!isFieldInvalid('edit', 'location')"
+                [class.bg-[var(--color-surface)]]="true"
+              />
+              @if (getFieldError('edit', 'location')) {
+                <p class="mt-1 text-xs text-red-500">{{ getFieldError('edit', 'location') }}</p>
+              }
+            </div>
+
+            <div class="md:col-span-2">
+              <label for="description" class="mb-2 block text-sm font-medium text-[var(--color-text-primary)]">Description</label>
+              <textarea
+                id="description"
+                rows="5"
+                formControlName="description"
+                class="w-full rounded-lg border px-4 py-3 text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-primary/30"
+                [class.border-red-500]="isFieldInvalid('edit', 'description')"
+                [class.border-[var(--color-border)]]="!isFieldInvalid('edit', 'description')"
+                [class.bg-[var(--color-surface)]]="true"
+              ></textarea>
+              @if (getFieldError('edit', 'description')) {
+                <p class="mt-1 text-xs text-red-500">{{ getFieldError('edit', 'description') }}</p>
+              }
+            </div>
+
+            <div class="md:col-span-2">
+              <label for="contactEmail" class="mb-2 block text-sm font-medium text-[var(--color-text-primary)]">Contact Email</label>
+              <input
+                id="contactEmail"
+                type="email"
+                formControlName="contactEmail"
+                class="w-full rounded-lg border px-4 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-primary/30"
+                [class.border-red-500]="isFieldInvalid('edit', 'contactEmail')"
+                [class.border-[var(--color-border)]]="!isFieldInvalid('edit', 'contactEmail')"
+                [class.bg-[var(--color-surface)]]="true"
+              />
+              @if (getFieldError('edit', 'contactEmail')) {
+                <p class="mt-1 text-xs text-red-500">{{ getFieldError('edit', 'contactEmail') }}</p>
+              }
             </div>
           </div>
 
-          <div>
-            <label class="mb-2 block text-sm font-medium text-[var(--color-text-primary)]">Date</label>
-            <input
-              type="date"
-              [(ngModel)]="report.date"
-              class="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2 text-sm text-[var(--color-text-primary)] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-            />
+          <div class="mt-6 flex flex-col gap-3 sm:flex-row">
+            <button
+              type="submit"
+              [disabled]="saving"
+              class="inline-flex items-center justify-center rounded-full bg-primary px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-secondary"
+            >
+              {{ saving ? 'Saving…' : 'Save Changes' }}
+            </button>
+            <button
+              type="button"
+              (click)="resetSearch()"
+              [disabled]="saving"
+              class="inline-flex items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-2 text-sm font-medium text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-surface-2)]"
+            >
+              Reset
+            </button>
           </div>
-
-          <div class="md:col-span-2">
-            <label class="mb-2 block text-sm font-medium text-[var(--color-text-primary)]">Item Title</label>
-            <input
-              type="text"
-              [(ngModel)]="report.title"
-              class="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2 text-sm text-[var(--color-text-primary)] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-            />
-          </div>
-
-          <div class="md:col-span-2">
-            <label class="mb-2 block text-sm font-medium text-[var(--color-text-primary)]">Location</label>
-            <input
-              type="text"
-              [(ngModel)]="report.location"
-              class="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2 text-sm text-[var(--color-text-primary)] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-            />
-          </div>
-
-          <div class="md:col-span-2">
-            <label class="mb-2 block text-sm font-medium text-[var(--color-text-primary)]">Description</label>
-            <textarea
-              rows="5"
-              [(ngModel)]="report.description"
-              class="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-sm text-[var(--color-text-primary)] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-            ></textarea>
-          </div>
-
-          <div class="md:col-span-2">
-            <label class="mb-2 block text-sm font-medium text-[var(--color-text-primary)]">Contact Email</label>
-            <input
-              type="email"
-              [(ngModel)]="report.contactEmail"
-              class="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2 text-sm text-[var(--color-text-primary)] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-            />
-          </div>
-        </div>
-
-        <div class="mt-6 flex flex-col gap-3 sm:flex-row">
-          <button
-            type="button"
-            (click)="saveChanges()"
-            [disabled]="saving"
-            class="inline-flex items-center justify-center rounded-full bg-primary px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-secondary"
-          >
-            {{ saving ? 'Saving…' : 'Save Changes' }}
-          </button>
-          <button
-            type="button"
-            (click)="resetSearch()"
-            [disabled]="saving"
-            class="inline-flex items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-2 text-sm font-medium text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-surface-2)]"
-          >
-            Reset
-          </button>
-        </div>
+        </form>
 
         @if (saveSuccess) {
           <div class="mt-5 rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3">
