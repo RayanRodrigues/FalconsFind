@@ -1,6 +1,5 @@
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { Component, Inject, OnDestroy, OnInit, PLATFORM_ID, signal } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { AlertComponent } from '../../../shared/components/feedback/alert.component';
 import { ButtonComponent } from '../../../shared/components/buttons/button.component';
@@ -12,7 +11,8 @@ import { AdminModalShellComponent } from '../../../shared/components/admin/admin
 import { AdminReportDetailsModalComponent } from '../../../shared/components/admin/admin-report-details-modal.component';
 import { ErrorService } from '../../../core/services/error.service';
 import type { ErrorResponse } from '../../../models';
-import type { AdminReport, AdminReportsResponse, ItemHistoryEvent, ItemHistoryResponse, ViewFilter } from './admin-reports.types';
+import type { AdminReport, ItemHistoryEvent, ItemHistoryResponse, ViewFilter } from './admin-reports.types';
+import { AdminReportsApiService } from './admin-reports-api.service';
 import {
   normalizeStatus, extractSuspiciousValue, statusClass, statusLabel,
   isArchived, isFlagged, suspiciousBadgeClass, rowClass,
@@ -87,7 +87,7 @@ export class AdminReportsComponent implements OnInit, OnDestroy {
   ];
 
   constructor(
-    private readonly http: HttpClient,
+    private readonly adminReportsApi: AdminReportsApiService,
     private readonly errorService: ErrorService,
     @Inject(PLATFORM_ID) private readonly platformId: object,
   ) {}
@@ -126,7 +126,7 @@ export class AdminReportsComponent implements OnInit, OnDestroy {
     this.error.set('');
     this.setActionMessage('');
 
-    this.http.get<AdminReportsResponse>('/admin/reports?page=1&limit=100&kind=FOUND').subscribe({
+    this.adminReportsApi.listReports({ page: 1, limit: 100, kind: 'FOUND' }).subscribe({
       next: (res) => {
         this.allItems = (res.reports ?? []).map((item) => ({
           ...item,
@@ -258,21 +258,26 @@ export class AdminReportsComponent implements OnInit, OnDestroy {
       .filter((item) => item.id !== primaryId)
       .map((item) => item.id);
 
-    this.allItems = this.allItems.filter((item) => !duplicateIds.includes(item.id));
-    this.applyFilters();
+    this.adminReportsApi.mergeReports(primaryId, duplicateIds).subscribe({
+      next: (response) => {
+        if (this.selectedItem() && duplicateIds.includes(this.selectedItem()!.id)) {
+          this.closeDetails();
+        }
 
-    if (this.selectedItem() && duplicateIds.includes(this.selectedItem()!.id)) {
-      this.closeDetails();
-    }
-
-    this.selectedItems.set(new Set());
-    this.selectedPrimaryMergeId.set('');
-    this.mergeModalOpen.set(false);
-    this.merging.set(false);
-
-    this.setActionMessage(
-      `Merged ${duplicateIds.length + 1} reports. Kept "${primary.title || 'Untitled'}" as the primary report.`
-    );
+        this.selectedItems.set(new Set());
+        this.selectedPrimaryMergeId.set('');
+        this.mergeModalOpen.set(false);
+        this.merging.set(false);
+        this.setActionMessage(
+          `Merged ${response.mergedReportIds.length + 1} reports. Kept "${response.primaryReport.title || primary.title || 'Untitled'}" as the primary report.`
+        );
+        this.load();
+      },
+      error: (err) => {
+        this.merging.set(false);
+        this.error.set(this.getFriendlyErrorMessage(err, 'Failed to merge the selected reports.'));
+      },
+    });
   }
 
   approve(id: string): void {
@@ -282,7 +287,7 @@ export class AdminReportsComponent implements OnInit, OnDestroy {
     this.setActionMessage('');
     this.error.set('');
 
-    this.http.patch(`/reports/found/${id}/validate`, {}).subscribe({
+    this.adminReportsApi.validateFoundReport(id).subscribe({
       next: () => {
         this.activeRowId.set(null);
         this.closeDetails();
@@ -330,14 +335,7 @@ export class AdminReportsComponent implements OnInit, OnDestroy {
 
     this.flagging.set(true);
 
-    this.http.patch<{
-      id: string;
-      isSuspicious: boolean;
-      suspiciousReason?: string | null;
-      suspiciousFlaggedAt?: string | null;
-    }>(`/admin/reports/${item.id}/flag`, {
-      suspiciousReason: reason,
-    }).subscribe({
+    this.adminReportsApi.flagReport(item.id, reason).subscribe({
       next: (response) => {
         const flaggedAt = response?.suspiciousFlaggedAt ?? new Date().toISOString();
         const savedReason = response?.suspiciousReason ?? reason;
@@ -442,7 +440,7 @@ export class AdminReportsComponent implements OnInit, OnDestroy {
     this.historyError.set('');
     this.itemHistory.set(null);
 
-    this.http.get<ItemHistoryResponse>(`/admin/items/${itemId}/history`).subscribe({
+    this.adminReportsApi.getItemHistory(itemId).subscribe({
       next: (history) => {
         this.itemHistory.set(history);
         this.historyLoading.set(false);
@@ -536,9 +534,7 @@ export class AdminReportsComponent implements OnInit, OnDestroy {
     this.error.set('');
     this.setActionMessage('');
 
-    this.http.patch(`/admin/items/${item.id}/status`, {
-      status: status.toUpperCase(),
-    }).subscribe({
+    this.adminReportsApi.restoreItemStatus(item.id, status).subscribe({
       next: () => {
         this.restoring.set(false);
         this.restoreModalOpen.set(false);
