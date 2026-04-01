@@ -1,85 +1,18 @@
 import { CommonModule, isPlatformBrowser } from '@angular/common';
-import { Component, Inject, OnInit, PLATFORM_ID, signal } from '@angular/core';
+import { Component, Inject, OnDestroy, OnInit, PLATFORM_ID, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { AlertComponent } from '../../../shared/components/feedback/alert.component';
 import { ButtonComponent } from '../../../shared/components/buttons/button.component';
 import { TextareaComponent } from '../../../shared/components/forms/textarea.component';
+import { AdminListToolbarComponent, type AdminToolbarStatusOption, type AdminToolbarViewOption } from '../../../shared/components/admin/admin-list-toolbar.component';
+import { AdminMetricCardComponent } from '../../../shared/components/admin/admin-metric-card.component';
+import { AdminReportTableComponent } from '../../../shared/components/admin/admin-report-table.component';
+import { AdminModalShellComponent } from '../../../shared/components/admin/admin-modal-shell.component';
+import { AdminReportDetailsModalComponent } from '../../../shared/components/admin/admin-report-details-modal.component';
 import { ErrorService } from '../../../core/services/error.service';
 import type { ErrorResponse } from '../../../models';
-
-type AdminReport = {
-  id: string;
-  kind: 'LOST' | 'FOUND';
-  title: string;
-  description?: string;
-  category?: string;
-  location?: string;
-  dateReported: string;
-  status: string;
-  referenceCode: string;
-  contactEmail?: string;
-  photoUrl?: string;
-  photoUrls?: string[];
-  archivedAt?: string | null;
-  isSuspicious?: boolean;
-  flagReason?: string | null;
-  flaggedAt?: string | null;
-};
-
-type AdminReportsResponse = {
-  reports: AdminReport[];
-  total: number;
-  summary: {
-    totalReports: number;
-    lostReports: number;
-    foundReports: number;
-    byStatus: Record<string, number>;
-  };
-};
-
-type ViewFilter = 'active' | 'archived' | 'all';
-
-type ItemHistoryChange = {
-  field: string;
-  previousValue?: string | number | boolean | null;
-  newValue?: string | number | boolean | null;
-};
-
-type ItemHistoryEvent = {
-  id: string;
-  itemId: string;
-  entityType: 'REPORT' | 'CLAIM' | 'ITEM';
-  entityId: string;
-  actionType: string;
-  timestamp: string;
-  summary: string;
-  actor?: {
-    type?: string;
-    uid?: string;
-    email?: string;
-  };
-  metadata?: {
-    itemStatus?: string;
-    referenceCode?: string;
-    reportKind?: string;
-    claimStatus?: string;
-    isSuspicious?: boolean;
-    flagReason?: string;
-    flaggedAt?: string;
-  };
-  changes?: ItemHistoryChange[];
-};
-
-type ItemHistoryResponse = {
-  itemId: string;
-  resolvedFrom?: string;
-  title?: string;
-  referenceCode?: string;
-  currentStatus?: string;
-  total: number;
-  events: ItemHistoryEvent[];
-};
+import type { AdminReport, AdminReportsResponse, ItemHistoryEvent, ItemHistoryResponse, ViewFilter } from './admin-reports.types';
 
 @Component({
   selector: 'app-admin-reports',
@@ -90,10 +23,17 @@ type ItemHistoryResponse = {
     AlertComponent,
     ButtonComponent,
     TextareaComponent,
+    AdminListToolbarComponent,
+    AdminMetricCardComponent,
+    AdminReportTableComponent,
+    AdminModalShellComponent,
+    AdminReportDetailsModalComponent,
   ],
   templateUrl: './admin-reports.component.html',
 })
-export class AdminReportsComponent implements OnInit {
+export class AdminReportsComponent implements OnInit, OnDestroy {
+  private actionMessageTimeoutId: ReturnType<typeof setTimeout> | null = null;
+
   readonly loading = signal(true);
   readonly error = signal('');
   readonly actionMessage = signal('');
@@ -124,12 +64,29 @@ export class AdminReportsComponent implements OnInit {
   statusFilter = 'all';
   viewFilter: ViewFilter = 'active';
   suspiciousReason = '';
+  readonly viewOptions: AdminToolbarViewOption[] = [
+    { label: 'Active', value: 'active', tone: 'primary' },
+    { label: 'Archived', value: 'archived', tone: 'slate' },
+    { label: 'All', value: 'all', tone: 'info' },
+  ];
+  readonly statusOptions: AdminToolbarStatusOption[] = [
+    { label: 'All statuses', value: 'all' },
+    { label: 'Pending', value: 'pending_validation' },
+    { label: 'Rejected', value: 'rejected' },
+    { label: 'Validated', value: 'validated' },
+    { label: 'Claimed', value: 'claimed' },
+    { label: 'Archived', value: 'archived' },
+  ];
 
   constructor(
     private readonly http: HttpClient,
     private readonly errorService: ErrorService,
     @Inject(PLATFORM_ID) private readonly platformId: object,
   ) {}
+
+  ngOnDestroy(): void {
+    this.clearActionMessageTimeout();
+  }
 
   get stats() {
     const visibleItems = this.getViewFilteredItems();
@@ -159,7 +116,7 @@ export class AdminReportsComponent implements OnInit {
   load(): void {
     this.loading.set(true);
     this.error.set('');
-    this.actionMessage.set('');
+    this.setActionMessage('');
 
     this.http.get<AdminReportsResponse>('/admin/reports?page=1&limit=100&kind=FOUND').subscribe({
       next: (res) => {
@@ -251,7 +208,7 @@ export class AdminReportsComponent implements OnInit {
     this.selectedPrimaryMergeId.set(selected[0]?.id ?? '');
     this.mergeModalOpen.set(true);
     this.error.set('');
-    this.actionMessage.set('');
+    this.setActionMessage('');
   }
 
   closeMergeModal(): void {
@@ -287,7 +244,7 @@ export class AdminReportsComponent implements OnInit {
 
     this.merging.set(true);
     this.error.set('');
-    this.actionMessage.set('');
+    this.setActionMessage('');
 
     const duplicateIds = selected
       .filter((item) => item.id !== primaryId)
@@ -305,7 +262,7 @@ export class AdminReportsComponent implements OnInit {
     this.mergeModalOpen.set(false);
     this.merging.set(false);
 
-    this.actionMessage.set(
+    this.setActionMessage(
       `Merged ${duplicateIds.length + 1} reports. Kept "${primary.title || 'Untitled'}" as the primary report.`
     );
   }
@@ -314,14 +271,14 @@ export class AdminReportsComponent implements OnInit {
     if (this.activeRowId() || this.flagging()) return;
 
     this.activeRowId.set(id);
-    this.actionMessage.set('');
+    this.setActionMessage('');
     this.error.set('');
 
     this.http.patch(`/reports/found/${id}/validate`, {}).subscribe({
       next: () => {
         this.activeRowId.set(null);
         this.closeDetails();
-        this.actionMessage.set('Found item validated successfully.');
+        this.setActionMessage('Found item validated successfully.');
         this.load();
       },
       error: (err) => {
@@ -338,7 +295,7 @@ export class AdminReportsComponent implements OnInit {
     this.suspiciousReason = item.flagReason ?? '';
     this.flagModalOpen.set(true);
     this.error.set('');
-    this.actionMessage.set('');
+    this.setActionMessage('');
   }
 
   closeFlagModal(): void {
@@ -354,7 +311,7 @@ export class AdminReportsComponent implements OnInit {
     if (!item || this.flagging()) return;
 
     this.error.set('');
-    this.actionMessage.set('');
+    this.setActionMessage('');
 
     const reason = this.suspiciousReason.trim();
 
@@ -413,7 +370,7 @@ export class AdminReportsComponent implements OnInit {
         this.flagTargetItem.set(null);
         this.suspiciousReason = '';
         this.error.set('');
-        this.actionMessage.set('Report flagged as suspicious.');
+        this.setActionMessage('Report flagged as suspicious.');
       },
       error: (err) => {
         this.flagging.set(false);
@@ -429,28 +386,28 @@ export class AdminReportsComponent implements OnInit {
 
   copyReferenceCode(referenceCode: string): void {
     if (!isPlatformBrowser(this.platformId) || typeof navigator === 'undefined' || !navigator.clipboard) {
-      this.actionMessage.set(`Reference code: ${referenceCode}`);
+      this.setActionMessage(`Reference code: ${referenceCode}`);
       return;
     }
 
     navigator.clipboard
       .writeText(referenceCode)
-      .then(() => this.actionMessage.set(`Copied ${referenceCode}.`))
-      .catch(() => this.actionMessage.set(`Reference code: ${referenceCode}`));
+      .then(() => this.setActionMessage(`Copied ${referenceCode}.`, 2500))
+      .catch(() => this.setActionMessage(`Reference code: ${referenceCode}`, 2500));
   }
 
   copyContactEmail(email?: string): void {
     if (!email) return;
 
     if (!isPlatformBrowser(this.platformId) || typeof navigator === 'undefined' || !navigator.clipboard) {
-      this.actionMessage.set(`Contact email: ${email}`);
+      this.setActionMessage(`Contact email: ${email}`);
       return;
     }
 
     navigator.clipboard
       .writeText(email)
-      .then(() => this.actionMessage.set(`Copied ${email}.`))
-      .catch(() => this.actionMessage.set(`Contact email: ${email}`));
+      .then(() => this.setActionMessage(`Copied ${email}.`, 2500))
+      .catch(() => this.setActionMessage(`Contact email: ${email}`, 2500));
   }
 
   openDetails(item: AdminReport): void {
@@ -674,7 +631,7 @@ export class AdminReportsComponent implements OnInit {
 
     this.restoring.set(true);
     this.error.set('');
-    this.actionMessage.set('');
+    this.setActionMessage('');
 
     this.http.patch(`/admin/items/${item.id}/status`, {
       status: status.toUpperCase(),
@@ -682,7 +639,7 @@ export class AdminReportsComponent implements OnInit {
       next: () => {
         this.restoring.set(false);
         this.restoreModalOpen.set(false);
-        this.actionMessage.set(`Item restored to ${this.statusLabel(status)}.`);
+        this.setActionMessage(`Item restored to ${this.statusLabel(status)}.`);
         this.closeDetails();
         this.load();
       },
@@ -710,7 +667,7 @@ export class AdminReportsComponent implements OnInit {
       rejected: 'bg-error/10 text-error border-error/30',
       claimed: 'bg-info/10 text-info border-info/30',
       returned: 'bg-info/10 text-info border-info/30',
-      archived: 'bg-slate-100 text-slate-700 border-slate-300',
+      archived: 'bg-[var(--color-surface-2)] text-text-secondary border-border',
       reported: 'bg-warning/15 text-warning border-warning/30',
     };
 
@@ -782,14 +739,14 @@ export class AdminReportsComponent implements OnInit {
 
   rowClass(item: AdminReport): string {
     if (this.isArchived(item)) {
-      return 'border-b border-border/40 bg-slate-50/70 hover:bg-slate-100/70 transition-colors';
+      return 'border-b border-border/40 bg-[var(--color-surface-2)]/80 hover:bg-[var(--color-surface-2)] transition-colors';
     }
 
     if (this.isFlagged(item)) {
       return 'border-b border-border/40 bg-primary/5 hover:bg-primary/10 transition-colors';
     }
 
-    return 'border-b border-border/40 hover:bg-neutral-base/50 transition-colors';
+    return 'border-b border-border/40 hover:bg-[var(--color-surface-2)]/70 transition-colors';
   }
 
   canValidate(item: AdminReport): boolean {
@@ -880,5 +837,24 @@ export class AdminReportsComponent implements OnInit {
   private getFriendlyErrorMessage(err: unknown, fallback: string): string {
     const friendly = this.errorService.getUserFriendlyMessage(err as ErrorResponse);
     return friendly && friendly !== 'An error occurred. Please try again.' ? friendly : fallback;
+  }
+
+  private setActionMessage(message: string, autoClearMs?: number): void {
+    this.actionMessage.set(message);
+    this.clearActionMessageTimeout();
+
+    if (message && autoClearMs && isPlatformBrowser(this.platformId)) {
+      this.actionMessageTimeoutId = setTimeout(() => {
+        this.actionMessage.set('');
+        this.actionMessageTimeoutId = null;
+      }, autoClearMs);
+    }
+  }
+
+  private clearActionMessageTimeout(): void {
+    if (this.actionMessageTimeoutId) {
+      clearTimeout(this.actionMessageTimeoutId);
+      this.actionMessageTimeoutId = null;
+    }
   }
 }

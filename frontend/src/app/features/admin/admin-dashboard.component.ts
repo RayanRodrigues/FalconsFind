@@ -4,6 +4,7 @@ import { AdminReportsComponent } from './sections/admin-reports.component';
 import { AdminClaimsComponent } from './sections/admin-claims.component';
 import { AdminStatisticsComponent } from './sections/admin-statistics.component';
 import { AuthService } from '../../core/services/auth.service';
+import { ThemeService } from '../../core/services/theme.service';
 import { UserRole } from '../../models/enums/user-role.enum';
 
 type Tab = 'reports' | 'claims' | 'statistics';
@@ -23,6 +24,7 @@ type Tab = 'reports' | 'claims' | 'statistics';
 export class AdminDashboardComponent implements OnInit {
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly themeService = inject(ThemeService);
 
   readonly activeTab = signal<Tab>('reports');
   readonly sidebarOpen = signal(false);
@@ -34,10 +36,11 @@ export class AdminDashboardComponent implements OnInit {
   ngOnInit(): void {
     const session = this.authService.getStoredSession();
     if (session) {
+      const displayName = session.user.displayName?.trim() ?? '';
       const email = session.user.email;
       this.userEmail.set(email);
       this.userRole.set(session.user.role === UserRole.ADMIN ? 'Admin' : 'Campus Security');
-      this.userInitials.set(this.deriveInitials(email));
+      this.userInitials.set(this.deriveInitials(displayName || email));
     }
   }
 
@@ -48,6 +51,14 @@ export class AdminDashboardComponent implements OnInit {
 
   toggleSidebar(): void {
     this.sidebarOpen.update(v => !v);
+  }
+
+  toggleTheme(): void {
+    this.themeService.toggleTheme();
+  }
+
+  isDarkMode(): boolean {
+    return this.themeService.isDarkMode();
   }
 
   logout(): void {
@@ -73,14 +84,14 @@ export class AdminDashboardComponent implements OnInit {
     }
   }
 
-  private deriveInitials(email: string): string {
-    const local = email.split('@')[0];
-    const parts = local.split(/[._-]/);
+  private deriveInitials(value: string): string {
+    const normalized = value.includes('@') ? value.split('@')[0] : value;
+    const parts = normalized.split(/[._\-\s]+/).filter(Boolean);
 
     if (parts.length >= 2) {
       return (parts[0][0] + parts[1][0]).toUpperCase();
     }
 
-    return local.slice(0, 2).toUpperCase();
+    return normalized.slice(0, 2).toUpperCase();
   }
 }

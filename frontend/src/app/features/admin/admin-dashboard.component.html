@@ -10,8 +10,12 @@
 
     <!-- Brand -->
     <div class="admin-sidebar__brand">
-      <img src="/PNG/LogoBranco.png" alt="FalconFind" style="height: 26px; width: auto;" />
-      <span class="admin-sidebar__label">Admin</span>
+      <img
+        class="admin-sidebar__brand-logo"
+        [src]="isDarkMode() ? '/PNG/LogoBranco.png' : '/PNG/LogoPrincipal.png'"
+        alt="FalconFind"
+      />
+      <span class="admin-sidebar__label">{{ userRole() || 'Admin' }}</span>
     </div>
 
     <!-- Nav -->
@@ -24,10 +28,15 @@
         [class.admin-nav-item--active]="activeTab() === 'reports'"
         (click)="setTab('reports')"
       >
-        <svg class="admin-nav-item__icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-        </svg>
-        Found Reports
+        <span class="admin-nav-item__icon-wrap">
+          <svg class="admin-nav-item__icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+        </span>
+        <span class="admin-nav-item__copy">
+          <span class="admin-nav-item__title">Found Reports</span>
+          <span class="admin-nav-item__hint">Review, validate, and triage reports</span>
+        </span>
       </button>
 
       <button
@@ -36,10 +45,15 @@
         [class.admin-nav-item--active]="activeTab() === 'claims'"
         (click)="setTab('claims')"
       >
-        <svg class="admin-nav-item__icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-        </svg>
-        Claims
+        <span class="admin-nav-item__icon-wrap">
+          <svg class="admin-nav-item__icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+          </svg>
+        </span>
+        <span class="admin-nav-item__copy">
+          <span class="admin-nav-item__title">Claims</span>
+          <span class="admin-nav-item__hint">Track proof requests and decisions</span>
+        </span>
       </button>
 
       <button
@@ -48,10 +62,15 @@
         [class.admin-nav-item--active]="activeTab() === 'statistics'"
         (click)="setTab('statistics')"
       >
-        <svg class="admin-nav-item__icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M7 20V10m5 10V4m5 16v-7" />
-        </svg>
-        Statistics
+        <span class="admin-nav-item__icon-wrap">
+          <svg class="admin-nav-item__icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M7 20V10m5 10V4m5 16v-7" />
+          </svg>
+        </span>
+        <span class="admin-nav-item__copy">
+          <span class="admin-nav-item__title">Statistics</span>
+          <span class="admin-nav-item__hint">See trends, volume, and outcomes</span>
+        </span>
       </button>
     </nav>
 
@@ -73,25 +92,49 @@
       </div>
 
       <!-- Logout -->
-      <button type="button" class="admin-nav-item" (click)="logout()" [disabled]="isLoggingOut()">
+      <p class="admin-sidebar__section-label admin-sidebar__section-label--footer">Quick actions</p>
+
+      <button type="button" class="admin-nav-item admin-nav-item--footer" (click)="toggleTheme()">
+        <span class="admin-nav-item__icon-wrap">
+          @if (isDarkMode()) {
+            <svg class="admin-nav-item__icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+              <circle cx="12" cy="12" r="4" stroke-width="1.8" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+            </svg>
+          } @else {
+            <svg class="admin-nav-item__icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+            </svg>
+          }
+        </span>
+        <span class="admin-nav-item__title">{{ isDarkMode() ? 'Light Mode' : 'Dark Mode' }}</span>
+      </button>
+
+      <button type="button" class="admin-nav-item admin-nav-item--footer" (click)="logout()" [disabled]="isLoggingOut()">
         @if (isLoggingOut()) {
-          <svg class="admin-nav-item__icon admin-nav-item__icon--spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" stroke-dasharray="60" stroke-dashoffset="20" />
-          </svg>
+          <span class="admin-nav-item__icon-wrap">
+            <svg class="admin-nav-item__icon admin-nav-item__icon--spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" stroke-dasharray="60" stroke-dashoffset="20" />
+            </svg>
+          </span>
           Logging out…
         } @else {
-          <svg class="admin-nav-item__icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-          </svg>
-          Log out
+          <span class="admin-nav-item__icon-wrap">
+            <svg class="admin-nav-item__icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+          </span>
+          <span class="admin-nav-item__title">Log out</span>
         }
       </button>
 
-      <a routerLink="/" class="admin-nav-item">
-        <svg class="admin-nav-item__icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-        </svg>
-        Back to Site
+      <a routerLink="/" class="admin-nav-item admin-nav-item--footer">
+        <span class="admin-nav-item__icon-wrap">
+          <svg class="admin-nav-item__icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+        </span>
+        <span class="admin-nav-item__title">Back to Site</span>
       </a>
     </div>
 
@@ -108,6 +151,23 @@
         </svg>
       </button>
       <span class="admin-topbar__title">{{ getPageTitle() }}</span>
+      <button
+        type="button"
+        class="admin-topbar__theme-btn"
+        (click)="toggleTheme()"
+        [attr.aria-label]="isDarkMode() ? 'Switch to light mode' : 'Switch to dark mode'"
+      >
+        @if (isDarkMode()) {
+          <svg style="width:18px;height:18px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <circle cx="12" cy="12" r="4" stroke-width="1.8" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+          </svg>
+        } @else {
+          <svg style="width:18px;height:18px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+          </svg>
+        }
+      </button>
     </header>
 
     <!-- Page header -->

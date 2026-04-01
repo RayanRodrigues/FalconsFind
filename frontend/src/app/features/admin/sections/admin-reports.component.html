@@ -1,133 +1,61 @@
-<div class="space-y-6">
+<div class="space-y-6 pt-1 pb-5">
   <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-    <div class="rounded-2xl border border-border/60 bg-white p-5 shadow-sm">
-      <p class="text-xs font-semibold uppercase tracking-[0.18em] text-text-secondary mb-2">Visible Reports</p>
-      <p class="text-3xl font-bold text-text-primary mb-1">{{ stats.total }}</p>
-      <p class="text-sm text-text-secondary mb-0">Based on the current report view</p>
-    </div>
+    <app-admin-metric-card
+      label="Visible Reports"
+      [value]="stats.total"
+      hint="Based on the current report view"
+      tone="default"
+    />
 
-    <div class="rounded-2xl border border-warning/20 bg-white p-5 shadow-sm">
-      <p class="text-xs font-semibold uppercase tracking-[0.18em] text-text-secondary mb-2">Pending</p>
-      <p class="text-3xl font-bold text-warning mb-1">{{ stats.pending }}</p>
-      <p class="text-sm text-text-secondary mb-0">Awaiting validation</p>
-    </div>
+    <app-admin-metric-card
+      label="Pending"
+      [value]="stats.pending"
+      hint="Awaiting validation"
+      tone="warning"
+      valueClass="text-warning"
+    />
 
-    <div class="rounded-2xl border border-success/20 bg-white p-5 shadow-sm">
-      <p class="text-xs font-semibold uppercase tracking-[0.18em] text-text-secondary mb-2">Validated</p>
-      <p class="text-3xl font-bold text-success mb-1">{{ stats.validated }}</p>
-      <p class="text-sm text-text-secondary mb-0">Ready for matching and claims</p>
-    </div>
+    <app-admin-metric-card
+      label="Validated"
+      [value]="stats.validated"
+      hint="Ready for matching and claims"
+      tone="success"
+      valueClass="text-success"
+    />
 
-    <div class="rounded-2xl border border-primary/20 bg-white p-5 shadow-sm">
-      <p class="text-xs font-semibold uppercase tracking-[0.18em] text-text-secondary mb-2">Suspicious</p>
-      <p class="text-3xl font-bold text-primary mb-1">{{ stats.suspicious }}</p>
-      <p class="text-sm text-text-secondary mb-0">Flagged for review</p>
-    </div>
+    <app-admin-metric-card
+      label="Suspicious"
+      [value]="stats.suspicious"
+      hint="Flagged for review"
+      tone="primary"
+      valueClass="text-primary"
+    />
 
-    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <p class="text-xs font-semibold uppercase tracking-[0.18em] text-text-secondary mb-2">Archived</p>
-      <p class="text-3xl font-bold text-slate-700 mb-1">{{ stats.archived }}</p>
-      <p class="text-sm text-text-secondary mb-0">Hidden from active operational view</p>
-    </div>
+    <app-admin-metric-card
+      label="Archived"
+      [value]="stats.archived"
+      hint="Hidden from active operational view"
+      tone="slate"
+      valueClass="text-slate-700"
+    />
   </div>
 
-  <div class="rounded-2xl border border-border/60 bg-white p-5 shadow-sm">
-    <div class="flex flex-col gap-4">
-      <div class="flex flex-wrap gap-2">
-        <button
-          type="button"
-          (click)="setViewFilter('active')"
-          class="rounded-lg border px-4 py-2 text-sm font-semibold transition-colors"
-          [class]="viewFilter === 'active'
-            ? 'border-primary bg-primary text-white'
-            : 'border-border bg-white text-text-primary hover:border-primary hover:text-primary'"
-        >
-          Active
-        </button>
-
-        <button
-          type="button"
-          (click)="setViewFilter('archived')"
-          class="rounded-lg border px-4 py-2 text-sm font-semibold transition-colors"
-          [class]="viewFilter === 'archived'
-            ? 'border-slate-400 bg-slate-700 text-white'
-            : 'border-border bg-white text-text-primary hover:border-slate-400 hover:text-slate-700'"
-        >
-          Archived
-        </button>
-
-        <button
-          type="button"
-          (click)="setViewFilter('all')"
-          class="rounded-lg border px-4 py-2 text-sm font-semibold transition-colors"
-          [class]="viewFilter === 'all'
-            ? 'border-info bg-info text-white'
-            : 'border-border bg-white text-text-primary hover:border-info hover:text-info'"
-        >
-          All
-        </button>
-
-        <button
-          type="button"
-          (click)="openMergeModal()"
-          [disabled]="!canMergeSelected()"
-          class="rounded-lg border px-4 py-2 text-sm font-semibold transition-colors"
-          [class]="canMergeSelected()
-            ? 'border-primary bg-primary text-white hover:opacity-90'
-            : 'border-border bg-neutral-base text-text-secondary cursor-not-allowed'"
-        >
-          Merge Selected
-        </button>
-      </div>
-
-      <div class="flex flex-col gap-3 lg:flex-row lg:items-center">
-        <div class="relative flex-1">
-          <svg
-            class="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary"
-            style="width:16px;height:16px;flex-shrink:0;"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            aria-hidden="true"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"
-            />
-          </svg>
-          <input
-            type="text"
-            [(ngModel)]="searchTerm"
-            (ngModelChange)="applyFilters()"
-            placeholder="Search reports…"
-            class="w-full rounded-lg border border-border pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary transition"
-          />
-        </div>
-
-        <select
-          [(ngModel)]="statusFilter"
-          (ngModelChange)="applyFilters()"
-          class="rounded-lg border border-border px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary transition"
-        >
-          <option value="all">All statuses</option>
-          <option value="pending_validation">Pending</option>
-          <option value="rejected">Rejected</option>
-          <option value="validated">Validated</option>
-          <option value="claimed">Claimed</option>
-          <option value="archived">Archived</option>
-        </select>
-
-        <span class="text-xs text-text-secondary lg:ml-auto">
-          {{ filteredItems.length }} result{{ filteredItems.length === 1 ? '' : 's' }}
-          @if (selectedItems().size > 0) {
-            <span> • {{ selectedItems().size }} selected</span>
-          }
-        </span>
-      </div>
-    </div>
-  </div>
+  <app-admin-list-toolbar
+    [viewOptions]="viewOptions"
+    [activeView]="viewFilter"
+    actionLabel="Merge Selected"
+    [actionDisabled]="!canMergeSelected()"
+    [searchValue]="searchTerm"
+    searchPlaceholder="Search reports…"
+    [statusValue]="statusFilter"
+    [statusOptions]="statusOptions"
+    [resultsCount]="filteredItems.length"
+    [selectedCount]="selectedItems().size"
+    (viewChange)="setViewFilter($any($event))"
+    (actionClick)="openMergeModal()"
+    (searchValueChange)="searchTerm = $event; applyFilters()"
+    (statusValueChange)="statusFilter = $event; applyFilters()"
+  />
 
   @if (actionMessage()) {
     <app-alert type="success">
@@ -136,7 +64,7 @@
   }
 
   @if (loading()) {
-    <div class="bg-white rounded-xl border border-border/60 p-10 text-center shadow-sm">
+    <div class="bg-[var(--color-surface)] rounded-xl border border-border/60 p-10 text-center shadow-sm">
       <svg class="h-8 w-8 animate-spin text-primary mx-auto mb-3" viewBox="0 0 24 24" fill="none">
         <circle cx="12" cy="12" r="9" class="opacity-25" stroke="currentColor" stroke-width="3" />
         <path class="opacity-90" fill="currentColor" d="M12 3a9 9 0 0 1 9 9h-3a6 6 0 0 0-6-6V3Z" />
@@ -152,153 +80,41 @@
   }
 
   @if (!loading() && !error() && filteredItems.length === 0) {
-    <div class="bg-white rounded-xl border border-border/60 p-10 text-center shadow-sm">
+    <div class="bg-[var(--color-surface)] rounded-xl border border-border/60 p-10 text-center shadow-sm">
       <p class="text-text-primary font-medium mb-1">No reports match the current filters.</p>
       <p class="text-text-secondary text-sm mb-0">Try switching views or clearing the current status/search filters.</p>
     </div>
   }
 
   @if (!loading() && !error() && filteredItems.length > 0) {
-    <div class="rounded-2xl border border-border/60 bg-white shadow-sm overflow-hidden">
-      <div class="overflow-x-auto">
-        <table class="min-w-full">
-          <thead class="bg-neutral-base/60">
-            <tr>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wide">Select</th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wide">Item</th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wide">Location</th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wide">Reported</th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wide">Status</th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wide">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (item of filteredItems; track trackById($index, item)) {
-              <tr [class]="rowClass(item)">
-                <td class="px-4 py-3 align-top">
-                  <input
-                    type="checkbox"
-                    [checked]="isSelected(item.id)"
-                    (change)="toggleSelect(item.id)"
-                    class="mt-1 h-4 w-4 accent-[var(--color-primary)]"
-                    aria-label="Select report"
-                  />
-                </td>
-
-                <td class="px-4 py-3">
-                  <div class="flex items-start gap-3">
-                    <div class="min-w-0">
-                      <div class="flex flex-wrap items-center gap-2 mb-1">
-                        <p class="font-semibold text-text-primary mb-0">{{ item.title || 'Untitled' }}</p>
-
-                        @if (isFlagged(item)) {
-                          <span
-                            class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide"
-                            [class]="suspiciousBadgeClass(item)"
-                          >
-                            Suspicious
-                          </span>
-                        }
-                      </div>
-
-                      <p class="text-xs text-text-secondary mb-0 line-clamp-1">{{ item.description || '—' }}</p>
-                      <p class="text-[11px] text-text-secondary mt-1 mb-0">{{ item.referenceCode }}</p>
-
-                      @if (isFlagged(item) && item.flagReason) {
-                        <p class="text-[11px] text-primary mt-1 mb-0 line-clamp-1">
-                          Reason: {{ item.flagReason }}
-                        </p>
-                      }
-
-                      @if (isArchived(item) && item.archivedAt) {
-                        <p class="text-[11px] text-slate-600 mt-1 mb-0">
-                          Archived on {{ item.archivedAt | date: 'mediumDate' }}
-                        </p>
-                      }
-                    </div>
-                  </div>
-                </td>
-
-                <td class="px-4 py-3 text-text-secondary">{{ item.location || '—' }}</td>
-
-                <td class="px-4 py-3 text-text-secondary whitespace-nowrap">
-                  <p class="mb-0">{{ item.dateReported | date: 'mediumDate' }}</p>
-                  <p class="text-[11px] mb-0">{{ item.dateReported | date: 'shortTime' }}</p>
-                </td>
-
-                <td class="px-4 py-3">
-                  <div class="flex flex-wrap items-center gap-2">
-                    <span
-                      class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide"
-                      [class]="statusClass(item.status)"
-                    >
-                      {{ statusLabel(item.status) }}
-                    </span>
-
-                    @if (isFlagged(item)) {
-                      <span
-                        class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide"
-                        [class]="suspiciousBadgeClass(item)"
-                      >
-                        Flagged
-                      </span>
-                    }
-                  </div>
-                </td>
-
-                <td class="px-4 py-3">
-                  <div class="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      (click)="copyReferenceCode(item.referenceCode)"
-                      class="whitespace-nowrap rounded-lg bg-neutral-base border border-border px-3 py-1.5 text-xs font-semibold text-text-primary hover:border-primary hover:text-primary transition-colors"
-                    >
-                      Copy Ref
-                    </button>
-
-                    @if (item.contactEmail) {
-                      <button
-                        type="button"
-                        (click)="copyContactEmail(item.contactEmail)"
-                        class="whitespace-nowrap rounded-lg bg-neutral-base border border-border px-3 py-1.5 text-xs font-semibold text-text-primary hover:border-primary hover:text-primary transition-colors"
-                      >
-                        Copy Email
-                      </button>
-                    }
-
-                    @if (canFlag(item)) {
-                      <button
-                        type="button"
-                        (click)="openFlagModal(item)"
-                        class="whitespace-nowrap rounded-lg bg-primary/10 border border-primary/20 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors"
-                      >
-                        Flag Suspicious
-                      </button>
-                    }
-
-                    <button
-                      type="button"
-                      (click)="openDetails(item)"
-                      class="whitespace-nowrap rounded-lg bg-primary/10 border border-primary/20 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors"
-                    >
-                      View Details
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      </div>
+    <div class="pt-3">
+      <app-admin-report-table
+        [items]="filteredItems"
+        [selectedIds]="selectedItems()"
+        [rowClass]="rowClass.bind(this)"
+        [statusClass]="statusClass.bind(this)"
+        [statusLabel]="statusLabel.bind(this)"
+        [suspiciousBadgeClass]="suspiciousBadgeClass.bind(this)"
+        [isFlagged]="isFlagged.bind(this)"
+        [isArchived]="isArchived.bind(this)"
+        [canFlag]="canFlag.bind(this)"
+        (toggleSelect)="toggleSelect($event)"
+        (copyReference)="copyReferenceCode($event)"
+        (copyEmail)="copyContactEmail($event)"
+        (flag)="openFlagModal($event)"
+        (details)="openDetails($event)"
+      />
     </div>
   }
 </div>
 
 @if (mergeModalOpen()) {
-  <div class="fixed inset-0 z-[96] flex items-center justify-center p-4">
-    <div class="absolute inset-0 bg-slate-950/40" (click)="closeMergeModal()"></div>
-
-    <div class="relative w-full max-w-2xl rounded-2xl border border-border/60 bg-white p-6 shadow-2xl">
+  <app-admin-modal-shell
+    widthClass="max-w-2xl"
+    zIndexClass="z-[96]"
+    (backdropClick)="closeMergeModal()"
+  >
+    <div class="p-6">
       <p class="text-xs font-semibold uppercase tracking-[0.18em] text-text-secondary mb-2">Merge Duplicate Reports</p>
       <h4 class="text-lg font-bold text-text-primary mb-2">Choose the primary report to keep</h4>
       <p class="text-sm text-text-secondary mb-5">
@@ -359,479 +175,59 @@
         </app-button>
       </div>
     </div>
-  </div>
+  </app-admin-modal-shell>
 }
 
 @if (selectedItem(); as item) {
-  <div class="fixed inset-0 z-[80]">
-    <div class="absolute inset-0 bg-slate-950/30 backdrop-blur-md" (click)="closeDetails()"></div>
-
-    <div class="absolute inset-0 flex items-center justify-center p-4 sm:p-6">
-      <div class="relative w-full max-w-5xl overflow-hidden rounded-[28px] border border-white/60 bg-white shadow-2xl">
-        <div class="absolute inset-x-0 top-0 h-24 bg-gradient-to-r from-primary/12 via-info/10 to-success/12"></div>
-
-        <div class="relative px-5 py-5 sm:px-7 sm:py-6 border-b border-border/50">
-          <div class="flex items-start justify-between gap-4">
-            <div class="min-w-0">
-              <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-text-secondary mb-2">Found Item Details</p>
-              <div class="flex flex-wrap items-center gap-2 mb-1">
-                <h3 class="text-xl sm:text-2xl font-bold text-text-primary mb-0">{{ item.title }}</h3>
-
-                @if (isFlagged(item)) {
-                  <span
-                    class="inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-wide"
-                    [class]="suspiciousBadgeClass(item)"
-                  >
-                    Suspicious
-                  </span>
-                }
-              </div>
-
-              <div class="flex flex-wrap items-center gap-2 text-sm text-text-secondary">
-                <span>{{ item.referenceCode }}</span>
-                <span class="text-border">•</span>
-                <span>{{ item.dateReported | date: 'medium' }}</span>
-              </div>
-            </div>
-
-            <div class="flex items-center gap-3 shrink-0">
-              <span
-                class="inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-wide"
-                [class]="statusClass(item.status)"
-              >
-                {{ statusLabel(item.status) }}
-              </span>
-
-              <button
-                type="button"
-                (click)="closeDetails()"
-                class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border/60 bg-white text-text-secondary hover:text-text-primary hover:border-primary/30 transition"
-                aria-label="Close details"
-              >
-                ✕
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div class="max-h-[75vh] overflow-y-auto px-5 py-5 sm:px-7 sm:py-6">
-          <div class="grid gap-6 lg:grid-cols-[1.25fr,0.9fr,1fr]">
-            <div class="space-y-5">
-              @if (canOpenPhoto(item)) {
-                <div class="rounded-2xl border border-border/60 bg-white p-4">
-                  <p class="text-xs font-semibold uppercase tracking-[0.18em] text-text-secondary mb-3">Photos</p>
-
-                  @if (getSelectedPhoto(item); as mainPhoto) {
-                    <div class="overflow-hidden rounded-2xl border border-border/60 bg-neutral-base/30 mb-3">
-                      <img [src]="mainPhoto" [alt]="item.title" class="h-72 w-full object-cover" />
-                    </div>
-                  }
-
-                  @if (getPhotoUrls(item).length > 1) {
-                    <div class="grid grid-cols-4 gap-2">
-                      @for (photoUrl of getPhotoUrls(item); track photoUrl; let photoIndex = $index) {
-                        <button
-                          type="button"
-                          (click)="selectPhoto(photoIndex)"
-                          class="overflow-hidden rounded-xl border transition"
-                          [class]="selectedPhotoIndex() === photoIndex
-                            ? 'border-primary ring-2 ring-primary/20'
-                            : 'border-border/60 hover:border-primary/40'"
-                        >
-                          <img
-                            [src]="photoUrl"
-                            [alt]="item.title + ' preview ' + (photoIndex + 1)"
-                            class="h-16 w-full object-cover"
-                          />
-                        </button>
-                      }
-                    </div>
-                  }
-                </div>
-              }
-
-              <div class="rounded-2xl border border-border/60 bg-neutral-base/40 p-4">
-                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-text-secondary mb-3">Report Summary</p>
-                <div class="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <p class="text-xs text-text-secondary mb-1">Title</p>
-                    <p class="text-sm font-semibold text-text-primary mb-0">{{ item.title }}</p>
-                  </div>
-                  <div>
-                    <p class="text-xs text-text-secondary mb-1">Category</p>
-                    <p class="text-sm font-semibold text-text-primary mb-0">{{ item.category || 'Not provided' }}</p>
-                  </div>
-                  <div>
-                    <p class="text-xs text-text-secondary mb-1">Location</p>
-                    <p class="text-sm font-semibold text-text-primary mb-0">{{ item.location || 'Not provided' }}</p>
-                  </div>
-                  <div>
-                    <p class="text-xs text-text-secondary mb-1">Contact Email</p>
-                    <p class="text-sm font-semibold text-text-primary mb-0 break-all">{{ item.contactEmail || 'Not provided' }}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div class="rounded-2xl border border-border/60 bg-white p-4">
-                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-text-secondary mb-3">Description</p>
-                <p class="text-sm leading-6 text-text-primary mb-0">{{ item.description || 'No description was provided for this found item.' }}</p>
-              </div>
-
-              @if (isFlagged(item)) {
-                <div class="rounded-2xl border border-primary/20 bg-primary/5 p-4">
-                  <p class="text-xs font-semibold uppercase tracking-[0.18em] text-text-secondary mb-3">Suspicious Report Status</p>
-
-                  <div class="space-y-3 text-sm">
-                    <div>
-                      <p class="text-xs text-text-secondary mb-1">Flag Status</p>
-                      <p class="font-semibold text-primary mb-0">Flagged as suspicious</p>
-                    </div>
-
-                    <div>
-                      <p class="text-xs text-text-secondary mb-1">Reason</p>
-                      <p class="font-semibold text-text-primary mb-0">{{ item.flagReason || 'No reason was provided.' }}</p>
-                    </div>
-
-                    @if (item.flaggedAt) {
-                      <div>
-                        <p class="text-xs text-text-secondary mb-1">Flagged On</p>
-                        <p class="font-semibold text-text-primary mb-0">{{ item.flaggedAt | date: 'fullDate' }}</p>
-                        <p class="text-xs text-text-secondary mb-0">{{ item.flaggedAt | date: 'shortTime' }}</p>
-                      </div>
-                    }
-                  </div>
-                </div>
-              }
-            </div>
-
-            <div class="space-y-5">
-              <div class="rounded-2xl border border-border/60 bg-white p-4">
-                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-text-secondary mb-3">Quick Actions</p>
-
-                <div class="flex flex-col gap-2.5">
-                  @if (canValidate(item)) {
-                    <app-button
-                      type="button"
-                      variant="primary"
-                      size="md"
-                      [loading]="activeRowId() === item.id"
-                      [disabled]="activeRowId() === item.id"
-                      (buttonClick)="approve(item.id)"
-                    >
-                      {{ activeRowId() === item.id ? 'Validating…' : 'Validate Found Item' }}
-                    </app-button>
-                  }
-
-                  @if (canFlag(item)) {
-                    <app-button
-                      type="button"
-                      variant="secondary"
-                      size="md"
-                      (buttonClick)="openFlagModal(item)"
-                    >
-                      Flag as Suspicious
-                    </app-button>
-                  }
-
-                  @if (canOpenPhoto(item)) {
-                    <app-button
-                      type="button"
-                      variant="secondary"
-                      size="md"
-                      (buttonClick)="openPhoto(getSelectedPhoto(item) ?? undefined)"
-                    >
-                      View Photo
-                    </app-button>
-                  }
-
-                  <app-button
-                    type="button"
-                    variant="secondary"
-                    size="md"
-                    (buttonClick)="copyReferenceCode(item.referenceCode)"
-                  >
-                    Copy Reference Code
-                  </app-button>
-
-                  @if (item.contactEmail) {
-                    <app-button
-                      type="button"
-                      variant="secondary"
-                      size="md"
-                      (buttonClick)="copyContactEmail(item.contactEmail)"
-                    >
-                      Copy Contact Email
-                    </app-button>
-                  }
-                </div>
-
-                <div class="mt-5 border-t border-border/60 pt-4">
-                  <p class="text-xs font-semibold uppercase tracking-[0.18em] text-text-secondary mb-3">Restore Previous Status</p>
-
-                  @if (historyLoading()) {
-                    <p class="text-sm text-text-secondary mb-0">Loading status history…</p>
-                  }
-
-                  @if (historyError()) {
-                    <p class="text-sm text-error mb-0">{{ historyError() }}</p>
-                  }
-
-                  @if (!historyLoading() && !historyError()) {
-                    <div class="space-y-3">
-                      <select
-                        [(ngModel)]="selectedRestoreStatus"
-                        [disabled]="!canRestore()"
-                        class="w-full rounded-xl border border-border bg-white px-3 py-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary transition disabled:bg-neutral-base/50 disabled:text-text-secondary"
-                      >
-                        <option value="">Select previous status</option>
-                        @for (status of getRestoreOptions(); track status) {
-                          <option [value]="status">{{ statusLabel(status) }}</option>
-                        }
-                      </select>
-
-                      @if (!canRestore()) {
-                        <p class="text-xs text-text-secondary mb-0">No restorable previous statuses are available for this item.</p>
-                      }
-
-                      <app-button
-                        type="button"
-                        variant="secondary"
-                        size="md"
-                        [disabled]="!selectedRestoreStatus()"
-                        (buttonClick)="openRestoreModal()"
-                      >
-                        Restore Status
-                      </app-button>
-                    </div>
-                  }
-                </div>
-              </div>
-
-              <div class="rounded-2xl border border-border/60 bg-neutral-base/40 p-4">
-                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-text-secondary mb-3">Metadata</p>
-                <div class="space-y-3 text-sm">
-                  <div>
-                    <p class="text-xs text-text-secondary mb-1">Reference Code</p>
-                    <p class="font-semibold text-text-primary mb-0">{{ item.referenceCode }}</p>
-                  </div>
-                  <div>
-                    <p class="text-xs text-text-secondary mb-1">Reported On</p>
-                    <p class="font-semibold text-text-primary mb-0">{{ item.dateReported | date: 'fullDate' }}</p>
-                    <p class="text-xs text-text-secondary mb-0">{{ item.dateReported | date: 'shortTime' }}</p>
-                  </div>
-                  <div>
-                    <p class="text-xs text-text-secondary mb-1">Current Status</p>
-                    <p class="font-semibold text-text-primary mb-0">{{ statusLabel(item.status) }}</p>
-                  </div>
-                  <div>
-                    <p class="text-xs text-text-secondary mb-1">Suspicious Flag</p>
-                    <p class="font-semibold text-text-primary mb-0">
-                      {{ isFlagged(item) ? 'Flagged' : 'Not flagged' }}
-                    </p>
-                  </div>
-
-                  @if (isArchived(item) && item.archivedAt) {
-                    <div>
-                      <p class="text-xs text-text-secondary mb-1">Archived On</p>
-                      <p class="font-semibold text-text-primary mb-0">{{ item.archivedAt | date: 'fullDate' }}</p>
-                      <p class="text-xs text-text-secondary mb-0">{{ item.archivedAt | date: 'shortTime' }}</p>
-                    </div>
-                  }
-                </div>
-              </div>
-            </div>
-
-            <div class="space-y-5">
-              <div class="rounded-2xl border border-border/60 bg-white p-4">
-                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-text-secondary mb-3">Full Item History</p>
-
-                @if (historyLoading()) {
-                  <p class="text-sm text-text-secondary mb-0">Loading timeline…</p>
-                }
-
-                @if (historyError()) {
-                  <p class="text-sm text-error mb-0">{{ historyError() }}</p>
-                }
-
-                @if (!historyLoading() && !historyError() && getFullHistoryEvents().length === 0) {
-                  <p class="text-sm text-text-secondary mb-0">No history available yet.</p>
-                }
-
-                @if (!historyLoading() && !historyError() && getFullHistoryEvents().length > 0) {
-                  <div class="space-y-4 max-h-[28rem] overflow-y-auto pr-1">
-                    @for (event of getFullHistoryEvents(); track trackHistoryEvent($index, event)) {
-                      <div class="relative pl-6">
-                        <div class="absolute left-2 top-2 bottom-0 w-px bg-border"></div>
-                        <div class="absolute left-0 top-1.5 h-4 w-4 rounded-full border-2 border-white bg-primary shadow-sm"></div>
-
-                        <div class="rounded-xl border border-border/60 bg-neutral-base/30 p-4">
-                          <div class="flex flex-wrap items-start justify-between gap-2 mb-2">
-                            <div class="min-w-0">
-                              <p class="text-sm font-semibold text-text-primary mb-1">
-                                {{ getHistoryEventLabel(event) }}
-                              </p>
-
-                              <div class="flex flex-wrap items-center gap-2">
-                                <span
-                                  class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide"
-                                  [class]="getHistoryBadgeClass(event)"
-                                >
-                                  {{ getHistoryActionLabel(event) }}
-                                </span>
-
-                                <span class="text-[11px] text-text-secondary">
-                                  {{ event.entityType }}
-                                </span>
-                              </div>
-                            </div>
-
-                            <div class="text-right shrink-0">
-                              <p class="text-xs font-medium text-text-primary mb-0">
-                                {{ event.timestamp | date: 'medium' }}
-                              </p>
-                            </div>
-                          </div>
-
-                          @if (getHistoryStatusChange(event); as statusChange) {
-                            <div class="mb-3 rounded-lg border border-border/60 bg-white px-3 py-2">
-                              <p class="text-[11px] font-semibold uppercase tracking-wide text-text-secondary mb-1">
-                                Status Change
-                              </p>
-
-                              <p class="text-xs text-text-primary mb-0">
-                                @if (statusChange.previous) {
-                                  <span>{{ statusLabel(statusChange.previous) }}</span>
-                                  <span class="mx-1">→</span>
-                                }
-                                @if (statusChange.next) {
-                                  <span>{{ statusLabel(statusChange.next) }}</span>
-                                }
-                              </p>
-                            </div>
-                          }
-
-                          @if (hasHistoryMetadata(event)) {
-                            <div class="grid gap-2 sm:grid-cols-2">
-                              <div class="rounded-lg border border-border/60 bg-white px-3 py-2">
-                                <p class="text-[11px] font-semibold uppercase tracking-wide text-text-secondary mb-1">
-                                  Actor
-                                </p>
-                                <p class="text-xs text-text-primary mb-0">
-                                  {{ getHistoryActorLabel(event) }}
-                                </p>
-                              </div>
-
-                              <div class="rounded-lg border border-border/60 bg-white px-3 py-2">
-                                <p class="text-[11px] font-semibold uppercase tracking-wide text-text-secondary mb-1">
-                                  Action Type
-                                </p>
-                                <p class="text-xs text-text-primary mb-0">
-                                  {{ event.actionType || 'N/A' }}
-                                </p>
-                              </div>
-
-                              @if (event.metadata?.referenceCode) {
-                                <div class="rounded-lg border border-border/60 bg-white px-3 py-2">
-                                  <p class="text-[11px] font-semibold uppercase tracking-wide text-text-secondary mb-1">
-                                    Reference Code
-                                  </p>
-                                  <p class="text-xs text-text-primary mb-0">
-                                    {{ event.metadata?.referenceCode }}
-                                  </p>
-                                </div>
-                              }
-
-                              @if (event.metadata?.claimStatus) {
-                                <div class="rounded-lg border border-border/60 bg-white px-3 py-2">
-                                  <p class="text-[11px] font-semibold uppercase tracking-wide text-text-secondary mb-1">
-                                    Claim Status
-                                  </p>
-                                  <p class="text-xs text-text-primary mb-0">
-                                    {{ event.metadata?.claimStatus }}
-                                  </p>
-                                </div>
-                              }
-
-                              @if (event.metadata?.reportKind) {
-                                <div class="rounded-lg border border-border/60 bg-white px-3 py-2">
-                                  <p class="text-[11px] font-semibold uppercase tracking-wide text-text-secondary mb-1">
-                                    Report Kind
-                                  </p>
-                                  <p class="text-xs text-text-primary mb-0">
-                                    {{ event.metadata?.reportKind }}
-                                  </p>
-                                </div>
-                              }
-
-                              @if (event.metadata?.flagReason) {
-                                <div class="rounded-lg border border-border/60 bg-white px-3 py-2 sm:col-span-2">
-                                  <p class="text-[11px] font-semibold uppercase tracking-wide text-text-secondary mb-1">
-                                    Flag Reason
-                                  </p>
-                                  <p class="text-xs text-text-primary mb-0">
-                                    {{ event.metadata?.flagReason }}
-                                  </p>
-                                </div>
-                              }
-                            </div>
-                          }
-                        </div>
-                      </div>
-                    }
-                  </div>
-                }
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    @if (restoreModalOpen()) {
-      <div class="absolute inset-0 z-[90] flex items-center justify-center p-4">
-        <div class="absolute inset-0 bg-slate-950/40" (click)="closeRestoreModal()"></div>
-
-        <div class="relative w-full max-w-md rounded-2xl border border-border/60 bg-white p-6 shadow-2xl">
-          <p class="text-xs font-semibold uppercase tracking-[0.18em] text-text-secondary mb-2">Confirm Restore</p>
-          <h4 class="text-lg font-bold text-text-primary mb-2">Restore previous status?</h4>
-          <p class="text-sm text-text-secondary mb-5">
-            This will change the current item status to
-            <span class="font-semibold text-text-primary">{{ statusLabel(selectedRestoreStatus()) }}</span>.
-          </p>
-
-          <div class="flex items-center justify-end gap-3">
-            <app-button
-              type="button"
-              variant="secondary"
-              size="md"
-              [disabled]="restoring()"
-              (buttonClick)="closeRestoreModal()"
-            >
-              Cancel
-            </app-button>
-
-            <app-button
-              type="button"
-              variant="primary"
-              size="md"
-              [loading]="restoring()"
-              [disabled]="restoring()"
-              (buttonClick)="restoreStatus()"
-            >
-              {{ restoring() ? 'Restoring…' : 'Confirm Restore' }}
-            </app-button>
-          </div>
-        </div>
-      </div>
-    }
-  </div>
+  <app-admin-report-details-modal
+    [item]="item"
+    [activeRowId]="activeRowId()"
+    [selectedPhotoIndex]="selectedPhotoIndex()"
+    [selectedRestoreStatus]="selectedRestoreStatus()"
+    [restoreOptions]="getRestoreOptions()"
+    [canRestore]="canRestore()"
+    [restoring]="restoring()"
+    [restoreModalOpen]="restoreModalOpen()"
+    [historyLoading]="historyLoading()"
+    [historyError]="historyError()"
+    [historyEvents]="getFullHistoryEvents()"
+    [statusClass]="statusClass.bind(this)"
+    [statusLabel]="statusLabel.bind(this)"
+    [suspiciousBadgeClass]="suspiciousBadgeClass.bind(this)"
+    [isFlagged]="isFlagged.bind(this)"
+    [isArchived]="isArchived.bind(this)"
+    [canValidate]="canValidate.bind(this)"
+    [canFlag]="canFlag.bind(this)"
+    [canOpenPhoto]="canOpenPhoto.bind(this)"
+    [getPhotoUrls]="getPhotoUrls.bind(this)"
+    [getSelectedPhoto]="getSelectedPhoto.bind(this)"
+    [getHistoryEventLabel]="getHistoryEventLabel.bind(this)"
+    [getHistoryBadgeClass]="getHistoryBadgeClass.bind(this)"
+    [getHistoryActionLabel]="getHistoryActionLabel.bind(this)"
+    [getHistoryStatusChange]="getHistoryStatusChange.bind(this)"
+    [hasHistoryMetadata]="hasHistoryMetadata.bind(this)"
+    [getHistoryActorLabel]="getHistoryActorLabel.bind(this)"
+    (close)="closeDetails()"
+    (approve)="approve($event)"
+    (flag)="openFlagModal($event)"
+    (viewPhoto)="openPhoto($event)"
+    (copyReference)="copyReferenceCode($event)"
+    (copyEmail)="copyContactEmail($event)"
+    (selectPhoto)="selectPhoto($event)"
+    (selectedRestoreStatusChange)="selectedRestoreStatus.set($event)"
+    (openRestoreModal)="openRestoreModal()"
+    (closeRestoreModal)="closeRestoreModal()"
+    (restoreStatus)="restoreStatus()"
+  />
 }
 
 @if (flagModalOpen()) {
-  <div class="fixed inset-0 z-[95] flex items-center justify-center p-4">
-    <div class="absolute inset-0 bg-slate-950/40" (click)="closeFlagModal()"></div>
-
-    <div class="relative w-full max-w-lg rounded-2xl border border-border/60 bg-white p-6 shadow-2xl">
+  <app-admin-modal-shell
+    widthClass="max-w-lg"
+    zIndexClass="z-[95]"
+    (backdropClick)="closeFlagModal()"
+  >
+    <div class="p-6">
       <p class="text-xs font-semibold uppercase tracking-[0.18em] text-text-secondary mb-2">Flag Suspicious Report</p>
       <h4 class="text-lg font-bold text-text-primary mb-2">Flag this report for investigation?</h4>
       <p class="text-sm text-text-secondary mb-5">
@@ -874,5 +270,5 @@
         </app-button>
       </div>
     </div>
-  </div>
+  </app-admin-modal-shell>
 }
