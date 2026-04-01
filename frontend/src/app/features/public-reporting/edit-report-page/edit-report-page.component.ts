@@ -1,5 +1,4 @@
 import { Component } from '@angular/core';
-import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
 type EditableReport = {
@@ -15,9 +14,8 @@ type EditableReport = {
 @Component({
   selector: 'app-edit-report-page',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   templateUrl: './edit-report-page.component.html',
-  styleUrl: './edit-report-page.component.css',
 })
 export class EditReportPageComponent {
   referenceCode = '';
