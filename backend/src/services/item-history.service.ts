@@ -26,6 +26,15 @@ type StoredClaim = Claim & {
 };
 
 type StoredHistoryEvent = Omit<ItemHistoryEventResponse, 'id'>;
+type StoredStatusHistoryRecord = {
+  itemId: string;
+  previousStatus: ItemStatus;
+  nextStatus: ItemStatus;
+  changedAt: string;
+  changedByUid?: string;
+  changedByEmail?: string | null;
+  changedByRole?: string | null;
+};
 
 type HistoryWriteOptions = {
   transaction?: Transaction;
@@ -110,6 +119,20 @@ const sortEventsDescending = (left: ItemHistoryEventResponse, right: ItemHistory
   return right.id.localeCompare(left.id);
 };
 
+const getStatusChangeFromEvent = (
+  event: ItemHistoryEventResponse,
+): { previous?: string; next?: string } | null => {
+  const statusChange = event.changes?.find((change) => change.field === 'status' || change.field === 'item.status');
+  if (!statusChange) {
+    return null;
+  }
+
+  return {
+    previous: typeof statusChange.previousValue === 'string' ? statusChange.previousValue : undefined,
+    next: typeof statusChange.newValue === 'string' ? statusChange.newValue : undefined,
+  };
+};
+
 const toHistoryEventResponse = (
   id: string,
   data: Partial<StoredHistoryEvent> | undefined,
@@ -138,6 +161,68 @@ const toHistoryEventResponse = (
     actor: data.actor,
     metadata: data.metadata,
     changes: data.changes,
+  };
+};
+
+const resolveActorType = (role?: string | null): NonNullable<ItemHistoryEventResponse['actor']>['type'] => {
+  if (role === 'ADMIN' || role === 'SECURITY' || role === 'SYSTEM' || role === 'USER') {
+    return role;
+  }
+
+  return 'SYSTEM';
+};
+
+const toStatusHistoryEventResponse = (
+  id: string,
+  data: StoredStatusHistoryRecord,
+  aggregate: ResolvedItemAggregate,
+  persistedEvents: ItemHistoryEventResponse[],
+): ItemHistoryEventResponse | null => {
+  if (
+    typeof data.itemId !== 'string'
+    || typeof data.previousStatus !== 'string'
+    || typeof data.nextStatus !== 'string'
+    || typeof data.changedAt !== 'string'
+  ) {
+    return null;
+  }
+
+  const hasMatchingPersistedEvent = persistedEvents.some((event) => {
+    if (event.timestamp !== data.changedAt) {
+      return false;
+    }
+
+    const statusChange = getStatusChangeFromEvent(event);
+    return statusChange?.previous === data.previousStatus && statusChange?.next === data.nextStatus;
+  });
+
+  if (hasMatchingPersistedEvent) {
+    return null;
+  }
+
+  return {
+    id,
+    itemId: aggregate.canonicalItemId,
+    entityType: 'ITEM',
+    entityId: aggregate.itemDoc?.id ?? aggregate.canonicalItemId,
+    actionType: 'ITEM_STATUS_UPDATED',
+    timestamp: data.changedAt,
+    summary: `Item status changed from ${data.previousStatus} to ${data.nextStatus}.`,
+    actor: {
+      type: resolveActorType(data.changedByRole),
+      uid: data.changedByUid,
+      email: data.changedByEmail ?? undefined,
+      role: data.changedByRole ?? undefined,
+    },
+    metadata: {
+      referenceCode: aggregate.referenceCode,
+      itemStatus: data.nextStatus,
+    },
+    changes: [{
+      field: 'status',
+      previousValue: data.previousStatus,
+      newValue: data.nextStatus,
+    }],
   };
 };
 
@@ -434,13 +519,18 @@ export const getItemHistory = async (
   requestedItemId: string,
 ): Promise<ItemHistoryResponse> => {
   const aggregate = await resolveItemAggregate(db, requestedItemId);
-  const [storedHistoryDocs, claimDocs] = await Promise.all([
+  const [storedHistoryDocs, storedStatusHistoryDocs, claimDocs] = await Promise.all([
     queryCollectionByItemIds<StoredHistoryEvent>(db, 'itemHistory', aggregate.candidateItemIds),
+    queryCollectionByItemIds<StoredStatusHistoryRecord>(db, 'itemStatusHistory', aggregate.candidateItemIds),
     queryCollectionByItemIds<StoredClaim>(db, 'claims', aggregate.candidateItemIds),
   ]);
 
   const persistedEvents = storedHistoryDocs
     .map((doc) => toHistoryEventResponse(doc.id, doc.data, aggregate.canonicalItemId))
+    .filter((event): event is ItemHistoryEventResponse => event !== null);
+
+  const statusHistoryEvents = storedStatusHistoryDocs
+    .map((doc) => toStatusHistoryEventResponse(doc.id, doc.data, aggregate, persistedEvents))
     .filter((event): event is ItemHistoryEventResponse => event !== null);
 
   const existingKeys = new Set(
@@ -452,7 +542,7 @@ export const getItemHistory = async (
     ...claimDocs.flatMap((claimDoc) => createLegacyClaimEvents(aggregate.canonicalItemId, claimDoc, existingKeys)),
   ];
 
-  const events = [...persistedEvents, ...legacyEvents].sort(sortEventsDescending);
+  const events = [...persistedEvents, ...statusHistoryEvents, ...legacyEvents].sort(sortEventsDescending);
 
   return {
     itemId: aggregate.canonicalItemId,
