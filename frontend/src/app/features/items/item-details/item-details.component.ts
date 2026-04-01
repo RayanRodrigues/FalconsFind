@@ -255,14 +255,14 @@ export class ItemDetailsComponent implements OnInit, OnDestroy {
     const status = this.item?.status;
     const statusClasses: Record<ItemStatus, string> = {
       REPORTED: 'bg-info/10 text-info border-info/20',
-      PENDING_VALIDATION: 'bg-warning/20 text-text-primary border-warning/30',
+      PENDING_VALIDATION: 'bg-warning/20 text-[var(--color-text-primary)] border-warning/30',
       VALIDATED: 'bg-success/10 text-success border-success/30',
       CLAIMED: 'bg-primary/10 text-primary border-primary/30',
       RETURNED: 'bg-secondary/10 text-secondary border-secondary/30',
-      ARCHIVED: 'bg-border/30 text-text-secondary border-border'
+      ARCHIVED: 'bg-[var(--color-border)]/30 text-[var(--color-text-secondary)] border-[var(--color-border)]'
     };
 
-    return status ? statusClasses[status] : 'bg-border/30 text-text-secondary border-border';
+    return status ? statusClasses[status] : 'bg-[var(--color-border)]/30 text-[var(--color-text-secondary)] border-[var(--color-border)]';
   }
 
   get imageUrls(): string[] {

@@ -58,7 +58,7 @@ export class AlertComponent {
     const typeClasses = {
       success: 'bg-success/10 border-success text-success',
       error: 'bg-error/10 border-error text-error',
-      warning: 'bg-warning/15 border-warning text-text-primary',
+      warning: 'bg-warning/15 border-warning text-[var(--color-text-primary)]',
       info: 'bg-info/10 border-info text-info'
     }[this.type];
 
