@@ -30,6 +30,7 @@ type SortOption = 'most-recent' | 'oldest';
 export class FoundItemsPageComponent implements OnInit, OnDestroy {
   loading = true;
   error = false;
+  hasLoadedOnce = false;
 
   items: ItemPublicResponse[] = [];
   total = 0;
@@ -114,10 +115,12 @@ export class FoundItemsPageComponent implements OnInit, OnDestroy {
           this.totalPages = response.totalPages;
           this.hasNextPage = response.hasNextPage;
           this.hasPrevPage = response.hasPrevPage;
+          this.hasLoadedOnce = true;
           this.safeDetectChanges();
         },
         error: () => {
           this.error = true;
+          this.hasLoadedOnce = true;
           this.safeDetectChanges();
         },
       });
@@ -185,6 +188,30 @@ export class FoundItemsPageComponent implements OnInit, OnDestroy {
       this.dateFilter ||
       this.sortOption !== 'most-recent'
     );
+  }
+
+  get showLoadingState(): boolean {
+    return this.loading;
+  }
+
+  get showErrorState(): boolean {
+    return !this.loading && this.error;
+  }
+
+  get showEmptyState(): boolean {
+    return !this.loading && !this.error && this.hasLoadedOnce && this.items.length === 0;
+  }
+
+  get showInitialEmptyState(): boolean {
+    return this.showEmptyState && !this.hasActiveFilters;
+  }
+
+  get showFilteredEmptyState(): boolean {
+    return this.showEmptyState && this.hasActiveFilters;
+  }
+
+  get showItemsGrid(): boolean {
+    return !this.loading && !this.error && this.items.length > 0;
   }
 
   safeDetectChanges(): void {
@@ -271,12 +298,17 @@ export class FoundItemsPageComponent implements OnInit, OnDestroy {
   }
 
   private saveSortPreference(): void {
-    if (!isPlatformBrowser(this.platformId)) return;
+    if (!isPlatformBrowser(this.platformId) || typeof localStorage?.setItem !== 'function') {
+      return;
+    }
+
     localStorage.setItem(this.sortStorageKey, this.sortOption);
   }
 
   private restoreSortPreference(): void {
-    if (!isPlatformBrowser(this.platformId)) return;
+    if (!isPlatformBrowser(this.platformId) || typeof localStorage?.getItem !== 'function') {
+      return;
+    }
 
     const saved = localStorage.getItem(this.sortStorageKey);
     if (saved === 'most-recent' || saved === 'oldest') {

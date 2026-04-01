@@ -134,7 +134,7 @@
               <div class="space-y-4">
                 <h3 class="text-base font-semibold text-[var(--color-text-primary)]">When and Where</h3>
 
-                <app-form-field id="foundLocationOption" label="Found Location" [required]="true" [error]="getLocationError()">
+                <app-form-field id="foundLocationOption" label="Location" [required]="true" [error]="getLocationError()">
                   <app-select
                     id="foundLocationOption"
                     formControlName="foundLocationOption"
@@ -145,10 +145,13 @@
                       <option [value]="location">{{ location }}</option>
                     }
                   </app-select>
+                  <span hint class="text-xs text-[var(--color-text-secondary)]">
+                    Choose a standard campus location, or select Other to enter it manually.
+                  </span>
                 </app-form-field>
 
-                <div *ngIf="foundForm.get('foundLocationOption')?.value === 'Other'">
-                  <app-form-field id="foundLocationCustom" label="Enter Found Location" [required]="true" [error]="getLocationError()">
+                <div *ngIf="foundForm.get('foundLocationOption')?.value === manualLocationOption">
+                  <app-form-field id="foundLocationCustom" label="Enter Location" [required]="true" [error]="getLocationError()">
                     <app-input
                       id="foundLocationCustom"
                       formControlName="foundLocationCustom"

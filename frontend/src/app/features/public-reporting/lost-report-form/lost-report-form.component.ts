@@ -10,14 +10,18 @@ import { FormValidationService } from '../../../core/services/form-validation.se
 import type { CreateReportResponse } from '../../../models/responses/create-report.response.dto';
 import type { ErrorResponse } from '../../../models/responses/error-response.model';
 
-import { CardComponent } from '../../../shared/components/layout/card.component';
-import { ButtonComponent } from '../../../shared/components/buttons/button.component';
 import { AlertComponent } from '../../../shared/components/feedback/alert.component';
 import { LostReportStepBasicComponent } from './lost-report-step-basic.component';
 import { LostReportStepWhenWhereComponent } from './lost-report-step-when-where.component';
 import { LostReportStepContactComponent } from './lost-report-step-contact.component';
 import { ReportStepsComponent } from '../../../shared/components/navigation/report-steps.component';
 import { mergeSelectedPhotos } from '../../../shared/utils/photo-upload.util';
+import {
+  CAMPUS_REPORT_LOCATIONS,
+  MANUAL_REPORT_LOCATION_OPTION,
+  isManualReportLocation,
+  resolveReportLocation
+} from '../../../shared/utils/report-location.util';
 
 @Component({
   selector: 'app-lost-report-form',
@@ -25,8 +29,6 @@ import { mergeSelectedPhotos } from '../../../shared/utils/photo-upload.util';
   imports: [
     CommonModule,
     ReactiveFormsModule,
-    CardComponent,
-    ButtonComponent,
     AlertComponent,
     ReportStepsComponent,
     LostReportStepBasicComponent,
@@ -51,13 +53,8 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
     'Backpacks & Bags', 'Books', 'Jewelry', 'Eyewear', 'Personal Items', 'Other'
   ];
 
-  locations = [
-    'Library', 'Student Centre', 'Building T', 'Building B', 'Building D',
-    'Building E', 'Building F', 'Building H', 'Gymnasium', 'Cafeteria',
-    'Parking Lot', 'Other'
-  ];
-
-  readonly manualLocationOption = 'Other';
+  readonly locations = [...CAMPUS_REPORT_LOCATIONS];
+  readonly manualLocationOption = MANUAL_REPORT_LOCATION_OPTION;
   readonly manualCategoryOption = 'Other';
 
   private readonly platformId = inject(PLATFORM_ID);
@@ -146,7 +143,7 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
       .subscribe((value) => {
         const customLocationControl = this.reportForm.get('locationCustom');
 
-        if (value === this.manualLocationOption) {
+        if (isManualReportLocation(value)) {
           customLocationControl?.setValidators([Validators.required, Validators.maxLength(120)]);
           this.reportForm.patchValue({ location: '' }, { emitEvent: false });
         } else {
@@ -225,7 +222,7 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
   }
 
   isManualLocationSelected(): boolean {
-    return this.reportForm.get('locationOption')?.value === this.manualLocationOption;
+    return isManualReportLocation(this.reportForm.get('locationOption')?.value);
   }
 
   getLocationError(): string | null {
@@ -435,14 +432,12 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
   }
 
   private syncLocationValue(): void {
-    const selectedLocation = this.reportForm.get('locationOption')?.value;
-    const customLocation = this.reportForm.get('locationCustom')?.value;
-
-    const finalLocation = selectedLocation === this.manualLocationOption
-      ? (customLocation ?? '').trim()
-      : (selectedLocation ?? '').trim();
-
-    this.reportForm.patchValue({ location: finalLocation }, { emitEvent: false });
+    this.reportForm.patchValue({
+      location: resolveReportLocation(
+        this.reportForm.get('locationOption')?.value,
+        this.reportForm.get('locationCustom')?.value
+      )
+    }, { emitEvent: false });
     this.reportForm.get('location')?.updateValueAndValidity({ emitEvent: false });
   }
 

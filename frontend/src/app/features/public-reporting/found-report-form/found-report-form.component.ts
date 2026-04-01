@@ -9,16 +9,20 @@ import { FormValidationService } from '../../../core/services/form-validation.se
 import { ReportService } from '../../../core/services/report.service';
 import type { CreateReportResponse } from '../../../models/responses/create-report.response.dto';
 import type { ErrorResponse } from '../../../models/responses/error-response.model';
-import { ButtonComponent } from '../../../shared/components/buttons/button.component';
 import { AlertComponent } from '../../../shared/components/feedback/alert.component';
 import { FormFieldComponent } from '../../../shared/components/forms/form-field.component';
 import { InputComponent } from '../../../shared/components/forms/input.component';
 import { PhotoUploadFieldComponent } from '../../../shared/components/forms/photo-upload-field.component';
 import { SelectComponent } from '../../../shared/components/forms/select.component';
 import { TextareaComponent } from '../../../shared/components/forms/textarea.component';
-import { CardComponent } from '../../../shared/components/layout/card.component';
 import { ReportStepsComponent } from '../../../shared/components/navigation/report-steps.component';
 import { mergeSelectedPhotos } from '../../../shared/utils/photo-upload.util';
+import {
+  CAMPUS_REPORT_LOCATIONS,
+  MANUAL_REPORT_LOCATION_OPTION,
+  isManualReportLocation,
+  resolveReportLocation
+} from '../../../shared/utils/report-location.util';
 
 @Component({
   selector: 'app-found-report-form',
@@ -26,14 +30,12 @@ import { mergeSelectedPhotos } from '../../../shared/utils/photo-upload.util';
   imports: [
     CommonModule,
     ReactiveFormsModule,
-    CardComponent,
     FormFieldComponent,
     InputComponent,
     PhotoUploadFieldComponent,
     SelectComponent,
     TextareaComponent,
     ReportStepsComponent,
-    ButtonComponent,
     AlertComponent
   ],
   templateUrl: './found-report-form.component.html'
@@ -54,21 +56,8 @@ export class FoundReportFormComponent implements OnInit, OnDestroy {
     'Backpacks & Bags', 'Books', 'Jewelry', 'Eyewear', 'Personal Items', 'Other'
   ];
 
-  readonly locationOptions = [
-    'Library',
-    'Student Centre',
-    'Cafeteria',
-    'Gym',
-    'Parking Lot',
-    'Hallway',
-    'Classroom',
-    'Lecture Hall',
-    'Residence',
-    'Campus Security Office',
-    'Other'
-  ];
-
-  readonly manualLocationOption = 'Other';
+  readonly locationOptions = [...CAMPUS_REPORT_LOCATIONS];
+  readonly manualLocationOption = MANUAL_REPORT_LOCATION_OPTION;
   readonly manualCategoryOption = 'Other';
 
   private readonly platformId = inject(PLATFORM_ID);
@@ -144,7 +133,7 @@ export class FoundReportFormComponent implements OnInit, OnDestroy {
       .subscribe((value) => {
         const customLocationControl = this.foundForm.get('foundLocationCustom');
 
-        if (value === this.manualLocationOption) {
+        if (isManualReportLocation(value)) {
           customLocationControl?.setValidators([Validators.required, Validators.maxLength(120)]);
           this.foundForm.patchValue({ foundLocation: '' }, { emitEvent: false });
         } else {
@@ -225,7 +214,7 @@ export class FoundReportFormComponent implements OnInit, OnDestroy {
   }
 
   isManualLocationSelected(): boolean {
-    return this.foundForm.get('foundLocationOption')?.value === this.manualLocationOption;
+    return isManualReportLocation(this.foundForm.get('foundLocationOption')?.value);
   }
 
   getLocationError(): string | null {
@@ -233,16 +222,16 @@ export class FoundReportFormComponent implements OnInit, OnDestroy {
     const locationCustomControl = this.foundForm.get('foundLocationCustom');
 
     if (locationOptionControl?.touched && locationOptionControl.errors?.['required']) {
-      return 'Please select a found location';
+      return 'Please select a location';
     }
 
     if (this.isManualLocationSelected()) {
       if (locationCustomControl?.touched && locationCustomControl.errors?.['required']) {
-        return 'Please enter the found location';
+        return 'Please enter the location';
       }
 
       if (locationCustomControl?.touched && locationCustomControl.errors?.['maxlength']) {
-        return 'Found location must be 120 characters or less';
+        return 'Location must be 120 characters or less';
       }
     }
 
@@ -421,14 +410,12 @@ export class FoundReportFormComponent implements OnInit, OnDestroy {
   }
 
   private syncFoundLocationValue(): void {
-    const selectedLocation = this.foundForm.get('foundLocationOption')?.value;
-    const customLocation = this.foundForm.get('foundLocationCustom')?.value;
-
-    const finalLocation = selectedLocation === this.manualLocationOption
-      ? (customLocation ?? '').trim()
-      : (selectedLocation ?? '').trim();
-
-    this.foundForm.patchValue({ foundLocation: finalLocation }, { emitEvent: false });
+    this.foundForm.patchValue({
+      foundLocation: resolveReportLocation(
+        this.foundForm.get('foundLocationOption')?.value,
+        this.foundForm.get('foundLocationCustom')?.value
+      )
+    }, { emitEvent: false });
     this.foundForm.get('foundLocation')?.updateValueAndValidity({ emitEvent: false });
   }
 

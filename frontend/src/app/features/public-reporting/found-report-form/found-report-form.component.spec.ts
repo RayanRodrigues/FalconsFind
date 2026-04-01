@@ -5,6 +5,7 @@ import { vi } from 'vitest';
 import { ErrorService } from '../../../core/services/error.service';
 import { FormValidationService } from '../../../core/services/form-validation.service';
 import { ReportService } from '../../../core/services/report.service';
+import { CAMPUS_REPORT_LOCATIONS, MANUAL_REPORT_LOCATION_OPTION } from '../../../shared/utils/report-location.util';
 import { FoundReportFormComponent } from './found-report-form.component';
 
 describe('FoundReportFormComponent', () => {
@@ -76,8 +77,8 @@ describe('FoundReportFormComponent', () => {
       title: 'Found wallet',
       categoryOption: 'Wallets & Purses',
       description: 'Brown leather wallet with documents',
-      foundLocationOption: 'Other',
-      foundLocationCustom: 'Building B, Room 204',
+      foundLocationOption: MANUAL_REPORT_LOCATION_OPTION,
+      foundLocationCustom: '  Building B, Room 204  ',
       foundDate: '2026-02-20',
       foundTime: '10:30',
       contactEmail: 'finder@example.com',
@@ -93,5 +94,9 @@ describe('FoundReportFormComponent', () => {
     expect(payload.get('foundLocation')).toBe('Building B, Room 204');
     expect(component.submitSuccess).toBe(true);
     expect(component.referenceCode).toBe('FND-20260225-ABC12345');
+  });
+
+  it('uses the shared campus location list', () => {
+    expect(component.locationOptions).toEqual([...CAMPUS_REPORT_LOCATIONS]);
   });
 });

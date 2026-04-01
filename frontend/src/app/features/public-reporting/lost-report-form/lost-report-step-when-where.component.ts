@@ -10,6 +10,7 @@ import { FormFieldComponent } from '../../../shared/components/forms/form-field.
 import { InputComponent } from '../../../shared/components/forms/input.component';
 import { PhotoUploadFieldComponent } from '../../../shared/components/forms/photo-upload-field.component';
 import { SelectComponent } from '../../../shared/components/forms/select.component';
+import { MANUAL_REPORT_LOCATION_OPTION } from '../../../shared/utils/report-location.util';
 
 @Component({
   selector: 'app-lost-report-step-when-where',
@@ -43,9 +44,12 @@ import { SelectComponent } from '../../../shared/components/forms/select.compone
             <option [value]="location">{{ location }}</option>
           }
         </app-select>
+        <span hint class="text-xs text-[var(--color-text-secondary)]">
+          Choose a standard campus location, or select Other to enter it manually.
+        </span>
       </app-form-field>
 
-      <div *ngIf="form.get('locationOption')?.value === 'Other'">
+      <div *ngIf="form.get('locationOption')?.value === manualLocationOption">
         <app-form-field
           id="locationCustom"
           label="Enter Location"
@@ -90,6 +94,8 @@ import { SelectComponent } from '../../../shared/components/forms/select.compone
   `
 })
 export class LostReportStepWhenWhereComponent {
+  readonly manualLocationOption = MANUAL_REPORT_LOCATION_OPTION;
+
   @Input({ required: true }) form!: FormGroup;
   @Input({ required: true }) locations!: string[];
   @Input({ required: true }) todayDate!: string;

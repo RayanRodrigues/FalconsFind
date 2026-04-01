@@ -38,4 +38,15 @@ describe('FoundItemsPageComponent', () => {
   it('should create', () => {
     expect(component).toBeTruthy();
   });
+
+  it('does not expose empty states while loading', () => {
+    component.loading = true;
+    component.error = false;
+    component.hasLoadedOnce = false;
+    component.items = [];
+
+    expect(component.showLoadingState).toBe(true);
+    expect(component.showInitialEmptyState).toBe(false);
+    expect(component.showFilteredEmptyState).toBe(false);
+  });
 });

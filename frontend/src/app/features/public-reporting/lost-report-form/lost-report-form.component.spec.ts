@@ -5,6 +5,7 @@ import { vi } from 'vitest';
 import { ErrorService } from '../../../core/services/error.service';
 import { FormValidationService } from '../../../core/services/form-validation.service';
 import { ReportService } from '../../../core/services/report.service';
+import { CAMPUS_REPORT_LOCATIONS, MANUAL_REPORT_LOCATION_OPTION } from '../../../shared/utils/report-location.util';
 import { LostReportFormComponent } from './lost-report-form.component';
 
 describe('LostReportFormComponent', () => {
@@ -81,8 +82,8 @@ describe('LostReportFormComponent', () => {
       title: 'Lost backpack',
       categoryOption: 'Backpacks & Bags',
       description: 'Black backpack with laptop',
-      locationOption: 'Other',
-      locationCustom: 'Building B, Room 204',
+      locationOption: MANUAL_REPORT_LOCATION_OPTION,
+      locationCustom: '  Building B, Room 204  ',
       date: '2026-02-20',
       time: '09:00',
       contactName: 'John Doe',
@@ -102,5 +103,9 @@ describe('LostReportFormComponent', () => {
     expect(request.get('lastSeenLocation')).toBe('Building B, Room 204');
     expect(component.submitSuccess).toBe(true);
     expect(component.referenceCode).toBe('LST-20260225-XYZ98765');
+  });
+
+  it('uses the shared campus location list', () => {
+    expect(component.locations).toEqual([...CAMPUS_REPORT_LOCATIONS]);
   });
 });

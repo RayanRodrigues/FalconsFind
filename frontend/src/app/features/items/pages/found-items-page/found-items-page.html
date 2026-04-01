@@ -100,7 +100,7 @@
     </div>
 
     <!-- Loading state -->
-    @if (loading) {
+    @if (showLoadingState) {
       <div class="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-10 shadow-sm">
         <div class="flex flex-col items-center gap-4 py-2 text-center">
           <svg class="h-9 w-9 animate-spin text-primary" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -116,7 +116,7 @@
     }
 
     <!-- Error state -->
-    @if (!loading && error) {
+    @if (showErrorState) {
       <div class="rounded-xl border border-red-500/20 bg-[var(--color-surface)] p-8 shadow-sm">
         <div class="flex flex-col items-center gap-4 text-center">
           <div class="rounded-full bg-red-500/10 p-3">
@@ -136,7 +136,7 @@
     }
 
     <!-- Empty — no items at all -->
-    @if (!loading && !error && items.length === 0 && !hasActiveFilters) {
+    @if (showInitialEmptyState) {
       <div class="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-10 text-center shadow-sm">
         <div class="flex flex-col items-center gap-3">
           <div class="rounded-full bg-[var(--color-neutral-base)] p-4">
@@ -151,7 +151,7 @@
     }
 
     <!-- Empty — filters active -->
-    @if (!loading && !error && items.length === 0 && hasActiveFilters) {
+    @if (showFilteredEmptyState) {
       <div class="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-10 text-center shadow-sm">
         <div class="flex flex-col items-center gap-3">
           <p class="mb-0 font-medium text-[var(--color-text-primary)]">No matching items found</p>
@@ -161,7 +161,7 @@
     }
 
     <!-- Items grid -->
-    @if (!loading && !error && items.length > 0) {
+    @if (showItemsGrid) {
 
       <div class="mb-4 flex items-center justify-between">
         <p class="text-sm text-[var(--color-text-secondary)]">
