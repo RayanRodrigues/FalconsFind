@@ -1,11 +1,15 @@
 import type { Firestore } from 'firebase-admin/firestore';
+import type { RedisClient } from '../../bootstrap/redis.js';
 import { ItemStatus } from '../../contracts/index.js';
+import { invalidateAdminReportsCache } from '../reports/report-admin-query-cache.service.js';
 import { ItemNotFoundError } from './item-errors.js';
+import { invalidatePublicItemsCache } from './item-query-cache.service.js';
 import { recordArchivedHistory } from './item-status.service.js';
 import { createStatusPatch, getStatusSyncTargets, writeStatusHistoryRecord } from './item-shared.js';
 import type { ItemAutomationActor, StoredItem } from './item-types.js';
 
 const AUTO_ARCHIVE_AFTER_MONTHS = 6;
+const AUTO_ARCHIVE_SWEEP_INTERVAL_MS = 60 * 60 * 1000;
 
 const SYSTEM_AUTO_ARCHIVE_ACTOR: ItemAutomationActor = {
   type: 'SYSTEM',
@@ -109,4 +113,41 @@ export const archiveExpiredUnclaimedItems = async (
   }
 
   return archivedCount;
+};
+
+export const invalidateCachesAfterAutoArchive = async (
+  redis: RedisClient | null,
+  archivedCount: number,
+): Promise<void> => {
+  if (archivedCount <= 0) {
+    return;
+  }
+
+  await Promise.all([
+    invalidatePublicItemsCache(redis),
+    invalidateAdminReportsCache(redis),
+  ]);
+};
+
+export const runAutoArchiveSweep = async (
+  db: Firestore,
+  redis: RedisClient | null,
+  now: Date = new Date(),
+): Promise<number> => {
+  const archivedCount = await archiveExpiredUnclaimedItems(db, now);
+  await invalidateCachesAfterAutoArchive(redis, archivedCount);
+  return archivedCount;
+};
+
+export const startAutoArchiveSweep = (
+  db: Firestore,
+  redis: RedisClient | null,
+): void => {
+  void runAutoArchiveSweep(db, redis);
+
+  const interval = setInterval(() => {
+    void runAutoArchiveSweep(db, redis);
+  }, AUTO_ARCHIVE_SWEEP_INTERVAL_MS);
+
+  interval.unref();
 };

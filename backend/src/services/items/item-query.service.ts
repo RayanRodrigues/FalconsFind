@@ -4,7 +4,6 @@ import type { RedisClient } from '../../bootstrap/redis.js';
 import { ItemStatus } from '../../contracts/index.js';
 import type { ItemDetailsResponse, ItemPublicResponse, ItemStatusResponse, Report } from '../../contracts/index.js';
 import { normalizeDateReported } from '../../utils/date-normalization.js';
-import { archiveExpiredUnclaimedItems, archiveItemIfEligible } from './item-archive.service.js';
 import { InvalidItemDataError } from './item-errors.js';
 import {
   buildPublicItemDetailCacheKey,
@@ -74,7 +73,6 @@ export const getItemById = async (
   redis: RedisClient | null,
   itemId: string,
 ): Promise<ItemDetailsResponse | null> => {
-  await archiveItemIfEligible(db, itemId);
   const cached = await getCachedPublicItemQuery<ItemDetailsResponse>(redis, buildPublicItemDetailCacheKey(itemId));
   if (cached) {
     return cached;
@@ -132,7 +130,6 @@ export const listValidatedItems = async (
   redis: RedisClient | null,
   params: ListValidatedItemsParams,
 ): Promise<{ items: Array<ItemPublicResponse>; total: number }> => {
-  await archiveExpiredUnclaimedItems(db);
   const page = Math.max(1, Math.floor(params.page));
   const limit = Math.max(1, Math.floor(params.limit));
   const keyword = typeof params.keyword === 'string' ? params.keyword.trim().toLowerCase() : '';

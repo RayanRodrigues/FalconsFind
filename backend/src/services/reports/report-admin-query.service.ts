@@ -3,7 +3,6 @@ import type { Firestore, Query } from 'firebase-admin/firestore';
 import type { RedisClient } from '../../bootstrap/redis.js';
 import type { AdminReportResponse, Report } from '../../contracts/index.js';
 import { ItemStatus } from '../../contracts/index.js';
-import { archiveExpiredUnclaimedItems } from '../items/item-archive.service.js';
 import {
   buildAdminReportsCacheKey,
   getCachedAdminReportsQuery,
@@ -27,7 +26,6 @@ export const listAdminReports = async (
     byStatus: Partial<Record<ItemStatus, number>>;
   };
 }> => {
-  await archiveExpiredUnclaimedItems(db);
   const cacheKey = buildAdminReportsCacheKey(params);
   const cached = await getCachedAdminReportsQuery<{
     reports: AdminReportResponse[];

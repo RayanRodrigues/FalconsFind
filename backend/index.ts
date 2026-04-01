@@ -65,11 +65,18 @@ const claimsRoutesModule = await importRuntimeModule<{
 const openApiModule = await importRuntimeModule<{
   openApiDocument: object;
 }>(__dirname, './src/docs/openapi');
+const itemsServiceModule = await importRuntimeModule<{
+  startAutoArchiveSweep: (
+    db: FirebaseFirestore.Firestore,
+    redis: unknown,
+  ) => void;
+}>(__dirname, './src/services/items.service');
 
 const app = express();
 const { db, bucket } = initializeFirebaseServices(__dirname);
 await runStartupFirestoreCheck(db);
 const redis = await createRedisClient(appConfig.redisUrl);
+itemsServiceModule.startAutoArchiveSweep(db, redis);
 
 app.use(
   cors({
