@@ -207,8 +207,8 @@ export class FoundItemsPageComponent implements OnInit, OnDestroy {
 
   getAvailabilityClass(status: string | null | undefined): string {
     return this.isClaimed(status)
-      ? 'bg-red-100 text-red-700 border-red-200'
-      : 'bg-green-100 text-green-700 border-green-200';
+      ? 'bg-red-500/10 text-red-500 border-red-500/20'
+      : 'bg-green-500/10 text-green-600 border-green-500/20';
   }
 
   getTimeSinceListed(date: string | null | undefined): string {

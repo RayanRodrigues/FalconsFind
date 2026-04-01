@@ -33,7 +33,7 @@ import { RouterLink } from '@angular/router';
               Lost Page Report
             </p>
 
-            <h1 class="mt-5 text-3xl font-black leading-tight text-[var(--color-text-primary)] sm:text-6xl">
+            <h1 class="mt-5 text-2xl font-black leading-tight text-[var(--color-text-primary)] sm:text-4xl">
               This page pulled a disappearing act
             </h1>
             <p class="mt-4 text-lg font-medium text-primary sm:text-2xl">

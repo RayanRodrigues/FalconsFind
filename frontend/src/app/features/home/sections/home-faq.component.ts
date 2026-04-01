@@ -7,11 +7,11 @@ type FaqItem = { q: string; a: string };
   standalone: true,
   styleUrl: './home-faq.component.css',
   template: `
-    <section class="bg-white border-t border-border/60">
-      <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-14">
+    <section class="border-t border-[var(--color-border)] bg-[var(--color-bg)]">
+      <div class="mx-auto max-w-3xl px-4 py-14 sm:px-6 lg:px-8">
 
-        <p class="section-eyebrow text-center">Got questions?</p>
-        <h2 class="section-title text-center" style="margin-bottom: 2.5rem;">Frequently Asked Questions</h2>
+        <p class="mb-2 text-center text-xs font-semibold uppercase tracking-widest text-primary">Got questions?</p>
+        <h2 class="mb-10 text-center text-2xl font-bold text-[var(--color-text-primary)]">Frequently Asked Questions</h2>
 
         <div>
           @for (item of faqs; track item.q; let i = $index) {
