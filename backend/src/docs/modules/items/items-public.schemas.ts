@@ -1,0 +1,105 @@
+export const itemPublicSchemas = {
+  ItemPublicResponse: {
+    type: 'object',
+    required: ['id', 'title', 'status', 'availability', 'referenceCode', 'dateReported', 'listedDurationMs'],
+    properties: {
+      id: { type: 'string', example: 'item-abc123' },
+      title: { type: 'string', example: 'Black Backpack' },
+      category: { type: 'string', example: 'Accessories' },
+      status: { $ref: '#/components/schemas/PublicItemStatus' },
+      availability: { $ref: '#/components/schemas/ItemAvailability' },
+      referenceCode: {
+        type: 'string',
+        pattern: '^(LST|FND)-\\d{8}-[A-Z0-9]+$',
+        description: 'Reference code formatted as PREFIX-YYYYMMDD-SUFFIX, where PREFIX is LST or FND.',
+        example: 'FND-20260225-ABC12345',
+      },
+      location: { type: 'string', example: 'Library' },
+      dateReported: { type: 'string', format: 'date-time' },
+      listedDurationMs: {
+        type: 'integer',
+        format: 'int64',
+        minimum: 0,
+        example: 172800000,
+        description: 'How long the item has been listed, in milliseconds.',
+      },
+      thumbnailUrl: { type: 'string', format: 'uri' },
+    },
+  },
+  ItemPublicListResponse: {
+    type: 'object',
+    required: ['page', 'limit', 'total', 'totalPages', 'hasNextPage', 'hasPrevPage', 'items'],
+    properties: {
+      page: { type: 'integer', minimum: 1, example: 1 },
+      limit: { type: 'integer', minimum: 1, maximum: 50, example: 10 },
+      total: { type: 'integer', minimum: 0, example: 42 },
+      totalPages: { type: 'integer', minimum: 1, example: 5 },
+      hasNextPage: { type: 'boolean', example: true },
+      hasPrevPage: { type: 'boolean', example: false },
+      filters: {
+        type: 'object',
+        properties: {
+          keyword: { type: 'string', example: 'backpack' },
+          category: { type: 'string', example: 'Accessories' },
+          location: { type: 'string', example: 'Library' },
+          dateFrom: { type: 'string', format: 'date-time' },
+          dateTo: { type: 'string', format: 'date-time' },
+          sort: {
+            type: 'string',
+            enum: ['most_recent', 'oldest'],
+            example: 'most_recent',
+          },
+        },
+      },
+      items: {
+        type: 'array',
+        items: {
+          $ref: '#/components/schemas/ItemPublicResponse',
+        },
+      },
+    },
+  },
+  ItemDetailsResponse: {
+    type: 'object',
+    required: ['id', 'title', 'status', 'availability', 'referenceCode', 'dateReported', 'listedDurationMs'],
+    properties: {
+      id: { type: 'string', example: 'item-abc123' },
+      title: { type: 'string', example: 'Black Backpack' },
+      category: { type: 'string', example: 'Accessories' },
+      description: { type: 'string', example: 'Black backpack with laptop sleeve' },
+      status: { $ref: '#/components/schemas/ItemStatus' },
+      availability: { $ref: '#/components/schemas/ItemAvailability' },
+      referenceCode: {
+        type: 'string',
+        pattern: '^(LST|FND)-\\d{8}-[A-Z0-9]+$',
+        description: 'Reference code formatted as PREFIX-YYYYMMDD-SUFFIX, where PREFIX is LST or FND.',
+        example: 'FND-20260225-ABC12345',
+      },
+      location: { type: 'string', example: 'Library' },
+      dateReported: { type: 'string', format: 'date-time' },
+      listedDurationMs: {
+        type: 'integer',
+        format: 'int64',
+        minimum: 0,
+        example: 172800000,
+        description: 'How long the item has been listed, in milliseconds.',
+      },
+      imageUrls: {
+        type: 'array',
+        items: { type: 'string' },
+        example: ['https://storage.googleapis.com/.../image.jpg'],
+      },
+      claimStatus: { $ref: '#/components/schemas/ClaimStatus' },
+    },
+  },
+  ItemStatusResponse: {
+    type: 'object',
+    required: ['id', 'status', 'availability'],
+    properties: {
+      id: { type: 'string', example: 'item-abc123' },
+      status: { $ref: '#/components/schemas/PublicItemStatus' },
+      availability: { $ref: '#/components/schemas/ItemAvailability' },
+      claimStatus: { $ref: '#/components/schemas/ClaimStatus' },
+    },
+  },
+} as const;
