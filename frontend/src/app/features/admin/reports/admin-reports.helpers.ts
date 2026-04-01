@@ -83,6 +83,32 @@ export function canManageFlag(item: AdminReport): boolean {
   return !isArchived(item);
 }
 
+export function getOperationalStatusOptions(item: AdminReport): string[] {
+  const currentStatus = normalizeStatus(item.status);
+
+  const optionsByStatus: Record<string, string[]> = {
+    pending_validation: ['validated', 'archived'],
+    pending: ['validated', 'archived'],
+    reported: ['validated', 'archived'],
+    validated: ['claimed', 'returned', 'archived'],
+    claimed: ['returned', 'archived'],
+    returned: ['archived'],
+    archived: [],
+  };
+
+  const nextOptions = [...(optionsByStatus[currentStatus] ?? [])];
+
+  if (item.kind === 'FOUND' && canValidate(item)) {
+    return nextOptions.filter((status) => status !== 'validated');
+  }
+
+  return nextOptions;
+}
+
+export function getOperationalStatusLabel(status?: string): string {
+  return normalizeStatus(status) === 'claimed' ? 'Matched (Claimed)' : statusLabel(status);
+}
+
 export function getPhotoUrls(item: AdminReport): string[] {
   return [
     ...(Array.isArray(item.photoUrls) ? item.photoUrls : []),
@@ -113,6 +139,34 @@ export function getFullHistoryEvents(history: ItemHistoryResponse | null): ItemH
 
   return [...history.events].sort((a, b) =>
     new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+  );
+}
+
+export function getRestoreOptionsFromHistory(history: ItemHistoryResponse | null, currentStatus?: string): string[] {
+  if (!history) return [];
+
+  const normalizedCurrentStatus = normalizeStatus(currentStatus);
+  const timeline = getStatusTimeline(history);
+
+  const rawStatuses = timeline.flatMap((event) => {
+    const fromChanges = (event.changes ?? [])
+      .filter((change) => change.field === 'status')
+      .flatMap((change) => [change.previousValue, change.newValue]);
+
+    const fromMetadata = typeof event.metadata?.itemStatus === 'string'
+      ? [event.metadata.itemStatus]
+      : [];
+
+    return [...fromChanges, ...fromMetadata];
+  });
+
+  return Array.from(
+    new Set(
+      rawStatuses
+        .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+        .map((value) => normalizeStatus(value))
+        .filter((value) => value.length > 0 && value !== normalizedCurrentStatus),
+    ),
   );
 }
 

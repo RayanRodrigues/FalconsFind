@@ -223,6 +223,42 @@
                   </button>
                 }
               </div>
+
+              <div class="mt-4 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-2)]/55 p-3.5">
+                <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-text-secondary)] mb-1">Operational Status</p>
+                <p class="text-xs text-[var(--color-text-secondary)] mb-3">
+                  Update the live item status when the situation changes. Matched items are stored as claimed.
+                </p>
+
+                <div class="space-y-3">
+                  <select
+                    [ngModel]="selectedStatusUpdate"
+                    (ngModelChange)="selectedStatusUpdateChange.emit($event)"
+                    [disabled]="!canUpdateStatus || statusUpdating"
+                    class="w-full rounded-xl border border-border bg-[var(--color-surface)] px-3 py-3 text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary transition disabled:bg-[var(--color-surface-2)] disabled:text-[var(--color-text-secondary)]"
+                  >
+                    <option value="">Select next status</option>
+                    @for (status of statusUpdateOptions; track status) {
+                      <option [value]="status">{{ getOperationalStatusLabel(status) }}</option>
+                    }
+                  </select>
+
+                  @if (!canUpdateStatus) {
+                    <p class="text-xs text-[var(--color-text-secondary)] mb-0">No direct status changes are available from the current state.</p>
+                  }
+
+                  <app-button
+                    type="button"
+                    variant="primary"
+                    size="md"
+                    [loading]="statusUpdating"
+                    [disabled]="!selectedStatusUpdate || statusUpdating"
+                    (buttonClick)="updateStatus.emit()"
+                  >
+                    {{ statusUpdating ? 'Updating…' : 'Update Status' }}
+                  </app-button>
+                </div>
+              </div>
             </div>
 
             <div class="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">

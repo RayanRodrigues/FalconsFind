@@ -37,6 +37,7 @@ function createComponent(response: AdminReportsResponse = baseResponse): {
     unflagReport: ReturnType<typeof vi.fn>;
     mergeReports: ReturnType<typeof vi.fn>;
     getItemHistory: ReturnType<typeof vi.fn>;
+    updateItemStatus: ReturnType<typeof vi.fn>;
     restoreItemStatus: ReturnType<typeof vi.fn>;
   };
 } {
@@ -51,6 +52,12 @@ function createComponent(response: AdminReportsResponse = baseResponse): {
       primaryReport: { id: 'report-1', referenceCode: 'FND-1', kind: 'FOUND', status: 'VALIDATED', title: 'Wallet' },
     })),
     getItemHistory: vi.fn().mockReturnValue(of({ itemId: 'item-1', total: 0, events: [] })),
+    updateItemStatus: vi.fn().mockReturnValue(of({
+      id: 'item-1',
+      previousStatus: 'VALIDATED',
+      status: 'RETURNED',
+      updatedAt: '2026-03-26T12:00:00.000Z',
+    })),
     restoreItemStatus: vi.fn().mockReturnValue(of({ id: 'item-1', status: 'VALIDATED' })),
   };
 
@@ -153,5 +160,63 @@ describe('AdminReportsComponent', () => {
     expect(component.filteredItems[0].isSuspicious).toBe(false);
     expect(component.selectedItem()?.isSuspicious).toBe(false);
     expect(component.actionMessage()).toBe('Suspicious flag removed.');
+  });
+
+  it('keeps previous statuses available for restore when they exist in item history', () => {
+    const currentReport = buildReport({
+      id: 'returned-1',
+      status: 'RETURNED',
+      referenceCode: 'FND-20260326-RETURN1',
+    });
+
+    const { component } = createComponent();
+    component.selectedItem.set(currentReport);
+    component.itemHistory.set({
+      itemId: 'item-1',
+      total: 2,
+      events: [
+        {
+          id: 'history-1',
+          itemId: 'item-1',
+          entityType: 'ITEM',
+          entityId: 'item-1',
+          actionType: 'ITEM_STATUS_CHANGED',
+          timestamp: '2026-03-25T10:00:00.000Z',
+          summary: 'Item moved from validated to claimed.',
+          changes: [{ field: 'status', previousValue: 'VALIDATED', newValue: 'CLAIMED' }],
+        },
+        {
+          id: 'history-2',
+          itemId: 'item-1',
+          entityType: 'ITEM',
+          entityId: 'item-1',
+          actionType: 'ITEM_STATUS_CHANGED',
+          timestamp: '2026-03-26T10:00:00.000Z',
+          summary: 'Item moved from claimed to returned.',
+          changes: [{ field: 'status', previousValue: 'CLAIMED', newValue: 'RETURNED' }],
+        },
+      ],
+    });
+
+    expect(component.getRestoreOptions()).toEqual(expect.arrayContaining(['validated', 'claimed']));
+    expect(component.getRestoreOptions()).not.toContain('returned');
+  });
+
+  it('updates operational status through the item-status endpoint', () => {
+    const report = buildReport({
+      id: 'validated-1',
+      status: 'VALIDATED',
+      referenceCode: 'FND-20260326-VALID1',
+    });
+
+    const { component, api } = createComponent();
+    component.selectedItem.set(report);
+    component.selectedStatusUpdate.set('returned');
+
+    component.updateStatus();
+
+    expect(api.updateItemStatus).toHaveBeenCalledWith('validated-1', 'returned');
+    expect(component.actionMessage()).toBe('Item status updated to Returned.');
+    expect(component.selectedItem()).toBeNull();
   });
 });

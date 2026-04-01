@@ -21,6 +21,10 @@ export class AdminReportDetailsModalComponent implements AfterViewInit, OnChange
   @Input({ required: true }) item!: AdminReport;
   @Input() activeRowId: string | null = null;
   @Input() selectedPhotoIndex = 0;
+  @Input() selectedStatusUpdate = '';
+  @Input() statusUpdateOptions: string[] = [];
+  @Input() canUpdateStatus = false;
+  @Input() statusUpdating = false;
   @Input() selectedRestoreStatus = '';
   @Input() restoreOptions: string[] = [];
   @Input() canRestore = false;
@@ -40,6 +44,7 @@ export class AdminReportDetailsModalComponent implements AfterViewInit, OnChange
   @Input() canOpenPhoto: (item: AdminReport) => boolean = () => false;
   @Input() getPhotoUrls: (item: AdminReport) => string[] = () => [];
   @Input() getSelectedPhoto: (item: AdminReport) => string | null = () => null;
+  @Input() getOperationalStatusLabel: (status?: string) => string = () => '';
   @Input() getHistoryEventLabel: (event: ItemHistoryEvent) => string = () => '';
   @Input() getHistoryBadgeClass: (event: ItemHistoryEvent) => string = () => '';
   @Input() getHistoryActionLabel: (event: ItemHistoryEvent) => string = () => '';
@@ -54,6 +59,8 @@ export class AdminReportDetailsModalComponent implements AfterViewInit, OnChange
   @Output() copyReference = new EventEmitter<string>();
   @Output() copyEmail = new EventEmitter<string | undefined>();
   @Output() selectPhoto = new EventEmitter<number>();
+  @Output() selectedStatusUpdateChange = new EventEmitter<string>();
+  @Output() updateStatus = new EventEmitter<void>();
   @Output() selectedRestoreStatusChange = new EventEmitter<string>();
   @Output() openRestoreModal = new EventEmitter<void>();
   @Output() closeRestoreModal = new EventEmitter<void>();

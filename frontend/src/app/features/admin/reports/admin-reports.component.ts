@@ -17,7 +17,7 @@ import {
   normalizeStatus, extractSuspiciousValue, statusClass, statusLabel,
   isArchived, isFlagged, suspiciousBadgeClass, rowClass,
   canValidate, canFlag, canManageFlag, getPhotoUrls,
-  getStatusTimeline, getFullHistoryEvents,
+  getOperationalStatusLabel as getOperationalStatusActionLabel, getOperationalStatusOptions, getRestoreOptionsFromHistory, getFullHistoryEvents,
   getHistoryBadgeClass, getHistoryActorLabel, getHistoryActionLabel,
   hasHistoryMetadata, getHistoryEventLabel, getHistoryStatusChange,
 } from './admin-reports.helpers';
@@ -52,8 +52,10 @@ export class AdminReportsComponent implements OnInit, OnDestroy {
   readonly itemHistory = signal<ItemHistoryResponse | null>(null);
   readonly historyLoading = signal(false);
   readonly historyError = signal('');
+  readonly selectedStatusUpdate = signal('');
   readonly selectedRestoreStatus = signal('');
   readonly restoreModalOpen = signal(false);
+  readonly statusUpdating = signal(false);
   readonly restoring = signal(false);
 
   readonly flagModalOpen = signal(false);
@@ -122,10 +124,12 @@ export class AdminReportsComponent implements OnInit, OnDestroy {
     this.loading.set(false);
   }
 
-  load(): void {
+  load(preserveActionMessage = false): void {
     this.loading.set(true);
     this.error.set('');
-    this.setActionMessage('');
+    if (!preserveActionMessage) {
+      this.setActionMessage('');
+    }
 
     this.adminReportsApi.listReports({ page: 1, limit: 100 }).subscribe({
       next: (res) => {
@@ -273,7 +277,7 @@ export class AdminReportsComponent implements OnInit, OnDestroy {
         this.setActionMessage(
           `Merged ${response.mergedReportIds.length + 1} reports. Kept "${response.primaryReport.title || primary.title || 'Untitled'}" as the primary report.`
         );
-        this.load();
+        this.load(true);
       },
       error: (err) => {
         this.merging.set(false);
@@ -294,7 +298,7 @@ export class AdminReportsComponent implements OnInit, OnDestroy {
         this.activeRowId.set(null);
         this.closeDetails();
         this.setActionMessage('Report validated successfully.');
-        this.load();
+        this.load(true);
       },
       error: (err) => {
         this.activeRowId.set(null);
@@ -474,6 +478,7 @@ export class AdminReportsComponent implements OnInit, OnDestroy {
   openDetails(item: AdminReport): void {
     this.selectedItem.set(item);
     this.selectedPhotoIndex.set(0);
+    this.selectedStatusUpdate.set('');
     this.selectedRestoreStatus.set('');
     this.restoreModalOpen.set(false);
     this.loadItemHistory(item.id);
@@ -485,7 +490,9 @@ export class AdminReportsComponent implements OnInit, OnDestroy {
     this.itemHistory.set(null);
     this.historyError.set('');
     this.historyLoading.set(false);
+    this.selectedStatusUpdate.set('');
     this.selectedRestoreStatus.set('');
+    this.statusUpdating.set(false);
     this.restoreModalOpen.set(false);
     this.restoring.set(false);
   }
@@ -518,56 +525,25 @@ export class AdminReportsComponent implements OnInit, OnDestroy {
   readonly getHistoryEventLabel = getHistoryEventLabel;
   readonly getHistoryStatusChange = getHistoryStatusChange;
 
-  private getAllowedRestoreTargetsForCurrentStatus(): Set<string> {
-    const currentStatus = normalizeStatus(this.selectedItem()?.status);
-
-    const allowedByCurrent: Record<string, string[]> = {
-      pending_validation: ['validated'],
-      pending: ['validated'],
-      reported: ['validated'],
-      validated: ['claimed', 'archived'],
-      claimed: ['returned', 'archived'],
-      returned: ['archived'],
-      archived: [],
-    };
-
-    return new Set(allowedByCurrent[currentStatus] ?? []);
+  getStatusUpdateOptions(): string[] {
+    const selected = this.selectedItem();
+    return selected ? getOperationalStatusOptions(selected) : [];
   }
 
   getRestoreOptions(): string[] {
-    const selected = this.selectedItem();
-    const currentStatus = normalizeStatus(selected?.status);
-    const timeline = getStatusTimeline(this.itemHistory());
-    const allowedTargets = this.getAllowedRestoreTargetsForCurrentStatus();
-
-    const rawStatuses = timeline.flatMap((event) => {
-      const fromChanges = (event.changes ?? [])
-        .filter((change) => change.field === 'status')
-        .flatMap((change) => [change.previousValue, change.newValue]);
-
-      const fromMetadata = typeof event.metadata?.itemStatus === 'string'
-        ? [event.metadata.itemStatus]
-        : [];
-
-      return [...fromChanges, ...fromMetadata];
-    });
-
-    return Array.from(
-      new Set(
-        rawStatuses
-          .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
-          .map((value) => normalizeStatus(value))
-          .filter((value) =>
-            value.length > 0 &&
-            value !== currentStatus &&
-            allowedTargets.has(value),
-          ),
-      ),
-    );
+    return getRestoreOptionsFromHistory(this.itemHistory(), this.selectedItem()?.status);
   }
 
   canRestore(): boolean {
     return this.getRestoreOptions().length > 0;
+  }
+
+  canUpdateStatus(): boolean {
+    return this.getStatusUpdateOptions().length > 0;
+  }
+
+  getOperationalStatusLabel(status?: string): string {
+    return getOperationalStatusActionLabel(status);
   }
 
   openRestoreModal(): void {
@@ -595,12 +571,41 @@ export class AdminReportsComponent implements OnInit, OnDestroy {
         this.restoreModalOpen.set(false);
         this.setActionMessage(`Item restored to ${statusLabel(status)}.`);
         this.closeDetails();
-        this.load();
+        this.load(true);
       },
       error: (err) => {
         this.restoring.set(false);
         this.restoreModalOpen.set(false);
         this.error.set(this.getFriendlyErrorMessage(err, 'Restore failed. That status change is not allowed.'));
+      },
+    });
+  }
+
+  updateStatus(): void {
+    const item = this.selectedItem();
+    const status = this.selectedStatusUpdate();
+
+    if (!item || !status || this.statusUpdating() || this.flagging()) return;
+
+    if (status === 'validated' && item.kind === 'FOUND' && canValidate(item)) {
+      this.approve(item.id);
+      return;
+    }
+
+    this.statusUpdating.set(true);
+    this.error.set('');
+    this.setActionMessage('');
+
+    this.adminReportsApi.updateItemStatus(item.id, status).subscribe({
+      next: () => {
+        this.statusUpdating.set(false);
+        this.setActionMessage(`Item status updated to ${this.getOperationalStatusLabel(status)}.`);
+        this.closeDetails();
+        this.load(true);
+      },
+      error: (err) => {
+        this.statusUpdating.set(false);
+        this.error.set(this.getFriendlyErrorMessage(err, 'Failed to update the item status.'));
       },
     });
   }

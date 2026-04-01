@@ -39,6 +39,16 @@ export type MergeReportsResponse = {
   };
 };
 
+export type UpdateItemStatusResponse = {
+  id: string;
+  previousStatus: string;
+  status: string;
+  updatedAt: string;
+  updatedByUid?: string;
+  updatedByEmail?: string | null;
+  updatedByRole?: string;
+};
+
 @Injectable({ providedIn: 'root' })
 export class AdminReportsApiService {
   constructor(private readonly apiClient: ApiClientService) {}
@@ -86,6 +96,13 @@ export class AdminReportsApiService {
 
   getItemHistory(itemId: string): Observable<ItemHistoryResponse> {
     return this.apiClient.get<ItemHistoryResponse>(`/admin/items/${itemId}/history`);
+  }
+
+  updateItemStatus(itemId: string, status: string): Observable<UpdateItemStatusResponse> {
+    return this.apiClient.patch<UpdateItemStatusResponse, { status: string }>(
+      `/admin/items/${itemId}/status`,
+      { status: status.trim().toUpperCase() },
+    );
   }
 
   restoreItemStatus(itemId: string, status: string): Observable<{ id: string; status: string }> {
