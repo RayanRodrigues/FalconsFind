@@ -98,9 +98,7 @@ export class ItemDetailsComponent implements OnInit, OnDestroy {
           }
 
           if (code === 'INVALID_ITEM_DATA') {
-            this.loadError =
-              apiError?.error?.message ??
-              'This item was incorrectly reported. Please submit it again or contact Campus Security.';
+            this.loadError = 'This item was incorrectly reported. Please submit it again or contact Campus Security.';
             this.refreshView();
             return;
           }
@@ -111,7 +109,7 @@ export class ItemDetailsComponent implements OnInit, OnDestroy {
             return;
           }
 
-          this.loadError = apiError?.error?.message ?? 'Could not load item details right now.';
+          this.loadError = 'Could not load item details right now.';
           this.refreshView();
         }
       });

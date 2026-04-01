@@ -145,7 +145,7 @@ export class EditReportPageComponent {
       return 'We could not find a report with that reference code. Please check the code and try again.';
     }
 
-    return error?.error?.message || 'We could not load that report right now. Please try again.';
+    return 'We could not load that report right now. Please try again.';
   }
 
   private mapSaveError(error: ErrorResponse): string {
@@ -153,6 +153,6 @@ export class EditReportPageComponent {
       return 'This report can no longer be edited because it is no longer under review.';
     }
 
-    return error?.error?.message || 'We could not save your changes right now. Please try again.';
+    return 'We could not save your changes right now. Please try again.';
   }
 }

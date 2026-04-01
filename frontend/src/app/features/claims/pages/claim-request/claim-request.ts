@@ -160,7 +160,7 @@ export class ClaimRequest implements OnInit {
       case 'ITEM_NOT_ELIGIBLE_FOR_CLAIM':
         return 'This item is not currently available for claim requests.';
       case 'VALIDATION_ERROR':
-        return err.error.message || 'Please check your submission and try again.';
+        return 'Please check your submission and try again.';
       default:
         return 'There was an error submitting your claim. Please try again.';
     }
