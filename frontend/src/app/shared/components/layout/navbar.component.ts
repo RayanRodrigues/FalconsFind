@@ -50,6 +50,11 @@ import { UserRole } from '../../../models';
             <!-- Student session -->
             } @else if (isStudent()) {
               <a routerLink="/my-claims" routerLinkActive="font-semibold !bg-primary !text-white" [class]="navLinkClass">My Claims</a>
+              <div class="flex items-center rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] p-1">
+                <div class="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-[11px] font-bold uppercase tracking-[0.08em] text-white">
+                  {{ userInitials() }}
+                </div>
+              </div>
               <button
                 type="button"
                 (click)="logout()"
@@ -129,6 +134,15 @@ import { UserRole } from '../../../models';
                 Logout
               </button>
             } @else if (isStudent()) {
+              <div class="mb-1 flex items-center gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-3">
+                <div class="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-xs font-bold uppercase tracking-[0.08em] text-white">
+                  {{ userInitials() }}
+                </div>
+                <div class="min-w-0">
+                  <p class="truncate text-sm font-semibold text-[var(--color-text-primary)]">Student</p>
+                  <p class="truncate text-xs text-[var(--color-text-secondary)]">{{ userEmail() }}</p>
+                </div>
+              </div>
               <a routerLink="/my-claims" (click)="closeMenu()" routerLinkActive="font-semibold !bg-primary !text-white" [class]="mobileNavLinkClass">My Claims</a>
               <button type="button" (click)="logout()" [class]="mobileItemClass">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -175,6 +189,11 @@ export class NavbarComponent {
   readonly menuOpen = signal(false);
 
   readonly authSession = computed(() => this.authService.session());
+  readonly userEmail = computed(() => this.authSession()?.user.email ?? '');
+  readonly userInitials = computed(() => this.deriveInitials(
+    this.authSession()?.user.displayName?.trim() ?? '',
+    this.userEmail(),
+  ));
 
   readonly isStudent = computed(() =>
     this.authSession()?.user.role === UserRole.STUDENT
@@ -192,19 +211,19 @@ export class NavbarComponent {
 
   // Nav link text adapts: brand crimson in light, near-white in dark (no red on hover in dark)
   get navLinkClass(): string {
-    return 'rounded-full px-3.5 py-1.5 text-sm text-[var(--color-nav-link)] transition-colors hover:bg-primary/12';
+    return 'rounded-full px-3.5 py-1.5 text-[13px] font-semibold tracking-[0.02em] text-[var(--color-nav-link)] transition-colors hover:bg-primary/12';
   }
 
   get mobileNavLinkClass(): string {
-    return 'rounded-lg px-3 py-2.5 text-sm text-[var(--color-nav-link)] transition-colors hover:bg-primary/12';
+    return 'rounded-lg px-3 py-2.5 text-[13px] font-semibold tracking-[0.02em] text-[var(--color-nav-link)] transition-colors hover:bg-primary/12';
   }
 
   get actionBtnClass(): string {
-    return 'inline-flex items-center gap-1.5 rounded-full border border-[var(--color-nav-action-border)] px-5 py-1.5 text-sm font-semibold text-[var(--color-nav-action-text)] transition-colors hover:border-primary hover:bg-primary hover:text-white';
+    return 'inline-flex items-center gap-1.5 rounded-full border border-[var(--color-nav-action-border)] px-5 py-1.5 text-[13px] font-semibold tracking-[0.02em] text-[var(--color-nav-action-text)] transition-colors hover:border-primary hover:bg-primary hover:text-white';
   }
 
   get mobileActionBtnClass(): string {
-    return 'inline-flex items-center justify-center gap-1.5 rounded-full border border-[var(--color-nav-action-border)] px-5 py-2 text-sm font-semibold text-[var(--color-nav-action-text)] transition-colors hover:border-primary hover:bg-primary hover:text-white';
+    return 'inline-flex items-center justify-center gap-1.5 rounded-full border border-[var(--color-nav-action-border)] px-5 py-2 text-[13px] font-semibold tracking-[0.02em] text-[var(--color-nav-action-text)] transition-colors hover:border-primary hover:bg-primary hover:text-white';
   }
 
   // Mobile list-row items (logout, theme toggle)
@@ -227,6 +246,24 @@ export class NavbarComponent {
 
   isDarkMode(): boolean {
     return this.themeService.isDarkMode();
+  }
+
+  private deriveInitials(name: string, email: string): string {
+    const normalizedName = name.trim();
+    if (normalizedName.length > 0) {
+      const parts = normalizedName.split(/\s+/).filter(Boolean);
+      if (parts.length >= 2) {
+        return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+      }
+    }
+
+    const local = email.split('@')[0] ?? '';
+    const emailParts = local.split(/[._-]/).filter(Boolean);
+    if (emailParts.length >= 2) {
+      return `${emailParts[0][0]}${emailParts[emailParts.length - 1][0]}`.toUpperCase();
+    }
+
+    return local.slice(0, 2).toUpperCase() || 'ST';
   }
 
   logout(): void {

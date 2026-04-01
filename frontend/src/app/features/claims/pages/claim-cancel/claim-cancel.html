@@ -6,22 +6,26 @@
       <p class="my-claims-intro">
         Track your submitted claims, review proof requests from Campus Security, and cancel a request if you no longer need it.
       </p>
+      <div class="my-claims-hero__actions">
+        <a routerLink="/found-items" class="my-claims-primary-link">Browse Found Items</a>
+        <a routerLink="/claim-request" class="my-claims-secondary-link">Start New Claim</a>
+      </div>
     </div>
 
     <div class="my-claims-stats">
-      <div class="stats-card">
+      <div class="stats-card stats-card--total">
         <p>Total</p>
         <strong>{{ summary().totalClaims }}</strong>
       </div>
-      <div class="stats-card">
+      <div class="stats-card stats-card--pending">
         <p>Pending</p>
         <strong>{{ summary().pendingClaims }}</strong>
       </div>
-      <div class="stats-card">
+      <div class="stats-card stats-card--proof">
         <p>Needs Proof</p>
         <strong>{{ summary().needsProofClaims }}</strong>
       </div>
-      <div class="stats-card">
+      <div class="stats-card stats-card--resolved">
         <p>Resolved</p>
         <strong>{{ summary().approvedClaims + summary().rejectedClaims + summary().cancelledClaims }}</strong>
       </div>
@@ -47,6 +51,10 @@
       <div class="claims-empty">
         <h2>No claim requests yet</h2>
         <p>Your submitted claims will appear here once you request an item.</p>
+        <div class="claims-empty__actions">
+          <a routerLink="/found-items" class="my-claims-primary-link">Browse Found Items</a>
+          <a routerLink="/claim-request" class="my-claims-secondary-link">Create a Claim</a>
+        </div>
       </div>
     } @else {
       <div class="claims-list">

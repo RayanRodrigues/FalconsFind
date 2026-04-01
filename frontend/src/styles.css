@@ -3,6 +3,10 @@
 :root {
   --color-primary: #b9375d;
   --color-secondary: #d25d5d;
+  --color-success: #15803d;
+  --color-info: #2563eb;
+  --color-warning: #b45309;
+  --color-error: #dc2626;
 
   --color-bg: #f8fafc;
   --color-surface: #ffffff;
@@ -26,6 +30,10 @@ body.light-theme {
   --color-bg: #f8fafc;
   --color-surface: #ffffff;
   --color-surface-2: #f1f5f9;
+  --color-success: #15803d;
+  --color-info: #2563eb;
+  --color-warning: #b45309;
+  --color-error: #dc2626;
 
   --color-text-primary: #111827;
   --color-text-secondary: #6b7280;
@@ -45,6 +53,10 @@ body.dark-theme {
   --color-bg: #0f172a;
   --color-surface: #1e293b;
   --color-surface-2: #334155;
+  --color-success: #4ade80;
+  --color-info: #60a5fa;
+  --color-warning: #fbbf24;
+  --color-error: #f87171;
 
   --color-text-primary: #f8fafc;
   --color-text-secondary: #cbd5e1;
@@ -63,6 +75,10 @@ body.dark-theme {
 @theme {
   --color-primary: var(--color-primary);
   --color-secondary: var(--color-secondary);
+  --color-success: var(--color-success);
+  --color-info: var(--color-info);
+  --color-warning: var(--color-warning);
+  --color-error: var(--color-error);
 
   --color-text-primary: var(--color-text-primary);
   --color-text-secondary: var(--color-text-secondary);

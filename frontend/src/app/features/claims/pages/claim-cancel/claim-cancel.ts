@@ -1,6 +1,7 @@
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { ChangeDetectorRef, Component, Inject, OnInit, PLATFORM_ID, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { ClaimStatus } from '../../../../models';
 import type { Claim, ErrorResponse } from '../../../../models';
@@ -27,7 +28,7 @@ type ClaimRow = Claim & {
 @Component({
   selector: 'app-claim-cancel',
   standalone: true,
-  imports: [CommonModule, FormsModule, PhotoUploadFieldComponent],
+  imports: [CommonModule, FormsModule, RouterLink, PhotoUploadFieldComponent],
   templateUrl: './claim-cancel.html',
   styleUrl: './claim-cancel.css'
 })
