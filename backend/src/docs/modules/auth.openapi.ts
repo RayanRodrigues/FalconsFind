@@ -2,7 +2,7 @@ import type { OpenApiModule } from '../openapi.types.js';
 import { errorResponseRefs } from './common.openapi.js';
 
 export const authOpenApi: OpenApiModule = {
-  tags: [{ name: 'Auth', description: 'Authentication for students and staff' }],
+  tags: [{ name: 'Auth', description: 'Authentication for staff and for student claim ownership flows' }],
   paths: {
     '/api/v1/auth/login': {
       post: {
