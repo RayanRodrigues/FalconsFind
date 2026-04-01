@@ -89,26 +89,26 @@ export class AuthService {
   }
 
   private readSession(): LoginResponse | null {
-    if (typeof localStorage === 'undefined') return null;
-    const raw = localStorage.getItem(AUTH_SESSION_STORAGE_KEY);
+    if (typeof sessionStorage === 'undefined') return null;
+    const raw = sessionStorage.getItem(AUTH_SESSION_STORAGE_KEY);
     if (!raw) return null;
     try {
       return JSON.parse(raw) as LoginResponse;
     } catch {
-      localStorage.removeItem(AUTH_SESSION_STORAGE_KEY);
+      sessionStorage.removeItem(AUTH_SESSION_STORAGE_KEY);
       return null;
     }
   }
 
   private persistSession(response: LoginResponse): void {
-    if (typeof localStorage === 'undefined') return;
-    localStorage.setItem(AUTH_SESSION_STORAGE_KEY, JSON.stringify(response));
+    if (typeof sessionStorage === 'undefined') return;
+    sessionStorage.setItem(AUTH_SESSION_STORAGE_KEY, JSON.stringify(response));
     this.session.set(response);
   }
 
   private clearSession(): void {
-    if (typeof localStorage === 'undefined') return;
-    localStorage.removeItem(AUTH_SESSION_STORAGE_KEY);
+    if (typeof sessionStorage === 'undefined') return;
+    sessionStorage.removeItem(AUTH_SESSION_STORAGE_KEY);
     this.session.set(null);
   }
 }
