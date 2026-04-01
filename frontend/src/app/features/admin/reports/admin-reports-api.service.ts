@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
-import type { Observable } from 'rxjs';
+import { tap, type Observable } from 'rxjs';
 import { ApiClientService } from '../../../core/http/api-client.service';
+import { ObservableCache } from '../../../core/utils/observable-cache';
 import type { AdminReportsResponse, ItemHistoryResponse } from './admin-reports.types';
 
 type ListAdminReportsParams = {
@@ -51,25 +52,41 @@ export type UpdateItemStatusResponse = {
 
 @Injectable({ providedIn: 'root' })
 export class AdminReportsApiService {
+  private readonly reportsListCache = new ObservableCache(10_000);
+
   constructor(private readonly apiClient: ApiClientService) {}
 
   listReports(params: ListAdminReportsParams): Observable<AdminReportsResponse> {
-    const searchParams = new URLSearchParams();
+    const normalizedParams = {
+      page: params.page,
+      limit: params.limit,
+      kind: params.kind,
+      status: params.status?.trim() || undefined,
+      search: params.search?.trim() || undefined,
+      flagged: params.flagged,
+    };
+    const cacheKey = JSON.stringify(normalizedParams);
 
-    if (params.page !== undefined) searchParams.set('page', String(params.page));
-    if (params.limit !== undefined) searchParams.set('limit', String(params.limit));
-    if (params.kind) searchParams.set('kind', params.kind);
-    if (params.status) searchParams.set('status', params.status);
-    if (params.search) searchParams.set('search', params.search);
-    if (params.flagged !== undefined) searchParams.set('flagged', String(params.flagged));
+    return this.reportsListCache.getOrCreate(cacheKey, () => {
+      const searchParams = new URLSearchParams();
 
-    return this.apiClient.get<AdminReportsResponse>(`/admin/reports?${searchParams.toString()}`);
+      if (normalizedParams.page !== undefined) searchParams.set('page', String(normalizedParams.page));
+      if (normalizedParams.limit !== undefined) searchParams.set('limit', String(normalizedParams.limit));
+      if (normalizedParams.kind) searchParams.set('kind', normalizedParams.kind);
+      if (normalizedParams.status) searchParams.set('status', normalizedParams.status);
+      if (normalizedParams.search) searchParams.set('search', normalizedParams.search);
+      if (normalizedParams.flagged !== undefined) searchParams.set('flagged', String(normalizedParams.flagged));
+
+      return this.apiClient.get<AdminReportsResponse>(`/admin/reports?${searchParams.toString()}`);
+    });
   }
 
   validateFoundReport(reportId: string): Observable<ValidateFoundReportResponse> {
     return this.apiClient.patch<ValidateFoundReportResponse, Record<string, never>>(
       `/reports/found/${reportId}/validate`,
       {},
+    ).pipe(
+      tap(() => this.reportsListCache.clear()),
     );
   }
 
@@ -77,6 +94,8 @@ export class AdminReportsApiService {
     return this.apiClient.patch<FlagReportResponse, { suspiciousReason: string }>(
       `/admin/reports/${reportId}/flag`,
       { suspiciousReason },
+    ).pipe(
+      tap(() => this.reportsListCache.clear()),
     );
   }
 
@@ -84,6 +103,8 @@ export class AdminReportsApiService {
     return this.apiClient.patch<FlagReportResponse, { flagged: false }>(
       `/admin/reports/${reportId}/flag`,
       { flagged: false },
+    ).pipe(
+      tap(() => this.reportsListCache.clear()),
     );
   }
 
@@ -91,6 +112,8 @@ export class AdminReportsApiService {
     return this.apiClient.post<MergeReportsResponse, { primaryReportId: string; duplicateReportIds: string[] }>(
       '/admin/reports/merge',
       { primaryReportId, duplicateReportIds },
+    ).pipe(
+      tap(() => this.reportsListCache.clear()),
     );
   }
 
@@ -102,6 +125,8 @@ export class AdminReportsApiService {
     return this.apiClient.patch<UpdateItemStatusResponse, { status: string }>(
       `/admin/items/${itemId}/status`,
       { status: status.trim().toUpperCase() },
+    ).pipe(
+      tap(() => this.reportsListCache.clear()),
     );
   }
 
@@ -109,6 +134,8 @@ export class AdminReportsApiService {
     return this.apiClient.post<{ id: string; status: string }, { status: string }>(
       `/admin/items/${itemId}/restore-status`,
       { status: status.trim().toUpperCase() },
+    ).pipe(
+      tap(() => this.reportsListCache.clear()),
     );
   }
 }
