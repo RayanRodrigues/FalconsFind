@@ -2,6 +2,7 @@ import type { Bucket } from '@google-cloud/storage';
 import type { Firestore, Query } from 'firebase-admin/firestore';
 import type { AdminReportResponse, Report } from '../../contracts/index.js';
 import { ItemStatus } from '../../contracts/index.js';
+import { archiveExpiredUnclaimedItems } from '../items/item-archive.service.js';
 import { mapAdminReport } from './report-media.js';
 import type { ListAdminReportsParams } from './report-types.js';
 
@@ -19,6 +20,7 @@ export const listAdminReports = async (
     byStatus: Partial<Record<ItemStatus, number>>;
   };
 }> => {
+  await archiveExpiredUnclaimedItems(db);
   const page = Math.max(1, Math.floor(params.page));
   const limit = Math.max(1, Math.floor(params.limit));
   const offset = (page - 1) * limit;

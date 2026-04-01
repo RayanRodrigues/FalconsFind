@@ -111,6 +111,10 @@ export const allowedStatusTransitions: Record<ItemStatus, ItemStatus[]> = {
   [ItemStatus.ARCHIVED]: [],
 };
 
+export const canArchiveItemManually = (item: Pick<StoredItem, 'kind' | 'status'>): boolean => (
+  item.kind === 'FOUND' && (item.status === ItemStatus.VALIDATED || item.status === ItemStatus.RETURNED)
+);
+
 export const createStatusPatch = (
   nextStatus: ItemStatus,
   updatedAt: string,
@@ -138,11 +142,13 @@ export const getStatusSyncTargets = async (
   primaryData: StoredItem;
   targetRefs: Array<DocumentReference<DocumentData>>;
   canonicalItemId: string;
+  kind?: Report['kind'];
   referenceCode?: string;
 }> => {
   const { ref, data } = await getFirstExistingItem(reader, db, itemId);
   const targetRefs: Array<DocumentReference<DocumentData>> = [ref];
   let canonicalItemId = ref.id;
+  let kind = data.kind;
   let referenceCode = data.referenceCode;
 
   if (getRefCollectionName(ref) === 'items') {
@@ -153,6 +159,7 @@ export const getStatusSyncTargets = async (
       const reportSnap = await reader.get(reportRef);
       if (reportSnap.exists) {
         const reportData = (reportSnap.data() as StoredItem | undefined) ?? {};
+        kind ??= reportData.kind;
         referenceCode ??= reportData.referenceCode;
         targetRefs.push(reportRef);
       }
@@ -169,6 +176,7 @@ export const getStatusSyncTargets = async (
     primaryData: data,
     targetRefs: targetRefs.filter((targetRef, index, refs) => refs.findIndex((value) => value.path === targetRef.path) === index),
     canonicalItemId,
+    kind,
     referenceCode,
   };
 };

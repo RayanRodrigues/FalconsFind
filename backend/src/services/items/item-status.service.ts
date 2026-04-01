@@ -9,12 +9,13 @@ import { recordItemHistoryEvent } from '../item-history.service.js';
 import { ItemStatusConflictError, ItemStatusRestoreNotAllowedError, InvalidItemDataError } from './item-errors.js';
 import {
   allowedStatusTransitions,
+  canArchiveItemManually,
   createStatusPatch,
   getStatusHistoryEntries,
   getStatusSyncTargets,
   writeStatusHistoryRecord,
 } from './item-shared.js';
-import type { ItemStatusUpdateActor } from './item-types.js';
+import type { ItemStatusUpdateActor, StatusChangeActor } from './item-types.js';
 
 export const recordArchivedHistory = async (
   db: Firestore,
@@ -22,7 +23,7 @@ export const recordArchivedHistory = async (
   entityId: string,
   previousStatus: ItemStatus,
   archivedAt: string,
-  actor: ItemStatusUpdateActor,
+  actor: StatusChangeActor,
   referenceCode?: string,
   options: { transaction?: Transaction; summary?: string; automatic?: boolean } = {},
 ): Promise<void> => {
@@ -33,7 +34,7 @@ export const recordArchivedHistory = async (
     actionType: 'ITEM_ARCHIVED',
     timestamp: archivedAt,
     summary: options.summary ?? 'Item archived.',
-    actor: { type: actor.role, uid: actor.uid, email: actor.email ?? undefined, role: actor.role },
+    actor: { type: actor.role ?? 'SYSTEM', uid: actor.uid, email: actor.email ?? undefined, role: actor.role },
     metadata: { referenceCode, itemStatus: ItemStatus.ARCHIVED, automatic: options.automatic === true },
     changes: [{ field: 'status', previousValue: previousStatus, newValue: ItemStatus.ARCHIVED }],
   }, options);
@@ -109,10 +110,13 @@ export const updateItemStatus = async (
   actor: ItemStatusUpdateActor,
 ): Promise<UpdateItemStatusResponse> => {
   return db.runTransaction(async (transaction: Transaction) => {
-    const { primaryRef, primaryData, targetRefs, canonicalItemId, referenceCode } = await getStatusSyncTargets(transaction, db, itemId);
+    const { primaryRef, primaryData, targetRefs, canonicalItemId, kind, referenceCode } = await getStatusSyncTargets(transaction, db, itemId);
     const currentStatus = primaryData.status;
     if (!currentStatus || !Object.values(ItemStatus).includes(currentStatus)) throw new InvalidItemDataError();
     if (currentStatus === payload.status) throw new ItemStatusConflictError(`Item is already in status ${payload.status}.`);
+    if (payload.status === ItemStatus.ARCHIVED && !canArchiveItemManually({ kind, status: currentStatus })) {
+      throw new ItemStatusConflictError('Only eligible found items in validated or returned status can be archived.');
+    }
     if (!allowedStatusTransitions[currentStatus].includes(payload.status)) {
       throw new ItemStatusConflictError(`Cannot change item status from ${currentStatus} to ${payload.status}.`);
     }

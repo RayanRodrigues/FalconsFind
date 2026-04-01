@@ -79,19 +79,21 @@ export function canFlag(item: AdminReport): boolean {
   return !isArchived(item) && !isFlagged(item);
 }
 
-export function canManageFlag(item: AdminReport): boolean {
-  return !isArchived(item);
-}
+export function canManageFlag(item: AdminReport): boolean { return !isArchived(item); }
 
 export function getOperationalStatusOptions(item: AdminReport): string[] {
+  if (item.kind !== 'FOUND') {
+    return [];
+  }
+
   const currentStatus = normalizeStatus(item.status);
 
   const optionsByStatus: Record<string, string[]> = {
-    pending_validation: ['validated', 'archived'],
-    pending: ['validated', 'archived'],
-    reported: ['validated', 'archived'],
+    pending_validation: ['validated'],
+    pending: ['validated'],
+    reported: ['validated'],
     validated: ['claimed', 'returned', 'archived'],
-    claimed: ['returned', 'archived'],
+    claimed: ['returned'],
     returned: ['archived'],
     archived: [],
   };

@@ -1,4 +1,5 @@
 export * from './items/item-errors.js';
+export * from './items/item-archive.service.js';
 export * from './items/item-types.js';
 export * from './items/item-shared.js';
 export * from './items/item-status.service.js';

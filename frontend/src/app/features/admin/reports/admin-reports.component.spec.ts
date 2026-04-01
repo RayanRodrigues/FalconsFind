@@ -219,4 +219,17 @@ describe('AdminReportsComponent', () => {
     expect(component.actionMessage()).toBe('Item status updated to Returned.');
     expect(component.selectedItem()).toBeNull();
   });
+
+  it('only exposes archive for eligible found-item states', () => {
+    const { component } = createComponent();
+
+    component.selectedItem.set(buildReport({ id: 'found-claimed', status: 'CLAIMED' }));
+    expect(component.getStatusUpdateOptions()).toEqual(['returned']);
+
+    component.selectedItem.set(buildReport({ id: 'found-returned', status: 'RETURNED' }));
+    expect(component.getStatusUpdateOptions()).toEqual(['archived']);
+
+    component.selectedItem.set(buildReport({ id: 'lost-validated', kind: 'LOST', status: 'VALIDATED' }));
+    expect(component.getStatusUpdateOptions()).toEqual([]);
+  });
 });
