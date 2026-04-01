@@ -1,5 +1,6 @@
 import { invalidatePublicItemsCache } from '../../services/items/item-query-cache.service.js';
 import { API_PREFIX, HttpError } from '../route-utils.js';
+import { createJsonRateLimiter } from '../rate-limit.js';
 import { parseBodyOrThrow } from '../schema-validation.js';
 import { getSingleRouteParam, itemsServiceModule, schemaModule } from './items-router-modules.js';
 import type { ItemsRouterDeps } from './items-router-modules.js';
@@ -10,7 +11,18 @@ export const registerAdminItemRoutes = ({
   redis,
   requireStaffUser,
 }: ItemsRouterDeps): void => {
-  router.get(`${API_PREFIX}/admin/items/:id/history`, requireStaffUser, async (req, res) => {
+  const itemHistoryLimiter = createJsonRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    limit: 120,
+    message: 'Too many item history requests. Please try again later.',
+  });
+  const itemStatusMutationLimiter = createJsonRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    limit: 40,
+    message: 'Too many item status update attempts. Please try again later.',
+  });
+
+  router.get(`${API_PREFIX}/admin/items/:id/history`, itemHistoryLimiter, requireStaffUser, async (req, res) => {
     const itemId = getSingleRouteParam(req.params.id);
     if (!itemId) {
       throw new HttpError(400, 'BAD_REQUEST', 'id is required');
@@ -27,7 +39,7 @@ export const registerAdminItemRoutes = ({
     }
   });
 
-  router.patch(`${API_PREFIX}/admin/items/:id/status`, requireStaffUser, async (req, res) => {
+  router.patch(`${API_PREFIX}/admin/items/:id/status`, itemStatusMutationLimiter, requireStaffUser, async (req, res) => {
     const itemId = getSingleRouteParam(req.params.id);
     if (!itemId) {
       throw new HttpError(400, 'BAD_REQUEST', 'id is required');
@@ -61,7 +73,7 @@ export const registerAdminItemRoutes = ({
     }
   });
 
-  router.post(`${API_PREFIX}/admin/items/:id/restore-status`, requireStaffUser, async (req, res) => {
+  router.post(`${API_PREFIX}/admin/items/:id/restore-status`, itemStatusMutationLimiter, requireStaffUser, async (req, res) => {
     const itemId = getSingleRouteParam(req.params.id);
     if (!itemId) {
       throw new HttpError(400, 'BAD_REQUEST', 'id is required');

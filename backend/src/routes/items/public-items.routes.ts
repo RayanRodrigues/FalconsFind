@@ -1,4 +1,5 @@
 import { API_PREFIX, HttpError } from '../route-utils.js';
+import { createJsonRateLimiter } from '../rate-limit.js';
 import {
   assertValidDateRange,
   parseDateFilter,
@@ -20,7 +21,18 @@ export const registerPublicItemRoutes = ({
   bucket,
   redis,
 }: ItemsRouterDeps): void => {
-  router.get(`${API_PREFIX}/items`, async (req, res) => {
+  const listItemsLimiter = createJsonRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    limit: 120,
+    message: 'Too many item list requests. Please try again later.',
+  });
+  const itemDetailLimiter = createJsonRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    limit: 120,
+    message: 'Too many item detail requests. Please try again later.',
+  });
+
+  router.get(`${API_PREFIX}/items`, listItemsLimiter, async (req, res) => {
     const page = parsePositiveInt(req.query.page, 1);
     const limit = Math.min(parsePositiveInt(req.query.limit, 10), 50);
     const keyword = parseOptionalString(req.query.keyword);
@@ -68,7 +80,7 @@ export const registerPublicItemRoutes = ({
     });
   });
 
-  router.get(`${API_PREFIX}/items/:id`, async (req, res) => {
+  router.get(`${API_PREFIX}/items/:id`, itemDetailLimiter, async (req, res) => {
     const itemId = getSingleRouteParam(req.params.id);
     if (!itemId) {
       throw new HttpError(400, 'BAD_REQUEST', 'id is required');
@@ -95,7 +107,7 @@ export const registerPublicItemRoutes = ({
     res.json(item);
   });
 
-  router.get(`${API_PREFIX}/items/:id/status`, async (req, res) => {
+  router.get(`${API_PREFIX}/items/:id/status`, itemDetailLimiter, async (req, res) => {
     const itemId = getSingleRouteParam(req.params.id);
     if (!itemId) {
       throw new HttpError(400, 'BAD_REQUEST', 'id is required');

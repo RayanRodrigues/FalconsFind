@@ -2,6 +2,7 @@ import { ItemStatus, UserRole } from '../../contracts/index.js';
 import { invalidatePublicItemsCache } from '../../services/items/item-query-cache.service.js';
 import { invalidateAdminReportsCache } from '../../services/reports/report-admin-query-cache.service.js';
 import { API_PREFIX, HttpError } from '../route-utils.js';
+import { createJsonRateLimiter } from '../rate-limit.js';
 import { parseOptionalString, parsePositiveInt } from '../request-parsers.js';
 import { parseBodyOrThrow } from '../schema-validation.js';
 import { getSingleRouteParam } from './reports-router-modules.js';
@@ -16,7 +17,28 @@ export const registerAdminReportRoutes = ({
   schemaModule,
   reportsServiceModule,
 }: ReportsRouterDeps): void => {
-  router.patch(`${API_PREFIX}/reports/found/:id/validate`, requireStaffUser, async (req, res) => {
+  const validateReportLimiter = createJsonRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    limit: 40,
+    message: 'Too many report validation attempts. Please try again later.',
+  });
+  const listReportsLimiter = createJsonRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    limit: 120,
+    message: 'Too many admin report list requests. Please try again later.',
+  });
+  const flagReportLimiter = createJsonRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    limit: 40,
+    message: 'Too many report flagging attempts. Please try again later.',
+  });
+  const mergeReportsLimiter = createJsonRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    limit: 20,
+    message: 'Too many report merge attempts. Please try again later.',
+  });
+
+  router.patch(`${API_PREFIX}/reports/found/:id/validate`, validateReportLimiter, requireStaffUser, async (req, res) => {
     const reportId = getSingleRouteParam(req.params.id);
     if (!reportId) {
       throw new HttpError(400, 'BAD_REQUEST', 'id is required');
@@ -53,7 +75,7 @@ export const registerAdminReportRoutes = ({
     }
   });
 
-  router.get(`${API_PREFIX}/admin/reports`, requireStaffUser, async (req, res) => {
+  router.get(`${API_PREFIX}/admin/reports`, listReportsLimiter, requireStaffUser, async (req, res) => {
     const page = parsePositiveInt(req.query.page, 1);
     const limit = Math.min(parsePositiveInt(req.query.limit, 20), 100);
     const kindRaw = parseOptionalString(req.query.kind);
@@ -100,7 +122,7 @@ export const registerAdminReportRoutes = ({
     });
   });
 
-  router.patch(`${API_PREFIX}/admin/reports/:id/flag`, requireStaffUser, async (req, res) => {
+  router.patch(`${API_PREFIX}/admin/reports/:id/flag`, flagReportLimiter, requireStaffUser, async (req, res) => {
     const reportId = getSingleRouteParam(req.params.id);
     if (!reportId) {
       throw new HttpError(400, 'BAD_REQUEST', 'id is required');
@@ -139,7 +161,7 @@ export const registerAdminReportRoutes = ({
     }
   });
 
-  router.post(`${API_PREFIX}/admin/reports/merge`, requireStaffUser, async (req, res) => {
+  router.post(`${API_PREFIX}/admin/reports/merge`, mergeReportsLimiter, requireStaffUser, async (req, res) => {
     const payload = parseBodyOrThrow(schemaModule.mergeDuplicateReportsSchema, req.body);
     const actor = res.locals.authUser as {
       uid: string;

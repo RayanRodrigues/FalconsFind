@@ -1,4 +1,5 @@
 import { API_PREFIX, HttpError } from '../route-utils.js';
+import { createJsonRateLimiter } from '../rate-limit.js';
 import { parseBodyOrThrow } from '../schema-validation.js';
 import { createPhotoArrayUpload, getValidatedUploadedPhotos } from '../report-photo-upload.js';
 import type { UserRole } from '../../contracts/index.js';
@@ -17,7 +18,33 @@ export const registerPublicClaimsRoutes = ({
   schemaModule,
   claimsServiceModule,
 }: ClaimsRouterDeps): void => {
-  router.post(`${API_PREFIX}/claims`, requireAuthenticatedUser, async (req, res) => {
+  const createClaimLimiter = createJsonRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    limit: 10,
+    message: 'Too many claim submissions. Please try again later.',
+  });
+  const listOwnClaimsLimiter = createJsonRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    limit: 60,
+    message: 'Too many claim list requests. Please try again later.',
+  });
+  const updateOwnClaimLimiter = createJsonRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    limit: 20,
+    message: 'Too many claim update attempts. Please try again later.',
+  });
+  const submitProofLimiter = createJsonRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    limit: 10,
+    message: 'Too many proof submission attempts. Please try again later.',
+  });
+  const cancelClaimLimiter = createJsonRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    limit: 10,
+    message: 'Too many claim cancellation attempts. Please try again later.',
+  });
+
+  router.post(`${API_PREFIX}/claims`, createClaimLimiter, requireAuthenticatedUser, async (req, res) => {
     const authUser = res.locals.authUser as { uid?: string; email?: string | null } | undefined;
     const uid = authUser?.uid?.trim();
     if (!uid) throw new HttpError(401, 'AUTHENTICATION_REQUIRED', 'Authentication is required.');
@@ -39,14 +66,14 @@ export const registerPublicClaimsRoutes = ({
     }
   });
 
-  router.get(`${API_PREFIX}/claims/me`, requireAuthenticatedUser, async (_req, res) => {
+  router.get(`${API_PREFIX}/claims/me`, listOwnClaimsLimiter, requireAuthenticatedUser, async (_req, res) => {
     const authUser = res.locals.authUser as { uid?: string } | undefined;
     const uid = authUser?.uid?.trim();
     if (!uid) throw new HttpError(401, 'AUTHENTICATION_REQUIRED', 'Authentication is required.');
     res.status(200).json(await claimsServiceModule.listClaimsForUser(db, bucket, redis, uid));
   });
 
-  router.patch(`${API_PREFIX}/claims/:id`, requireClaimAccessUser, async (req, res) => {
+  router.patch(`${API_PREFIX}/claims/:id`, updateOwnClaimLimiter, requireClaimAccessUser, async (req, res) => {
     const claimId = getSingleRouteParam(req.params.id);
     if (!claimId) throw new HttpError(400, 'BAD_REQUEST', 'id is required');
 
@@ -70,6 +97,7 @@ export const registerPublicClaimsRoutes = ({
 
   router.patch(
     `${API_PREFIX}/claims/:id/proof-response`,
+    submitProofLimiter,
     requireClaimAccessUser,
     createPhotoArrayUpload('photos', 5),
     async (req, res) => {
@@ -98,7 +126,7 @@ export const registerPublicClaimsRoutes = ({
     },
   );
 
-  router.patch(`${API_PREFIX}/claims/:id/cancel`, requireClaimAccessUser, async (req, res) => {
+  router.patch(`${API_PREFIX}/claims/:id/cancel`, cancelClaimLimiter, requireClaimAccessUser, async (req, res) => {
     const claimId = getSingleRouteParam(req.params.id);
     if (!claimId) throw new HttpError(400, 'BAD_REQUEST', 'id is required');
 

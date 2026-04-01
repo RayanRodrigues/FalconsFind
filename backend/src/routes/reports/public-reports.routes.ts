@@ -1,6 +1,6 @@
-import rateLimit from 'express-rate-limit';
 import { invalidateAdminReportsCache } from '../../services/reports/report-admin-query-cache.service.js';
 import { API_PREFIX, HttpError } from '../route-utils.js';
+import { createJsonRateLimiter } from '../rate-limit.js';
 import { uploadSinglePhoto, getValidatedUploadedPhoto } from '../report-photo-upload.js';
 import { parseBodyOrThrow } from '../schema-validation.js';
 import { getSingleRouteParam } from './reports-router-modules.js';
@@ -19,17 +19,20 @@ export const registerPublicReportRoutes = ({
     `${API_PREFIX}/reports/reference/:referenceCode`,
   ];
 
-  const createReportLimiter = rateLimit({
+  const createReportLimiter = createJsonRateLimiter({
     windowMs: 15 * 60 * 1000,
     limit: 10,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: {
-      error: {
-        code: 'RATE_LIMITED',
-        message: 'Too many report submissions. Please try again later.',
-      },
-    },
+    message: 'Too many report submissions. Please try again later.',
+  });
+  const editableReportReadLimiter = createJsonRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    limit: 30,
+    message: 'Too many report lookup attempts. Please try again later.',
+  });
+  const editableReportUpdateLimiter = createJsonRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    limit: 10,
+    message: 'Too many report edit attempts. Please try again later.',
   });
 
   router.post(`${API_PREFIX}/reports/lost`, createReportLimiter, uploadSinglePhoto, async (req, res) => {
@@ -74,7 +77,7 @@ export const registerPublicReportRoutes = ({
     }
   });
 
-  router.get(editableReportPaths, async (req, res) => {
+  router.get(editableReportPaths, editableReportReadLimiter, async (req, res) => {
     const referenceCode = getSingleRouteParam(req.params.referenceCode).toUpperCase();
     if (!referenceCode) {
       throw new HttpError(400, 'BAD_REQUEST', 'referenceCode is required');
@@ -92,7 +95,7 @@ export const registerPublicReportRoutes = ({
     }
   });
 
-  router.patch(editableReportPaths, async (req, res) => {
+  router.patch(editableReportPaths, editableReportUpdateLimiter, async (req, res) => {
     const referenceCode = getSingleRouteParam(req.params.referenceCode).toUpperCase();
     if (!referenceCode) {
       throw new HttpError(400, 'BAD_REQUEST', 'referenceCode is required');

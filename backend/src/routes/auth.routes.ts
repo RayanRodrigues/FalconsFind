@@ -13,6 +13,7 @@ import type {
   RegisterResponse,
 } from '../contracts/index.js';
 import { HttpError, API_PREFIX } from './route-utils.js';
+import { createJsonRateLimiter } from './rate-limit.js';
 import { parseBodyOrThrow } from './schema-validation.js';
 import { createLoginAttemptsService } from '../services/login-attempts.service.js';
 import {
@@ -72,43 +73,30 @@ export const createAuthRouter = (
   const router = Router();
   const attempts = createLoginAttemptsService(redis);
   const requireStaffUser = options.requireStaffUser ?? createRequireStaffRoles(db, [UserRole.ADMIN, UserRole.SECURITY]);
-  const loginLimiter = rateLimit({
+  const loginLimiter = createJsonRateLimiter({
     windowMs: 15 * 60 * 1000,
     limit: 10,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: {
-      error: {
-        code: 'RATE_LIMITED',
-        message: 'Too many login attempts. Please try again later.',
-      },
-    },
+    message: 'Too many login attempts. Please try again later.',
   });
-
-  const registerLimiter = rateLimit({
-    windowMs: 60 * 60 * 1000, // 1 hour window — tighter than login
-    limit: 5,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: {
-      error: {
-        code: 'RATE_LIMITED',
-        message: 'Too many registration attempts. Please try again later.',
-      },
-    },
+  const refreshLimiter = createJsonRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    limit: 20,
+    message: 'Too many session refresh attempts. Please try again later.',
   });
-
-  const forgotPasswordLimiter = rateLimit({
+  const registerLimiter = createJsonRateLimiter({
     windowMs: 60 * 60 * 1000,
     limit: 5,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: {
-      error: {
-        code: 'RATE_LIMITED',
-        message: 'Too many password reset attempts. Please try again later.',
-      },
-    },
+    message: 'Too many registration attempts. Please try again later.',
+  });
+  const forgotPasswordLimiter = createJsonRateLimiter({
+    windowMs: 60 * 60 * 1000,
+    limit: 5,
+    message: 'Too many password reset attempts. Please try again later.',
+  });
+  const logoutLimiter = createJsonRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    limit: 30,
+    message: 'Too many logout attempts. Please try again later.',
   });
 
   router.post(`${API_PREFIX}/auth/login`, loginLimiter, async (req, res) => {
@@ -152,7 +140,7 @@ export const createAuthRouter = (
     res.status(200).json(result);
   });
 
-  router.post(`${API_PREFIX}/auth/refresh`, async (req, res) => {
+  router.post(`${API_PREFIX}/auth/refresh`, refreshLimiter, async (req, res) => {
     const payload = parseBodyOrThrow(refreshSessionSchema, req.body);
 
     let result: LoginResponse;
@@ -215,7 +203,7 @@ export const createAuthRouter = (
     }
   });
 
-  router.post(`${API_PREFIX}/auth/logout`, requireStaffUser, async (_req, res) => {
+  router.post(`${API_PREFIX}/auth/logout`, logoutLimiter, requireStaffUser, async (_req, res) => {
     const authUser = res.locals.authUser as { uid?: string } | undefined;
     const uid = authUser?.uid?.trim();
     if (!uid) {

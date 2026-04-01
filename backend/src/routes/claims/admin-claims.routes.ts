@@ -1,6 +1,7 @@
 import { invalidateAdminClaimsCache, invalidateUserClaimsCache } from '../../services/claims/claim-query-cache.service.js';
 import { invalidatePublicItemsCache } from '../../services/items/item-query-cache.service.js';
 import { API_PREFIX, HttpError } from '../route-utils.js';
+import { createJsonRateLimiter } from '../rate-limit.js';
 import { parseBodyOrThrow } from '../schema-validation.js';
 import type { ClaimsRouterDeps } from './claims-router-modules.js';
 import { getSingleRouteParam } from './claims-router-modules.js';
@@ -14,11 +15,27 @@ export const registerAdminClaimsRoutes = ({
   schemaModule,
   claimsServiceModule,
 }: ClaimsRouterDeps): void => {
-  router.get(`${API_PREFIX}/admin/claims`, requireStaffUser, async (_req, res) => {
+  const listClaimsLimiter = createJsonRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    limit: 120,
+    message: 'Too many admin claim list requests. Please try again later.',
+  });
+  const reviewClaimLimiter = createJsonRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    limit: 40,
+    message: 'Too many claim review attempts. Please try again later.',
+  });
+  const requestProofLimiter = createJsonRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    limit: 40,
+    message: 'Too many proof request attempts. Please try again later.',
+  });
+
+  router.get(`${API_PREFIX}/admin/claims`, listClaimsLimiter, requireStaffUser, async (_req, res) => {
     res.status(200).json(await claimsServiceModule.listAdminClaims(db, bucket, redis));
   });
 
-  router.patch(`${API_PREFIX}/claims/:id/status`, requireStaffUser, async (req, res) => {
+  router.patch(`${API_PREFIX}/claims/:id/status`, reviewClaimLimiter, requireStaffUser, async (req, res) => {
     const claimId = getSingleRouteParam(req.params.id);
     if (!claimId) throw new HttpError(400, 'BAD_REQUEST', 'id is required');
 
@@ -37,7 +54,7 @@ export const registerAdminClaimsRoutes = ({
     }
   });
 
-  router.patch(`${API_PREFIX}/claims/:id/proof-request`, requireStaffUser, async (req, res) => {
+  router.patch(`${API_PREFIX}/claims/:id/proof-request`, requestProofLimiter, requireStaffUser, async (req, res) => {
     const claimId = getSingleRouteParam(req.params.id);
     if (!claimId) throw new HttpError(400, 'BAD_REQUEST', 'id is required');
 
