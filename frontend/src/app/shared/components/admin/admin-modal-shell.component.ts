@@ -8,7 +8,7 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
   template: `
     <div class="fixed inset-0 flex items-center justify-center p-4" [class]="zIndexClass">
       <div class="absolute inset-0 bg-slate-950/40" (click)="backdropClick.emit()"></div>
-      <div class="relative w-full rounded-2xl border border-border/60 bg-[var(--color-surface)] shadow-2xl" [class]="widthClass">
+      <div class="relative w-full rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-2xl" [class]="widthClass">
         <ng-content></ng-content>
       </div>
     </div>

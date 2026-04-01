@@ -7,15 +7,15 @@ import type { AdminReport } from '../../../features/admin/reports/admin-reports.
   standalone: true,
   imports: [CommonModule],
   template: `
-    <div class="rounded-2xl border border-border/60 bg-[var(--color-surface)] shadow-sm overflow-hidden">
+    <div class="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-sm overflow-hidden">
       <div class="overflow-x-auto">
         <table class="min-w-full">
-          <thead class="bg-neutral-base/60">
+          <thead class="bg-[var(--color-surface-2)]">
             <tr>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wide">Select</th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wide">Report Overview</th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wide">Status</th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wide">Actions</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wide">Select</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wide">Report Overview</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wide">Status</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wide">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -34,7 +34,7 @@ import type { AdminReport } from '../../../features/admin/reports/admin-reports.
                 <td class="px-4 py-4 min-w-[420px]">
                   <div class="space-y-3">
                     <div class="flex flex-wrap items-start gap-2">
-                      <p class="text-lg font-semibold text-text-primary mb-0 leading-6">{{ item.title || 'Untitled' }}</p>
+                      <p class="text-lg font-semibold text-[var(--color-text-primary)] mb-0 leading-6">{{ item.title || 'Untitled' }}</p>
 
                       @if (isFlagged(item)) {
                         <span
@@ -46,17 +46,17 @@ import type { AdminReport } from '../../../features/admin/reports/admin-reports.
                       }
                     </div>
 
-                    <p class="text-sm text-text-secondary mb-0 line-clamp-2 leading-6">
+                    <p class="text-sm text-[var(--color-text-secondary)] mb-0 line-clamp-2 leading-6">
                       {{ item.description || 'No additional description was provided for this report.' }}
                     </p>
 
                     <div class="flex flex-wrap gap-2">
-                      <span class="inline-flex items-center rounded-full border border-border/70 bg-[var(--color-surface-2)] px-2.5 py-1 text-[11px] font-medium text-text-secondary">
+                      <span class="inline-flex items-center rounded-full border border-[var(--color-border)] bg-[var(--color-surface-2)] px-2.5 py-1 text-[11px] font-medium text-[var(--color-text-secondary)]">
                         {{ item.referenceCode }}
                       </span>
 
                       @if (item.location) {
-                        <span class="inline-flex items-center rounded-full border border-border/70 bg-[var(--color-surface-2)] px-2.5 py-1 text-[11px] font-medium text-text-secondary">
+                        <span class="inline-flex items-center rounded-full border border-[var(--color-border)] bg-[var(--color-surface-2)] px-2.5 py-1 text-[11px] font-medium text-[var(--color-text-secondary)]">
                           {{ item.location }}
                         </span>
                       }
@@ -68,7 +68,7 @@ import type { AdminReport } from '../../../features/admin/reports/admin-reports.
                       </p>
                     }
 
-                    <p class="text-[12px] text-text-secondary mb-0">
+                    <p class="text-[12px] text-[var(--color-text-secondary)] mb-0">
                       Submitted {{ item.dateReported | date: 'mediumDate' }}
                     </p>
                   </div>
@@ -114,7 +114,7 @@ import type { AdminReport } from '../../../features/admin/reports/admin-reports.
                         <button
                           type="button"
                           (click)="toggleMenu(item.id)"
-                          class="inline-flex items-center gap-1 rounded-full border border-border/80 bg-[var(--color-surface)] px-3 py-1.5 text-[11px] font-semibold text-text-secondary hover:border-primary/40 hover:text-primary transition-colors"
+                          class="inline-flex items-center gap-1 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-[11px] font-semibold text-[var(--color-text-secondary)] hover:border-primary/40 hover:text-primary transition-colors"
                           [attr.aria-expanded]="openMenuId === item.id"
                           [attr.aria-label]="'More actions for ' + (item.title || 'report')"
                         >
@@ -125,11 +125,11 @@ import type { AdminReport } from '../../../features/admin/reports/admin-reports.
                         </button>
 
                         @if (openMenuId === item.id) {
-                          <div class="absolute left-0 top-full z-10 mt-2 min-w-[150px] rounded-xl border border-border/70 bg-[var(--color-surface)] p-1.5 shadow-lg">
+                          <div class="absolute left-0 top-full z-10 mt-2 min-w-[150px] rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-1.5 shadow-lg">
                             <button
                               type="button"
                               (click)="handleCopyReference(item.referenceCode)"
-                              class="flex w-full items-center rounded-lg px-3 py-2 text-left text-xs font-semibold text-text-primary hover:bg-neutral-base/70 transition-colors"
+                              class="flex w-full items-center rounded-lg px-3 py-2 text-left text-xs font-semibold text-[var(--color-text-primary)] hover:bg-[var(--color-surface-2)] transition-colors"
                             >
                               Copy Ref
                             </button>
@@ -138,7 +138,7 @@ import type { AdminReport } from '../../../features/admin/reports/admin-reports.
                               <button
                                 type="button"
                                 (click)="handleCopyEmail(item.contactEmail)"
-                                class="flex w-full items-center rounded-lg px-3 py-2 text-left text-xs font-semibold text-text-primary hover:bg-neutral-base/70 transition-colors"
+                                class="flex w-full items-center rounded-lg px-3 py-2 text-left text-xs font-semibold text-[var(--color-text-primary)] hover:bg-[var(--color-surface-2)] transition-colors"
                               >
                                 Copy Email
                               </button>
@@ -155,7 +155,7 @@ import type { AdminReport } from '../../../features/admin/reports/admin-reports.
                       class="inline-flex items-center px-1 py-0 text-[11px] font-semibold uppercase tracking-[0.14em] transition-colors"
                       [class]="canFlag(item)
                         ? 'text-primary/80 hover:text-primary'
-                        : 'text-text-secondary/70 cursor-not-allowed'"
+                        : 'text-[var(--color-text-secondary)]/70 cursor-not-allowed'"
                     >
                       {{ canFlag(item) ? 'Flag Suspicious' : 'Flagged or unavailable' }}
                     </button>

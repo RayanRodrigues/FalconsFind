@@ -8,17 +8,17 @@ import type { ActivityPoint, PieSlice, StatusBar } from '../../../features/admin
   imports: [CommonModule],
   template: `
     <div class="grid gap-6 xl:grid-cols-[1.05fr,0.95fr]">
-      <div class="rounded-2xl border border-border/60 bg-[var(--color-surface)] p-5 shadow-sm">
+      <div class="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-sm">
         <div class="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p class="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-text-secondary">Status Distribution</p>
-            <h2 class="mb-0 text-lg font-bold text-text-primary">Operational status mix</h2>
+            <p class="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">Status Distribution</p>
+            <h2 class="mb-0 text-lg font-bold text-[var(--color-text-primary)]">Operational status mix</h2>
           </div>
-          <p class="mb-0 text-sm text-text-secondary">A fast read on how the filtered report set is split across lifecycle stages.</p>
+          <p class="mb-0 text-sm text-[var(--color-text-secondary)]">A fast read on how the filtered report set is split across lifecycle stages.</p>
         </div>
 
         <div class="grid gap-5 lg:grid-cols-[0.95fr,1.05fr] lg:items-center">
-          <div class="flex flex-col items-center justify-center rounded-2xl border border-border/50 bg-[var(--color-surface-2)]/35 px-5 py-6">
+          <div class="flex flex-col items-center justify-center rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-2)]/35 px-5 py-6">
             @if (statusPieSlices.length > 0) {
               <div class="relative flex h-56 w-56 items-center justify-center">
                 <svg viewBox="0 0 120 120" class="h-56 w-56 -rotate-90">
@@ -46,13 +46,13 @@ import type { ActivityPoint, PieSlice, StatusBar } from '../../../features/admin
                 </svg>
 
                 <div class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
-                  <p class="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-secondary">Reports</p>
-                  <p class="mb-1 text-3xl font-bold text-text-primary">{{ totalReported }}</p>
-                  <p class="mb-0 text-xs text-text-secondary">in current view</p>
+                  <p class="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">Reports</p>
+                  <p class="mb-1 text-3xl font-bold text-[var(--color-text-primary)]">{{ totalReported }}</p>
+                  <p class="mb-0 text-xs text-[var(--color-text-secondary)]">in current view</p>
                 </div>
               </div>
             } @else {
-              <div class="flex h-56 w-full items-center justify-center rounded-2xl border border-dashed border-border/60 text-sm text-text-secondary">
+              <div class="flex h-56 w-full items-center justify-center rounded-2xl border border-dashed border-[var(--color-border)] text-sm text-[var(--color-text-secondary)]">
                 No status data in the current view
               </div>
             }
@@ -60,18 +60,18 @@ import type { ActivityPoint, PieSlice, StatusBar } from '../../../features/admin
 
           <div class="space-y-3">
             @for (bar of statusBars; track bar.label) {
-              <div class="rounded-xl border border-border/50 bg-[var(--color-surface-2)]/45 px-4 py-4">
+              <div class="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)]/45 px-4 py-4">
                 <div class="mb-2 flex items-start justify-between gap-3">
                   <div class="min-w-0">
                     <div class="mb-1 flex items-center gap-2">
                       <span class="h-2.5 w-2.5 rounded-full" [style.background]="resolveChartColor(bar.label)"></span>
-                      <p class="mb-0 text-sm font-semibold text-text-primary">{{ bar.label }}</p>
+                      <p class="mb-0 text-sm font-semibold text-[var(--color-text-primary)]">{{ bar.label }}</p>
                     </div>
-                    <p class="mb-0 text-xs text-text-secondary">{{ bar.description }}</p>
+                    <p class="mb-0 text-xs text-[var(--color-text-secondary)]">{{ bar.description }}</p>
                   </div>
                   <div class="text-right">
                     <p class="mb-0 text-sm font-bold" [class]="bar.toneClass">{{ bar.value }}</p>
-                    <p class="mb-0 text-xs text-text-secondary">{{ bar.percent }}%</p>
+                    <p class="mb-0 text-xs text-[var(--color-text-secondary)]">{{ bar.percent }}%</p>
                   </div>
                 </div>
 
@@ -88,22 +88,22 @@ import type { ActivityPoint, PieSlice, StatusBar } from '../../../features/admin
         </div>
       </div>
 
-      <div class="rounded-2xl border border-border/60 bg-[var(--color-surface)] p-5 shadow-sm">
+      <div class="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-sm">
         <div class="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p class="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-text-secondary">Reporting Activity</p>
-            <h2 class="mb-0 text-lg font-bold text-text-primary">Daily volume over time</h2>
+            <p class="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">Reporting Activity</p>
+            <h2 class="mb-0 text-lg font-bold text-[var(--color-text-primary)]">Daily volume over time</h2>
           </div>
-          <p class="mb-0 text-sm text-text-secondary">Tracks how many found-item reports were submitted across the latest seven days in view.</p>
+          <p class="mb-0 text-sm text-[var(--color-text-secondary)]">Tracks how many found-item reports were submitted across the latest seven days in view.</p>
         </div>
 
-        <div class="rounded-2xl border border-border/50 bg-[var(--color-surface-2)]/35 p-4">
+        <div class="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-2)]/35 p-4">
           <div class="mb-4 flex items-center justify-between gap-3">
             <div>
-              <p class="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-text-secondary">Peak Day</p>
-              <p class="mb-0 text-lg font-bold text-text-primary">{{ activityMaxValue }} reports</p>
+              <p class="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-secondary)]">Peak Day</p>
+              <p class="mb-0 text-lg font-bold text-[var(--color-text-primary)]">{{ activityMaxValue }} reports</p>
             </div>
-            <div class="rounded-full border border-border/60 bg-[var(--color-surface)] px-3 py-1.5 text-xs font-medium text-text-secondary">
+            <div class="rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-xs font-medium text-[var(--color-text-secondary)]">
               Last 7 days
             </div>
           </div>
@@ -165,9 +165,9 @@ import type { ActivityPoint, PieSlice, StatusBar } from '../../../features/admin
 
           <div class="mt-4 grid gap-3 sm:grid-cols-3">
             @for (point of activityPoints; track point.label) {
-              <div class="rounded-xl border border-border/50 bg-[var(--color-surface)] px-3 py-3">
-                <p class="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-text-secondary">{{ point.label }}</p>
-                <p class="mb-0 text-base font-bold text-text-primary">{{ point.value }} reports</p>
+              <div class="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-3">
+                <p class="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-secondary)]">{{ point.label }}</p>
+                <p class="mb-0 text-base font-bold text-[var(--color-text-primary)]">{{ point.value }} reports</p>
               </div>
             }
           </div>

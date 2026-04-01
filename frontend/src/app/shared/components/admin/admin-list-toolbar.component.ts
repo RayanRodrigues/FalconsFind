@@ -18,7 +18,7 @@ export type AdminToolbarStatusOption = {
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <div class="rounded-2xl border border-border/60 bg-[var(--color-surface)] p-5 shadow-sm">
+    <div class="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-sm">
       <div class="flex flex-col gap-4">
         <div class="flex flex-wrap gap-2">
           @for (option of viewOptions; track option.value) {
@@ -39,7 +39,7 @@ export type AdminToolbarStatusOption = {
               [disabled]="actionDisabled"
               class="rounded-lg border px-4 py-2 text-sm font-semibold transition-colors"
               [class]="actionDisabled
-                ? 'border-border bg-[var(--color-surface-2)] text-text-secondary cursor-not-allowed'
+                ? 'border-border bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] cursor-not-allowed'
                 : 'border-primary bg-primary text-white hover:opacity-90'"
             >
               {{ actionLabel }}
@@ -50,7 +50,7 @@ export type AdminToolbarStatusOption = {
         <div class="flex flex-col gap-3 lg:flex-row lg:items-center">
           <div class="relative flex-1">
             <svg
-              class="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary"
+              class="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-secondary)]"
               style="width:16px;height:16px;flex-shrink:0;"
               fill="none"
               viewBox="0 0 24 24"
@@ -69,21 +69,21 @@ export type AdminToolbarStatusOption = {
               [ngModel]="searchValue"
               (ngModelChange)="searchValueChange.emit($event)"
               [placeholder]="searchPlaceholder"
-              class="w-full rounded-lg border border-border bg-[var(--color-surface)] pl-9 pr-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary transition"
+              class="w-full rounded-lg border border-border bg-[var(--color-surface)] pl-9 pr-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary transition"
             />
           </div>
 
           <select
             [ngModel]="statusValue"
             (ngModelChange)="statusValueChange.emit($event)"
-            class="rounded-lg border border-border px-3 py-2 text-sm bg-[var(--color-surface)] text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary transition"
+            class="rounded-lg border border-border px-3 py-2 text-sm bg-[var(--color-surface)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary transition"
           >
             @for (option of statusOptions; track option.value) {
               <option [value]="option.value">{{ option.label }}</option>
             }
           </select>
 
-          <span class="text-xs text-text-secondary lg:ml-auto">
+          <span class="text-xs text-[var(--color-text-secondary)] lg:ml-auto">
             {{ resultsCount }} result{{ resultsCount === 1 ? '' : 's' }}
             @if (selectedCount > 0) {
               <span> • {{ selectedCount }} selected</span>
@@ -122,13 +122,13 @@ export class AdminListToolbarComponent {
     }
 
     if (tone === 'slate') {
-      return 'border-border bg-[var(--color-surface)] text-text-primary hover:border-slate-400 hover:text-slate-700';
+      return 'border-border bg-[var(--color-surface)] text-[var(--color-text-primary)] hover:border-slate-400 hover:text-slate-700';
     }
 
     if (tone === 'info') {
-      return 'border-border bg-[var(--color-surface)] text-text-primary hover:border-info hover:text-info';
+      return 'border-border bg-[var(--color-surface)] text-[var(--color-text-primary)] hover:border-info hover:text-info';
     }
 
-    return 'border-border bg-[var(--color-surface)] text-text-primary hover:border-primary hover:text-primary';
+    return 'border-border bg-[var(--color-surface)] text-[var(--color-text-primary)] hover:border-primary hover:text-primary';
   }
 }
