@@ -81,6 +81,23 @@ test('POST /api/v1/reports/found creates a report with photo upload', async () =
   assert.equal(historyEvent.metadata.itemStatus, 'PENDING_VALIDATION');
 });
 
+test('POST /api/v1/reports/found returns 400 when found location exceeds 120 characters', async () => {
+  const { app } = buildReportsTestApp();
+  const jpegBuffer = Buffer.from([0xff, 0xd8, 0xff, 0xdb, 0x00, 0x43, 0x00]);
+
+  const response = await request(app)
+    .post('/api/v1/reports/found')
+    .field('title', 'Found wallet')
+    .field('foundLocation', 'A'.repeat(121))
+    .attach('photo', jpegBuffer, {
+      filename: 'wallet.jpg',
+      contentType: 'image/jpeg',
+    });
+
+  assert.equal(response.status, 400);
+  assert.equal(response.body.error.code, 'BAD_REQUEST');
+});
+
 test('GET /api/v1/reports/reference/:referenceCode returns a report by reference code', async () => {
   const { app } = buildReportsTestApp({
     'report-edit-1': {

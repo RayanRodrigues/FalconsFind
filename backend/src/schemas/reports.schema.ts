@@ -1,11 +1,21 @@
 import { z } from 'zod';
 
+const optionalReportLocationSchema = z.string()
+  .trim()
+  .min(1)
+  .max(120, 'location must be 120 characters or less');
+
+const requiredReportLocationSchema = z.string()
+  .trim()
+  .min(1, 'foundLocation is required')
+  .max(120, 'foundLocation must be 120 characters or less');
+
 export const createLostReportSchema = z.object({
   title: z.string().trim().min(1, 'title is required'),
   category: z.string().trim().min(1).optional(),
   description: z.string().trim().min(1).optional(),
   additionalInfo: z.string().trim().min(1).optional(),
-  lastSeenLocation: z.string().trim().min(1).optional(),
+  lastSeenLocation: optionalReportLocationSchema.optional(),
   lastSeenAt: z.string().datetime().optional(),
   contactEmail: z.string().email().optional(),
 });
@@ -14,7 +24,7 @@ export const createFoundReportSchema = z.object({
   title: z.string().trim().min(1, 'title is required'),
   category: z.string().trim().min(1).optional(),
   description: z.string().trim().min(1).optional(),
-  foundLocation: z.string().trim().min(1, 'foundLocation is required'),
+  foundLocation: requiredReportLocationSchema,
   foundAt: z.string().datetime().optional(),
   contactEmail: z.string().email().optional(),
 });
@@ -23,7 +33,11 @@ export const updateReportByReferenceSchema = z.object({
   title: z.string().trim().min(1, 'title cannot be empty').optional(),
   category: z.string().trim().min(1, 'category cannot be empty').optional(),
   description: z.string().trim().min(1, 'description cannot be empty').optional(),
-  location: z.string().trim().min(1, 'location cannot be empty').optional(),
+  location: z.string()
+    .trim()
+    .min(1, 'location cannot be empty')
+    .max(120, 'location must be 120 characters or less')
+    .optional(),
   dateReported: z.string().datetime('dateReported must be a valid ISO date-time').optional(),
   contactEmail: z.string().email('contactEmail must be a valid email').optional(),
 }).refine(
