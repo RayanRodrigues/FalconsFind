@@ -9,7 +9,7 @@ import { UserRole } from '../../../models';
   standalone: true,
   imports: [RouterLink, RouterLinkActive],
   template: `
-    <header class="fixed left-0 right-0 top-0 z-[100] border-b border-[var(--color-border)] bg-[var(--color-surface)] shadow-sm">
+    <header [class]="headerClass">
       <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <div class="flex h-[72px] items-center justify-between gap-4">
 
@@ -185,17 +185,22 @@ export class NavbarComponent {
     return role === UserRole.ADMIN || role === UserRole.SECURITY;
   });
 
-  // Nav link text adapts: brand crimson in light, near-white in dark
+  get headerClass(): string {
+    const bg = this.isDarkMode() ? 'bg-[#1E293B]' : 'bg-[var(--color-surface-2)]';
+    return `fixed left-0 right-0 top-0 z-[100] border-b border-[var(--color-border)] shadow-sm ${bg}`;
+  }
+
+  // Nav link text adapts: brand crimson in light, near-white in dark (no red on hover in dark)
   get navLinkClass(): string {
     const color = this.isDarkMode()
-      ? 'text-[var(--color-text-primary)] hover:text-primary'
+      ? 'text-[var(--color-text-primary)]'
       : 'text-primary';
     return `rounded-full px-3.5 py-1.5 text-sm transition-colors hover:bg-primary/12 ${color}`;
   }
 
   get mobileNavLinkClass(): string {
     const color = this.isDarkMode()
-      ? 'text-[var(--color-text-primary)] hover:text-primary'
+      ? 'text-[var(--color-text-primary)]'
       : 'text-primary';
     return `rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-primary/12 ${color}`;
   }
@@ -215,10 +220,8 @@ export class NavbarComponent {
 
   // Mobile list-row items (logout, theme toggle)
   get mobileItemClass(): string {
-    const color = this.isDarkMode()
-      ? 'text-[var(--color-text-secondary)] hover:text-primary'
-      : 'text-[var(--color-text-secondary)] hover:text-primary';
-    return `flex items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm transition-colors hover:bg-primary/12 ${color}`;
+    const hoverColor = this.isDarkMode() ? '' : 'hover:text-primary';
+    return `flex items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm transition-colors hover:bg-primary/12 text-[var(--color-text-secondary)] ${hoverColor}`;
   }
 
   toggleMenu(): void {
