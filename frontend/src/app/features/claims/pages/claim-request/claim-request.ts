@@ -1,6 +1,6 @@
 import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { finalize } from 'rxjs';
 import { AlertComponent } from '../../../../shared/components/feedback/alert.component';
 import { FormFieldComponent } from '../../../../shared/components/forms/form-field.component';
@@ -54,6 +54,7 @@ export class ClaimRequest implements OnInit {
   claimResult: CreateClaimResponse | null = null;
 
   constructor(
+    private readonly route: ActivatedRoute,
     private readonly router: Router,
     private readonly claimsApi: ClaimsApiService,
     private readonly authService: AuthService,
@@ -61,6 +62,8 @@ export class ClaimRequest implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.applyItemPrefill();
+
     const session = this.authService.getStoredSession();
     if (session) {
       this.form.patchValue({
@@ -69,6 +72,16 @@ export class ClaimRequest implements OnInit {
       });
       this.cdr.detectChanges();
     }
+  }
+
+  private applyItemPrefill(): void {
+    const referenceCode = this.route.snapshot.queryParamMap.get('referenceCode')?.trim() ?? '';
+    const itemName = this.route.snapshot.queryParamMap.get('itemName')?.trim() ?? '';
+
+    this.form.patchValue({
+      referenceCode,
+      itemName,
+    });
   }
 
   getFieldError(field: string): string | null {

@@ -268,4 +268,11 @@ export class ItemDetailsComponent implements OnInit, OnDestroy {
   get imageUrls(): string[] {
     return this.item?.imageUrls?.filter((url) => !!url.trim()) ?? [];
   }
+
+  get claimQueryParams(): Record<string, string> {
+    return {
+      referenceCode: this.item?.referenceCode ?? '',
+      itemName: this.item?.title ?? '',
+    };
+  }
 }

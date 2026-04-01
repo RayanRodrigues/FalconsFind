@@ -179,6 +179,10 @@
               Use the reference code below in the claim form and add identifying details that only the owner would know.
             </p>
 
+            <p class="mt-3 text-xs text-[var(--color-text-secondary)]">
+              We will pre-fill the item reference and name for you.
+            </p>
+
             <div class="mt-5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)] px-4 py-4">
               <p class="mb-1 text-xs font-semibold uppercase tracking-widest text-[var(--color-text-secondary)]">Reference Code</p>
               <p class="mb-0 font-mono text-base font-semibold text-[var(--color-text-primary)]">{{ item.referenceCode }}</p>
@@ -188,6 +192,7 @@
               @if (!isClaimed()) {
                 <a
                   routerLink="/claim-request"
+                  [queryParams]="claimQueryParams"
                   class="inline-flex items-center justify-center rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-secondary"
                 >
                   Start Claim Request
