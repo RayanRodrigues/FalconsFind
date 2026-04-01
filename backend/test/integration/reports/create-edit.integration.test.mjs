@@ -104,6 +104,29 @@ test('GET /api/v1/reports/reference/:referenceCode returns a report by reference
   assert.equal(response.body.title, 'Black wallet');
 });
 
+test('GET /api/v1/reports/:referenceCode returns a report by reference code', async () => {
+  const { app } = buildReportsTestApp({
+    'report-edit-alias-1': {
+      kind: 'FOUND',
+      title: 'Grey headphones',
+      status: 'REPORTED',
+      referenceCode: 'FND-20260318-ALIAS001',
+      location: 'Library',
+      description: 'Wireless headphones in a grey case',
+      dateReported: '2026-03-18T10:00:00.000Z',
+      contactEmail: 'finder@example.com',
+    },
+  });
+
+  const response = await request(app).get('/api/v1/reports/FND-20260318-ALIAS001');
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.id, 'report-edit-alias-1');
+  assert.equal(response.body.referenceCode, 'FND-20260318-ALIAS001');
+  assert.equal(response.body.kind, 'FOUND');
+  assert.equal(response.body.title, 'Grey headphones');
+});
+
 test('GET /api/v1/reports/reference/:referenceCode returns 404 when report is missing', async () => {
   const { app } = buildReportsTestApp();
 
@@ -142,6 +165,34 @@ test('PATCH /api/v1/reports/reference/:referenceCode updates an editable report'
   assert.equal(reports['report-edit-2'].title, 'Blue backpack with charger');
   assert.equal(reports['report-edit-2'].location, 'Student Center');
   assert.equal(reports['report-edit-2'].dateReported, '2026-03-17T12:30:00.000Z');
+});
+
+test('PATCH /api/v1/reports/:referenceCode updates an editable report', async () => {
+  const { app, reports } = buildReportsTestApp({
+    'report-edit-alias-2': {
+      kind: 'FOUND',
+      title: 'Green water bottle',
+      status: 'REPORTED',
+      referenceCode: 'FND-20260318-ALIAS002',
+      location: 'Gym',
+      description: 'Metal bottle with stickers',
+      dateReported: '2026-03-18T08:30:00.000Z',
+      contactEmail: 'finder@example.com',
+    },
+  });
+
+  const response = await request(app)
+    .patch('/api/v1/reports/FND-20260318-ALIAS002')
+    .send({
+      title: 'Green water bottle with stickers',
+      description: 'Metal bottle with two stickers on the side',
+    });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.title, 'Green water bottle with stickers');
+  assert.equal(response.body.description, 'Metal bottle with two stickers on the side');
+  assert.equal(reports['report-edit-alias-2'].title, 'Green water bottle with stickers');
+  assert.equal(reports['report-edit-alias-2'].description, 'Metal bottle with two stickers on the side');
 });
 
 test('PATCH /api/v1/reports/reference/:referenceCode returns 409 when report is no longer editable', async () => {
