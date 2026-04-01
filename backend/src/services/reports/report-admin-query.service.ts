@@ -1,14 +1,21 @@
 import type { Bucket } from '@google-cloud/storage';
 import type { Firestore, Query } from 'firebase-admin/firestore';
+import type { RedisClient } from '../../bootstrap/redis.js';
 import type { AdminReportResponse, Report } from '../../contracts/index.js';
 import { ItemStatus } from '../../contracts/index.js';
 import { archiveExpiredUnclaimedItems } from '../items/item-archive.service.js';
+import {
+  buildAdminReportsCacheKey,
+  getCachedAdminReportsQuery,
+  setCachedAdminReportsQuery,
+} from './report-admin-query-cache.service.js';
 import { mapAdminReport } from './report-media.js';
 import type { ListAdminReportsParams } from './report-types.js';
 
 export const listAdminReports = async (
   db: Firestore,
   bucket: Bucket,
+  redis: RedisClient | null,
   params: ListAdminReportsParams,
 ): Promise<{
   reports: AdminReportResponse[];
@@ -21,6 +28,21 @@ export const listAdminReports = async (
   };
 }> => {
   await archiveExpiredUnclaimedItems(db);
+  const cacheKey = buildAdminReportsCacheKey(params);
+  const cached = await getCachedAdminReportsQuery<{
+    reports: AdminReportResponse[];
+    total: number;
+    summary: {
+      totalReports: number;
+      lostReports: number;
+      foundReports: number;
+      byStatus: Partial<Record<ItemStatus, number>>;
+    };
+  }>(redis, cacheKey);
+  if (cached) {
+    return cached;
+  }
+
   const page = Math.max(1, Math.floor(params.page));
   const limit = Math.max(1, Math.floor(params.limit));
   const offset = (page - 1) * limit;
@@ -62,7 +84,7 @@ export const listAdminReports = async (
     return acc;
   }, {});
 
-  return {
+  const result = {
     reports: filteredReports.slice(offset, offset + limit),
     total: filteredReports.length,
     summary: {
@@ -72,4 +94,7 @@ export const listAdminReports = async (
       byStatus,
     },
   };
+
+  await setCachedAdminReportsQuery(redis, cacheKey, result);
+  return result;
 };

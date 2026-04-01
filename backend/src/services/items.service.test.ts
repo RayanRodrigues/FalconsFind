@@ -66,6 +66,7 @@ describe('listValidatedItems', () => {
         whereCalls.push([field, operator, value]);
         return query;
       }),
+      get: vi.fn().mockImplementation(() => { whereCalls = []; return Promise.resolve({ docs: [] }); }),
       count: countFn,
       orderBy: orderByFn,
     };

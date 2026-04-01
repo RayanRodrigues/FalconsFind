@@ -6,3 +6,4 @@ export * from './claims/claim-create-edit.service.js';
 export * from './claims/claim-review.service.js';
 export * from './claims/claim-proof.service.js';
 export * from './claims/claim-query.service.js';
+export * from './claims/claim-query-cache.service.js';

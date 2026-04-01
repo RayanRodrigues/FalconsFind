@@ -4,3 +4,4 @@ export * from './reports/report-submit.service.js';
 export * from './reports/report-edit.service.js';
 export * from './reports/report-admin-actions.service.js';
 export * from './reports/report-admin-query.service.js';
+export * from './reports/report-admin-query-cache.service.js';

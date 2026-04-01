@@ -1,5 +1,6 @@
 import { ItemStatus, UserRole } from '../../contracts/index.js';
 import { invalidatePublicItemsCache } from '../../services/items/item-query-cache.service.js';
+import { invalidateAdminReportsCache } from '../../services/reports/report-admin-query-cache.service.js';
 import { API_PREFIX, HttpError } from '../route-utils.js';
 import { parseOptionalString, parsePositiveInt } from '../request-parsers.js';
 import { parseBodyOrThrow } from '../schema-validation.js';
@@ -32,6 +33,7 @@ export const registerAdminReportRoutes = ({
 
     try {
       const result = await reportsServiceModule.validateFoundReport(db, reportId, actor);
+      await invalidateAdminReportsCache(redis);
       await invalidatePublicItemsCache(redis, reportId);
       res.status(200).json({
         id: result.id,
@@ -75,7 +77,7 @@ export const registerAdminReportRoutes = ({
       throw new HttpError(400, 'BAD_REQUEST', 'flagged must be true or false');
     }
 
-    const result = await reportsServiceModule.listAdminReports(db, bucket, {
+    const result = await reportsServiceModule.listAdminReports(db, bucket, redis, {
       page,
       limit,
       kind,
@@ -116,6 +118,7 @@ export const registerAdminReportRoutes = ({
 
     try {
       const result = await reportsServiceModule.flagReport(db, reportId, payload, actor);
+      await invalidateAdminReportsCache(redis);
       res.status(200).json({
         id: result.id,
         isSuspicious: result.report.isSuspicious,
@@ -149,6 +152,7 @@ export const registerAdminReportRoutes = ({
 
     try {
       const result = await reportsServiceModule.mergeDuplicateReports(db, payload, actor);
+      await invalidateAdminReportsCache(redis);
       res.status(200).json(result);
     } catch (error) {
       if (error instanceof reportsServiceModule.ReportNotFoundError) {

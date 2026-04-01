@@ -115,6 +115,7 @@ export type ReportsServiceModule = {
   listAdminReports: (
     db: Firestore,
     bucket: Bucket,
+    redis: RedisClient | null,
     params: {
       page: number;
       limit: number;

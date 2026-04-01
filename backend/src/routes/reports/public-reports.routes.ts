@@ -1,4 +1,5 @@
 import rateLimit from 'express-rate-limit';
+import { invalidateAdminReportsCache } from '../../services/reports/report-admin-query-cache.service.js';
 import { API_PREFIX, HttpError } from '../route-utils.js';
 import { uploadSinglePhoto, getValidatedUploadedPhoto } from '../report-photo-upload.js';
 import { parseBodyOrThrow } from '../schema-validation.js';
@@ -9,6 +10,7 @@ export const registerPublicReportRoutes = ({
   router,
   db,
   bucket,
+  redis,
   schemaModule,
   reportsServiceModule,
 }: ReportsRouterDeps): void => {
@@ -36,6 +38,7 @@ export const registerPublicReportRoutes = ({
 
     try {
       const result = await reportsServiceModule.createLostReport(db, bucket, payload, photo);
+      await invalidateAdminReportsCache(redis);
       res.status(201).json({ id: result.id, referenceCode: result.report.referenceCode });
     } catch (error) {
       if (error instanceof reportsServiceModule.ReportPhotoUploadError) {
@@ -56,6 +59,7 @@ export const registerPublicReportRoutes = ({
 
     try {
       const result = await reportsServiceModule.createFoundReport(db, bucket, payload, photo);
+      await invalidateAdminReportsCache(redis);
       res.status(201).json({ id: result.id, referenceCode: result.report.referenceCode });
     } catch (error) {
       if (error instanceof reportsServiceModule.ReportPhotoUploadError) {
@@ -98,6 +102,7 @@ export const registerPublicReportRoutes = ({
 
     try {
       const report = await reportsServiceModule.updateReportByReferenceCode(db, referenceCode, payload);
+      await invalidateAdminReportsCache(redis);
       res.status(200).json(report);
     } catch (error) {
       if (error instanceof reportsServiceModule.ReportNotFoundError) {

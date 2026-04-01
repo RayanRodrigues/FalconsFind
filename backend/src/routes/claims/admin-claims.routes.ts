@@ -1,3 +1,4 @@
+import { invalidateAdminClaimsCache, invalidateUserClaimsCache } from '../../services/claims/claim-query-cache.service.js';
 import { invalidatePublicItemsCache } from '../../services/items/item-query-cache.service.js';
 import { API_PREFIX, HttpError } from '../route-utils.js';
 import { parseBodyOrThrow } from '../schema-validation.js';
@@ -14,7 +15,7 @@ export const registerAdminClaimsRoutes = ({
   claimsServiceModule,
 }: ClaimsRouterDeps): void => {
   router.get(`${API_PREFIX}/admin/claims`, requireStaffUser, async (_req, res) => {
-    res.status(200).json(await claimsServiceModule.listAdminClaims(db, bucket));
+    res.status(200).json(await claimsServiceModule.listAdminClaims(db, bucket, redis));
   });
 
   router.patch(`${API_PREFIX}/claims/:id/status`, requireStaffUser, async (req, res) => {
@@ -24,6 +25,8 @@ export const registerAdminClaimsRoutes = ({
     const payload = parseBodyOrThrow(schemaModule.updateClaimStatusSchema, req.body);
     try {
       const result = await claimsServiceModule.updateClaimStatus(db, claimId, payload.status);
+      await invalidateAdminClaimsCache(redis);
+      await invalidateUserClaimsCache(redis);
       await invalidatePublicItemsCache(redis, result.itemId);
       res.status(200).json(result);
     } catch (error) {
@@ -40,7 +43,10 @@ export const registerAdminClaimsRoutes = ({
 
     const payload = parseBodyOrThrow(schemaModule.requestAdditionalProofSchema, req.body);
     try {
-      res.status(200).json(await claimsServiceModule.requestAdditionalProof(db, claimId, payload));
+      const result = await claimsServiceModule.requestAdditionalProof(db, claimId, payload);
+      await invalidateAdminClaimsCache(redis);
+      await invalidateUserClaimsCache(redis);
+      res.status(200).json(result);
     } catch (error) {
       if (error instanceof claimsServiceModule.ClaimNotFoundError) throw new HttpError(404, 'NOT_FOUND', error.message);
       if (error instanceof claimsServiceModule.ClaimItemNotFoundError) throw new HttpError(404, 'CLAIM_ITEM_NOT_FOUND', error.message);
