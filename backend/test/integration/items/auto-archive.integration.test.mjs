@@ -1,7 +1,7 @@
 import request from '../request-helper.mjs';
 import { assert, buildItemsTestApp, test } from './test-utils.mjs';
 
-test('GET /api/v1/items/:id auto-archives a stale unclaimed found item after 6 months', async () => {
+test('GET /api/v1/items/:id no longer auto-archives stale items during reads', async () => {
   const reportedAt = new Date();
   reportedAt.setUTCMonth(reportedAt.getUTCMonth() - 7);
 
@@ -29,27 +29,13 @@ test('GET /api/v1/items/:id auto-archives a stale unclaimed found item after 6 m
 
   const response = await request(app).get('/api/v1/items/item-stale-1');
 
-  assert.equal(response.status, 403);
-  assert.equal(response.body.error.code, 'FORBIDDEN');
-  assert.equal(response.body.error.message, 'This item has been archived and is no longer in active listings.');
-  assert.equal(items['item-stale-1'].status, 'ARCHIVED');
-  assert.equal(reports['report-stale-1'].status, 'ARCHIVED');
-  assert.match(items['item-stale-1'].archivedAt, /^\d{4}-\d{2}-\d{2}T/);
-  assert.match(reports['report-stale-1'].archivedAt, /^\d{4}-\d{2}-\d{2}T/);
-
-  const [statusEntry] = Object.values(itemStatusHistory);
-  assert.ok(statusEntry);
-  assert.equal(statusEntry.itemId, 'item-stale-1');
-  assert.equal(statusEntry.previousStatus, 'VALIDATED');
-  assert.equal(statusEntry.nextStatus, 'ARCHIVED');
-  assert.equal(statusEntry.changedByRole, 'SYSTEM');
-
-  const [historyEntry] = Object.values(itemHistory);
-  assert.ok(historyEntry);
-  assert.equal(historyEntry.actionType, 'ITEM_ARCHIVED');
-  assert.equal(historyEntry.actor.type, 'SYSTEM');
-  assert.equal(historyEntry.metadata.automatic, true);
-  assert.equal(historyEntry.summary, 'Item archived automatically after 6 months without a claim.');
+  assert.equal(response.status, 200);
+  assert.equal(response.body.id, 'item-stale-1');
+  assert.equal(response.body.status, 'VALIDATED');
+  assert.equal(items['item-stale-1'].status, 'VALIDATED');
+  assert.equal(reports['report-stale-1'].status, 'VALIDATED');
+  assert.equal(Object.keys(itemStatusHistory).length, 0);
+  assert.equal(Object.keys(itemHistory).length, 0);
 });
 
 test('PATCH /api/v1/admin/items/:id/status returns 409 when archiving an ineligible item', async () => {

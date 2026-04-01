@@ -225,6 +225,58 @@ test('POST /api/v1/auth/refresh returns 401 for invalid refresh tokens', async (
   assert.equal(response.body.error.code, 'INVALID_REFRESH_TOKEN');
 });
 
+test('POST /api/v1/auth/forgot-password returns a generic success message', async () => {
+  const requestedEmails = [];
+  const authService = {
+    InvalidLoginCredentialsError: class InvalidLoginCredentialsError extends Error {},
+    LoginConfigurationError: class LoginConfigurationError extends Error {},
+    LoginForbiddenError: class LoginForbiddenError extends Error {},
+    RegistrationError: class RegistrationError extends Error {},
+    ForgotPasswordError: class ForgotPasswordError extends Error {},
+    forgotPassword: async (payload) => {
+      requestedEmails.push(payload.email);
+    },
+  };
+
+  const response = await request(buildTestApp(authService))
+    .post('/api/v1/auth/forgot-password')
+    .send({
+      email: 'student@example.com',
+    });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.message, 'If an account exists for this email, a password reset link has been sent.');
+  assert.deepEqual(requestedEmails, ['student@example.com']);
+});
+
+test('POST /api/v1/auth/forgot-password rate limits repeated attempts', async () => {
+  const authService = {
+    InvalidLoginCredentialsError: class InvalidLoginCredentialsError extends Error {},
+    LoginConfigurationError: class LoginConfigurationError extends Error {},
+    LoginForbiddenError: class LoginForbiddenError extends Error {},
+    RegistrationError: class RegistrationError extends Error {},
+    ForgotPasswordError: class ForgotPasswordError extends Error {},
+    forgotPassword: async () => {},
+  };
+
+  const app = buildTestApp(authService);
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const response = await request(app)
+      .post('/api/v1/auth/forgot-password')
+      .send({ email: 'student@example.com' });
+
+    assert.equal(response.status, 200);
+  }
+
+  const limitedResponse = await request(app)
+    .post('/api/v1/auth/forgot-password')
+    .send({ email: 'student@example.com' });
+
+  assert.equal(limitedResponse.status, 429);
+  assert.equal(limitedResponse.body.error.code, 'RATE_LIMITED');
+});
+
 test('POST /api/v1/auth/logout revokes the current staff session', async () => {
   const revokedUids = [];
   const authService = {

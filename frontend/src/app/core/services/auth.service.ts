@@ -6,6 +6,8 @@ import type { LoginRequest, LoginResponse, RegisterRequest } from '../../models'
 import { ApiClientService } from '../http/api-client.service';
 
 const AUTH_SESSION_STORAGE_KEY = 'falconfind.auth.session';
+type ForgotPasswordRequest = { email: string };
+type ForgotPasswordResponse = { message: string };
 
 @Injectable({
   providedIn: 'root'
@@ -26,6 +28,10 @@ export class AuthService {
     return this.apiClient
       .post<LoginResponse, RegisterRequest>('/auth/register', payload)
       .pipe(tap((response) => this.persistSession(response)));
+  }
+
+  forgotPassword(payload: ForgotPasswordRequest): Observable<ForgotPasswordResponse> {
+    return this.apiClient.post<ForgotPasswordResponse, ForgotPasswordRequest>('/auth/forgot-password', payload);
   }
 
   logout(): Observable<void> {

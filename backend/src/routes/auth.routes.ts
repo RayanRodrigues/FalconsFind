@@ -5,6 +5,7 @@ import type { Firestore } from 'firebase-admin/firestore';
 import type { RedisClient } from '../bootstrap/redis.js';
 import { UserRole } from '../contracts/index.js';
 import type {
+  ForgotPasswordRequest,
   LoginRequest,
   LoginResponse,
   RefreshSessionRequest,
@@ -20,12 +21,14 @@ import {
   LoginConfigurationError,
   LoginForbiddenError,
   RegistrationError,
+  ForgotPasswordError,
+  forgotPassword,
   loginUser,
   refreshUserSession,
   registerStudentUser,
   revokeStaffSession,
 } from '../services/auth.service.js';
-import { loginSchema, refreshSessionSchema, registerSchema } from '../schemas/auth.schema.js';
+import { forgotPasswordSchema, loginSchema, refreshSessionSchema, registerSchema } from '../schemas/auth.schema.js';
 import { createRequireStaffRoles } from '../middleware/require-staff-user.js';
 
 type AuthService = {
@@ -33,11 +36,13 @@ type AuthService = {
   refreshUserSession: (db: Firestore, payload: RefreshSessionRequest) => Promise<LoginResponse>;
   registerStudentUser: (db: Firestore, payload: RegisterRequest) => Promise<RegisterResponse>;
   revokeStaffSession: (uid: string) => Promise<void>;
+  forgotPassword: (payload: ForgotPasswordRequest) => Promise<void>;
   EmailAlreadyInUseError: typeof EmailAlreadyInUseError;
   InvalidLoginCredentialsError: typeof InvalidLoginCredentialsError;
   LoginConfigurationError: typeof LoginConfigurationError;
   LoginForbiddenError: typeof LoginForbiddenError;
   RegistrationError: typeof RegistrationError;
+  ForgotPasswordError: typeof ForgotPasswordError;
 };
 
 const defaultAuthService: AuthService = {
@@ -45,11 +50,13 @@ const defaultAuthService: AuthService = {
   refreshUserSession,
   registerStudentUser,
   revokeStaffSession,
+  forgotPassword,
   EmailAlreadyInUseError,
   InvalidLoginCredentialsError,
   LoginConfigurationError,
   LoginForbiddenError,
   RegistrationError,
+  ForgotPasswordError,
 };
 
 type AuthRouterOptions = {
@@ -87,6 +94,19 @@ export const createAuthRouter = (
       error: {
         code: 'RATE_LIMITED',
         message: 'Too many registration attempts. Please try again later.',
+      },
+    },
+  });
+
+  const forgotPasswordLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    limit: 5,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+      error: {
+        code: 'RATE_LIMITED',
+        message: 'Too many password reset attempts. Please try again later.',
       },
     },
   });
@@ -170,6 +190,27 @@ export const createAuthRouter = (
       if (error instanceof authService.RegistrationError) {
         throw new HttpError(503, 'REGISTRATION_FAILED', error.message);
       }
+      throw error;
+    }
+  });
+
+  router.post(`${API_PREFIX}/auth/forgot-password`, forgotPasswordLimiter, async (req, res) => {
+    const payload = parseBodyOrThrow(forgotPasswordSchema, req.body);
+
+    try {
+      await authService.forgotPassword(payload);
+      res.status(200).json({
+        message: 'If an account exists for this email, a password reset link has been sent.',
+      });
+    } catch (error) {
+      if (error instanceof authService.ForgotPasswordError) {
+        throw new HttpError(400, 'BAD_REQUEST', error.message);
+      }
+
+      if (error instanceof authService.LoginConfigurationError) {
+        throw new HttpError(503, 'AUTH_PROVIDER_UNAVAILABLE', error.message);
+      }
+
       throw error;
     }
   });

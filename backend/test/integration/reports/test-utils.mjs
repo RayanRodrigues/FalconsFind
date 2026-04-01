@@ -225,7 +225,7 @@ export const buildReportsTestApp = (initialData = {}) => {
 
   const app = express();
   app.use(express.json());
-  app.use(createReportsRouter(db, bucket, {
+  app.use(createReportsRouter(db, bucket, null, {
     requireStaffUser: (_req, res, next) => {
       res.locals.authUser = {
         uid: 'security-1',

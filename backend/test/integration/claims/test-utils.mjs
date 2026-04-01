@@ -232,7 +232,7 @@ export const buildClaimsTestApp = (db, options = {}) => {
 
   const app = express();
   app.use(express.json());
-  app.use(createClaimsRouter(db, bucket, {
+  app.use(createClaimsRouter(db, bucket, null, {
     requireStaffUser: options.requireStaffUser ?? ((_req, _res, next) => next()),
     requireAuthenticatedUser: (_req, res, next) => {
       res.locals.authUser = authenticatedUser;

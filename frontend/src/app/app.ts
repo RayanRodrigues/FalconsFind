@@ -10,7 +10,7 @@ import { ThemeService } from './core/services/theme.service';
 
 type FirebaseStatus = 'idle' | 'ok' | 'error';
 
-const ROUTES_WITHOUT_SHELL: string[] = ['/login', '/register', '/admin'];
+const ROUTES_WITHOUT_SHELL: string[] = ['/login', '/register', '/forgot-password', '/admin'];
 
 const isShellless = (url: string): boolean =>
   ROUTES_WITHOUT_SHELL.some(r => url === r || url.startsWith(r + '/'));
