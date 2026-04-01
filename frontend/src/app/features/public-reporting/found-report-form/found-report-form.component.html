@@ -78,7 +78,7 @@
 
             <!-- STEP 1: Basic Info -->
             @if (currentStep === 1) {
-              <div class="space-y-4">
+              <div class="form-step-panel space-y-4">
                 <h3 class="text-base font-semibold text-[var(--color-text-primary)]">Basic Information</h3>
 
                 <app-form-field id="title" label="Item Title" [required]="true" [error]="getFieldError('title')">
@@ -131,7 +131,7 @@
 
             <!-- STEP 2: When & Where -->
             @if (currentStep === 2) {
-              <div class="space-y-4">
+              <div class="form-step-panel space-y-4">
                 <h3 class="text-base font-semibold text-[var(--color-text-primary)]">When and Where</h3>
 
                 <app-form-field id="foundLocationOption" label="Location" [required]="true" [error]="getLocationError()">
@@ -198,7 +198,7 @@
 
             <!-- STEP 3: Contact -->
             @if (currentStep === 3) {
-              <div class="space-y-4">
+              <div class="form-step-panel space-y-4">
                 <h3 class="text-base font-semibold text-[var(--color-text-primary)]">Contact Information</h3>
                 <p class="text-sm text-[var(--color-text-secondary)]">Optional — helps Campus Security contact you quickly if needed.</p>
 

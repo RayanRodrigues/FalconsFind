@@ -78,39 +78,45 @@
 
             <!-- STEP 1 -->
             @if (currentStep === 1) {
-              <app-lost-report-step-basic
-                [form]="reportForm"
-                [categories]="categories"
-                [getFieldError]="getFieldError.bind(this)"
-                [isFieldInvalid]="isFieldInvalid.bind(this)"
-                [getCategoryError]="getCategoryError.bind(this)"
-                [isCategoryInvalid]="isCategoryInvalid.bind(this)"
-              />
+              <div class="form-step-panel">
+                <app-lost-report-step-basic
+                  [form]="reportForm"
+                  [categories]="categories"
+                  [getFieldError]="getFieldError.bind(this)"
+                  [isFieldInvalid]="isFieldInvalid.bind(this)"
+                  [getCategoryError]="getCategoryError.bind(this)"
+                  [isCategoryInvalid]="isCategoryInvalid.bind(this)"
+                />
+              </div>
             }
 
             <!-- STEP 2 -->
             @if (currentStep === 2) {
-              <app-lost-report-step-when-where
-                [form]="reportForm"
-                [locations]="locations"
-                [todayDate]="todayDate"
-                [photoPreviewUrls]="photoPreviewUrls"
-                [getFieldError]="getFieldError.bind(this)"
-                [isFieldInvalid]="isFieldInvalid.bind(this)"
-                [getLocationError]="getLocationError.bind(this)"
-                [isLocationInvalid]="isLocationInvalid.bind(this)"
-                [onPhotosSelected]="onPhotosSelected.bind(this)"
-                [onRemovePhoto]="removePhoto.bind(this)"
-              />
+              <div class="form-step-panel">
+                <app-lost-report-step-when-where
+                  [form]="reportForm"
+                  [locations]="locations"
+                  [todayDate]="todayDate"
+                  [photoPreviewUrls]="photoPreviewUrls"
+                  [getFieldError]="getFieldError.bind(this)"
+                  [isFieldInvalid]="isFieldInvalid.bind(this)"
+                  [getLocationError]="getLocationError.bind(this)"
+                  [isLocationInvalid]="isLocationInvalid.bind(this)"
+                  [onPhotosSelected]="onPhotosSelected.bind(this)"
+                  [onRemovePhoto]="removePhoto.bind(this)"
+                />
+              </div>
             }
 
             <!-- STEP 3 -->
             @if (currentStep === 3) {
-              <app-lost-report-step-contact
-                [form]="reportForm"
-                [getFieldError]="getFieldError.bind(this)"
-                [isFieldInvalid]="isFieldInvalid.bind(this)"
-              />
+              <div class="form-step-panel">
+                <app-lost-report-step-contact
+                  [form]="reportForm"
+                  [getFieldError]="getFieldError.bind(this)"
+                  [isFieldInvalid]="isFieldInvalid.bind(this)"
+                />
+              </div>
             }
           </div>
 
