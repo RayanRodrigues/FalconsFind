@@ -14,7 +14,7 @@
       <div class="relative px-5 py-5 sm:px-7 sm:py-6 border-b border-[var(--color-border)]">
         <div class="flex items-start justify-between gap-4">
           <div class="min-w-0">
-            <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--color-text-secondary)] mb-2">Found Item Details</p>
+            <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--color-text-secondary)] mb-2">Report Details</p>
             <div class="flex flex-wrap items-center gap-2 mb-1">
               <h3 id="admin-report-details-title" class="text-xl sm:text-2xl font-bold text-[var(--color-text-primary)] mb-0">{{ item.title }}</h3>
 
@@ -29,6 +29,8 @@
             </div>
 
             <div class="flex flex-wrap items-center gap-2 text-sm text-[var(--color-text-secondary)]">
+              <span>{{ item.kind }} report</span>
+              <span class="text-border">•</span>
               <span>{{ item.referenceCode }}</span>
               <span class="text-border">•</span>
               <span>{{ item.dateReported | date: 'medium' }}</span>
@@ -120,7 +122,7 @@
 
             <div class="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
               <p class="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)] mb-3">Description</p>
-              <p class="text-sm leading-6 text-[var(--color-text-primary)] mb-0">{{ item.description || 'No description was provided for this found item.' }}</p>
+              <p class="text-sm leading-6 text-[var(--color-text-primary)] mb-0">{{ item.description || 'No description was provided for this report.' }}</p>
             </div>
 
             <div class="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">

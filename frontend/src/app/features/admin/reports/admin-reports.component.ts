@@ -16,7 +16,7 @@ import { AdminReportsApiService } from './admin-reports-api.service';
 import {
   normalizeStatus, extractSuspiciousValue, statusClass, statusLabel,
   isArchived, isFlagged, suspiciousBadgeClass, rowClass,
-  canValidate, canFlag, getPhotoUrls,
+  canValidate, canFlag, canManageFlag, getPhotoUrls,
   getStatusTimeline, getFullHistoryEvents,
   getHistoryBadgeClass, getHistoryActorLabel, getHistoryActionLabel,
   hasHistoryMetadata, getHistoryEventLabel, getHistoryStatusChange,
@@ -80,6 +80,7 @@ export class AdminReportsComponent implements OnInit, OnDestroy {
   readonly statusOptions: AdminToolbarStatusOption[] = [
     { label: 'All statuses', value: 'all' },
     { label: 'Pending', value: 'pending_validation' },
+    { label: 'Suspicious', value: 'suspicious' },
     { label: 'Rejected', value: 'rejected' },
     { label: 'Validated', value: 'validated' },
     { label: 'Claimed', value: 'claimed' },
@@ -126,7 +127,7 @@ export class AdminReportsComponent implements OnInit, OnDestroy {
     this.error.set('');
     this.setActionMessage('');
 
-    this.adminReportsApi.listReports({ page: 1, limit: 100, kind: 'FOUND' }).subscribe({
+    this.adminReportsApi.listReports({ page: 1, limit: 100 }).subscribe({
       next: (res) => {
         this.allItems = (res.reports ?? []).map((item) => ({
           ...item,
@@ -171,7 +172,8 @@ export class AdminReportsComponent implements OnInit, OnDestroy {
         flagReason.includes(kw) ||
         suspiciousText.includes(kw);
 
-      const statusMatch = this.statusFilter === 'all' || status === this.statusFilter;
+      const statusMatch = this.statusFilter === 'all'
+        || (this.statusFilter === 'suspicious' ? isFlagged(item) : status === this.statusFilter);
 
       return kwMatch && statusMatch;
     });
@@ -291,12 +293,12 @@ export class AdminReportsComponent implements OnInit, OnDestroy {
       next: () => {
         this.activeRowId.set(null);
         this.closeDetails();
-        this.setActionMessage('Found item validated successfully.');
+        this.setActionMessage('Report validated successfully.');
         this.load();
       },
       error: (err) => {
         this.activeRowId.set(null);
-        this.error.set(this.getFriendlyErrorMessage(err, 'Failed to validate the found item.'));
+        this.error.set(this.getFriendlyErrorMessage(err, 'Failed to validate the report.'));
       },
     });
   }
@@ -386,6 +388,59 @@ export class AdminReportsComponent implements OnInit, OnDestroy {
           err?.error?.details ||
           'Failed to flag report as suspicious.'
         );
+      },
+    });
+  }
+
+  handleFlagAction(item: AdminReport): void {
+    if (!canManageFlag(item) || this.flagging()) return;
+
+    if (isFlagged(item)) {
+      this.unflagReport(item);
+      return;
+    }
+
+    this.openFlagModal(item);
+  }
+
+  unflagReport(item: AdminReport): void {
+    if (!isFlagged(item) || this.flagging()) return;
+
+    this.flagging.set(true);
+    this.error.set('');
+    this.setActionMessage('');
+
+    this.adminReportsApi.unflagReport(item.id).subscribe({
+      next: () => {
+        this.allItems = this.allItems.map((report) =>
+          report.id === item.id
+            ? {
+                ...report,
+                isSuspicious: false,
+                flagReason: null,
+                flaggedAt: null,
+              }
+            : report,
+        );
+
+        this.applyFilters();
+
+        if (this.selectedItem()?.id === item.id) {
+          this.selectedItem.set({
+            ...this.selectedItem()!,
+            isSuspicious: false,
+            flagReason: null,
+            flaggedAt: null,
+          });
+        }
+
+        this.flagging.set(false);
+        this.error.set('');
+        this.setActionMessage('Suspicious flag removed.');
+      },
+      error: (err) => {
+        this.flagging.set(false);
+        this.error.set(this.getFriendlyErrorMessage(err, 'Failed to remove the suspicious flag.'));
       },
     });
   }
@@ -563,6 +618,7 @@ export class AdminReportsComponent implements OnInit, OnDestroy {
   readonly rowClass = rowClass;
   readonly canValidate = canValidate;
   readonly canFlag = canFlag;
+  readonly canManageFlag = canManageFlag;
   readonly getPhotoUrls = getPhotoUrls;
 
   canOpenPhoto(item: AdminReport): boolean {

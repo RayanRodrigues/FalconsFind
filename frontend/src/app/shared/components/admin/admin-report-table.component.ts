@@ -36,6 +36,10 @@ import type { AdminReport } from '../../../features/admin/reports/admin-reports.
                     <div class="flex flex-wrap items-start gap-2">
                       <p class="text-lg font-semibold text-[var(--color-text-primary)] mb-0 leading-6">{{ item.title || 'Untitled' }}</p>
 
+                      <span class="inline-flex items-center rounded-full border border-[var(--color-border)] bg-[var(--color-surface-2)] px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">
+                        {{ item.kind }}
+                      </span>
+
                       @if (isFlagged(item)) {
                         <span
                           class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide"
@@ -151,13 +155,13 @@ import type { AdminReport } from '../../../features/admin/reports/admin-reports.
                     <button
                       type="button"
                       (click)="flag.emit(item)"
-                      [disabled]="!canFlag(item)"
+                      [disabled]="!canManageFlag(item)"
                       class="inline-flex items-center px-1 py-0 text-[11px] font-semibold uppercase tracking-[0.14em] transition-colors"
-                      [class]="canFlag(item)
+                      [class]="canManageFlag(item)
                         ? 'text-primary/80 hover:text-primary'
                         : 'text-[var(--color-text-secondary)]/70 cursor-not-allowed'"
                     >
-                      {{ canFlag(item) ? 'Flag Suspicious' : 'Flagged or unavailable' }}
+                      {{ isFlagged(item) ? 'Remove Flag' : canManageFlag(item) ? 'Flag Suspicious' : 'Flag unavailable' }}
                     </button>
                   </div>
                 </td>
@@ -181,6 +185,7 @@ export class AdminReportTableComponent {
   @Input() isFlagged: (item: AdminReport) => boolean = () => false;
   @Input() isArchived: (item: AdminReport) => boolean = () => false;
   @Input() canFlag: (item: AdminReport) => boolean = () => false;
+  @Input() canManageFlag: (item: AdminReport) => boolean = () => false;
 
   @Output() toggleSelect = new EventEmitter<string>();
   @Output() copyReference = new EventEmitter<string>();

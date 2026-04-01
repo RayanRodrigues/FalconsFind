@@ -72,11 +72,15 @@ export function rowClass(item: AdminReport): string {
 
 export function canValidate(item: AdminReport): boolean {
   const status = normalizeStatus(item.status);
-  return status === 'pending_validation' || status === 'pending' || status === 'reported';
+  return item.kind === 'FOUND' && (status === 'pending_validation' || status === 'pending' || status === 'reported');
 }
 
 export function canFlag(item: AdminReport): boolean {
   return !isArchived(item) && !isFlagged(item);
+}
+
+export function canManageFlag(item: AdminReport): boolean {
+  return !isArchived(item);
 }
 
 export function getPhotoUrls(item: AdminReport): string[] {

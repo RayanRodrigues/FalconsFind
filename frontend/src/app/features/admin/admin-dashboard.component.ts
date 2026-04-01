@@ -74,7 +74,7 @@ export class AdminDashboardComponent implements OnInit {
   getPageTitle(): string {
     switch (this.activeTab()) {
       case 'reports':
-        return 'Found Reports';
+        return 'Reports';
       case 'claims':
         return 'Claims';
       case 'statistics':

@@ -18,7 +18,7 @@
     <app-admin-metric-card
       label="Validated"
       [value]="stats.validated"
-      hint="Ready for matching and claims"
+      hint="Ready for operational follow-up"
       tone="success"
       valueClass="text-success"
     />
@@ -98,10 +98,11 @@
         [isFlagged]="isFlagged.bind(this)"
         [isArchived]="isArchived.bind(this)"
         [canFlag]="canFlag.bind(this)"
+        [canManageFlag]="canManageFlag.bind(this)"
         (toggleSelect)="toggleSelect($event)"
         (copyReference)="copyReferenceCode($event)"
         (copyEmail)="copyContactEmail($event)"
-        (flag)="openFlagModal($event)"
+        (flag)="handleFlagAction($event)"
         (details)="openDetails($event)"
       />
     </div>
@@ -118,7 +119,7 @@
       <p class="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)] mb-2">Merge Duplicate Reports</p>
       <h4 class="text-lg font-bold text-[var(--color-text-primary)] mb-2">Choose the primary report to keep</h4>
       <p class="text-sm text-[var(--color-text-secondary)] mb-5">
-        Select which report should remain as the main record. The other selected reports will be removed from the current frontend view.
+        Select which report should remain as the main record. The other selected reports will be merged into it in the backend.
       </p>
 
       <div class="space-y-3 max-h-[320px] overflow-y-auto">
@@ -209,7 +210,7 @@
     [getHistoryActorLabel]="getHistoryActorLabel.bind(this)"
     (close)="closeDetails()"
     (approve)="approve($event)"
-    (flag)="openFlagModal($event)"
+    (flag)="handleFlagAction($event)"
     (viewPhoto)="openPhoto($event)"
     (copyReference)="copyReferenceCode($event)"
     (copyEmail)="copyContactEmail($event)"

@@ -70,6 +70,13 @@ export class AdminReportsApiService {
     );
   }
 
+  unflagReport(reportId: string): Observable<FlagReportResponse> {
+    return this.apiClient.patch<FlagReportResponse, { flagged: false }>(
+      `/admin/reports/${reportId}/flag`,
+      { flagged: false },
+    );
+  }
+
   mergeReports(primaryReportId: string, duplicateReportIds: string[]): Observable<MergeReportsResponse> {
     return this.apiClient.post<MergeReportsResponse, { primaryReportId: string; duplicateReportIds: string[] }>(
       '/admin/reports/merge',
