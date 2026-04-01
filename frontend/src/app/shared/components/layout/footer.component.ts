@@ -66,7 +66,7 @@ import { RouterLink } from '@angular/router';
       <div class="border-t border-white/10">
         <div class="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-4 py-4 sm:flex-row sm:px-6 lg:px-8">
           <p class="text-xs" style="color: rgba(255,255,255,0.4);">
-            © {{ year }} FalconsFind · Fanshawe College. All rights reserved.
+            © {{ year }} FalconsFind · Developed with ❤️ by Fanshawe College Students. All rights reserved.
           </p>
           <div class="flex items-center gap-4">
             <a routerLink="/privacy" class="footer-link text-xs transition-colors">Privacy Policy</a>
