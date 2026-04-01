@@ -1,5 +1,5 @@
 import { Component } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { finalize } from 'rxjs';
 import type { ErrorResponse } from '../../../models';
 import { ReportService } from '../../../core/services/report.service';
@@ -41,7 +41,7 @@ export class EditReportPageComponent {
   constructor(private readonly reportService: ReportService) {}
 
   getFieldError(form: 'lookup' | 'edit', field: string): string | null {
-    const group = form === 'lookup' ? this.lookupForm : this.editForm;
+    const group: FormGroup = form === 'lookup' ? this.lookupForm : this.editForm;
     const ctrl = group.get(field);
     if (!ctrl?.touched || !ctrl.errors) return null;
     if (ctrl.hasError('required')) return 'This field is required.';
@@ -52,7 +52,7 @@ export class EditReportPageComponent {
   }
 
   isFieldInvalid(form: 'lookup' | 'edit', field: string): boolean {
-    const group = form === 'lookup' ? this.lookupForm : this.editForm;
+    const group: FormGroup = form === 'lookup' ? this.lookupForm : this.editForm;
     const ctrl = group.get(field);
     return !!ctrl && ctrl.touched && ctrl.invalid;
   }
