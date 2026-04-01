@@ -18,15 +18,16 @@
           id="referenceCode"
           type="text"
           [(ngModel)]="referenceCode"
-          placeholder="Enter your reference code (e.g. FF-1001)"
+          placeholder="Enter your reference code (e.g. FND-20260319-KLZKXQMD)"
           class="flex-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2 text-sm text-[var(--color-text-primary)] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
         />
         <button
           type="button"
           (click)="findReport()"
+          [disabled]="loading"
           class="inline-flex items-center justify-center rounded-full bg-primary px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-secondary"
         >
-          Find Report
+          {{ loading ? 'Finding…' : 'Find Report' }}
         </button>
       </div>
     </div>
@@ -58,13 +59,9 @@
         <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
           <div>
             <label class="mb-2 block text-sm font-medium text-[var(--color-text-primary)]">Report Type</label>
-            <select
-              [(ngModel)]="report.reportType"
-              class="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2 text-sm text-[var(--color-text-primary)] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-            >
-              <option value="lost">Lost</option>
-              <option value="found">Found</option>
-            </select>
+            <div class="flex min-h-10 items-center rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-4 py-2 text-sm font-medium text-[var(--color-text-primary)]">
+              {{ report.reportType === 'found' ? 'Found' : 'Lost' }}
+            </div>
           </div>
 
           <div>
@@ -117,13 +114,15 @@
           <button
             type="button"
             (click)="saveChanges()"
+            [disabled]="saving"
             class="inline-flex items-center justify-center rounded-full bg-primary px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-secondary"
           >
-            Save Changes
+            {{ saving ? 'Saving…' : 'Save Changes' }}
           </button>
           <button
             type="button"
             (click)="resetSearch()"
+            [disabled]="saving"
             class="inline-flex items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-2 text-sm font-medium text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-surface-2)]"
           >
             Reset

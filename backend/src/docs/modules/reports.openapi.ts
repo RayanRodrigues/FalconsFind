@@ -4,7 +4,7 @@ import { errorResponseRefs } from './common.openapi.js';
 export const reportsOpenApi: OpenApiModule = {
   tags: [{ name: 'Reports', description: 'Lost and found report operations' }],
   paths: {
-    '/api/v1/reports/reference/{referenceCode}': {
+    '/api/v1/reports/{referenceCode}': {
       get: {
         tags: ['Reports'],
         summary: 'Get a report by reference code',

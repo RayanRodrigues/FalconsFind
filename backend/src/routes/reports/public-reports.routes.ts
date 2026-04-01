@@ -2,6 +2,7 @@ import rateLimit from 'express-rate-limit';
 import { API_PREFIX, HttpError } from '../route-utils.js';
 import { uploadSinglePhoto, getValidatedUploadedPhoto } from '../report-photo-upload.js';
 import { parseBodyOrThrow } from '../schema-validation.js';
+import { getSingleRouteParam } from './reports-router-modules.js';
 import type { ReportsRouterDeps } from './reports-router-modules.js';
 
 export const registerPublicReportRoutes = ({
@@ -11,6 +12,11 @@ export const registerPublicReportRoutes = ({
   schemaModule,
   reportsServiceModule,
 }: ReportsRouterDeps): void => {
+  const editableReportPaths = [
+    `${API_PREFIX}/reports/:referenceCode`,
+    `${API_PREFIX}/reports/reference/:referenceCode`,
+  ];
+
   const createReportLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     limit: 10,
@@ -64,8 +70,8 @@ export const registerPublicReportRoutes = ({
     }
   });
 
-  router.get(`${API_PREFIX}/reports/reference/:referenceCode`, async (req, res) => {
-    const referenceCode = req.params.referenceCode?.trim().toUpperCase();
+  router.get(editableReportPaths, async (req, res) => {
+    const referenceCode = getSingleRouteParam(req.params.referenceCode).toUpperCase();
     if (!referenceCode) {
       throw new HttpError(400, 'BAD_REQUEST', 'referenceCode is required');
     }
@@ -81,8 +87,9 @@ export const registerPublicReportRoutes = ({
       throw error;
     }
   });
-  router.patch(`${API_PREFIX}/reports/reference/:referenceCode`, async (req, res) => {
-    const referenceCode = req.params.referenceCode?.trim().toUpperCase();
+
+  router.patch(editableReportPaths, async (req, res) => {
+    const referenceCode = getSingleRouteParam(req.params.referenceCode).toUpperCase();
     if (!referenceCode) {
       throw new HttpError(400, 'BAD_REQUEST', 'referenceCode is required');
     }
