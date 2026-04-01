@@ -170,7 +170,7 @@ Single export point for imports inside the frontend.
 
 * ItemStatus  
 * ClaimStatus  
-* UserRole (internal)
+* UserRole (internal + student claim ownership)
 
 ### **DTOs / Models**
 
@@ -234,7 +234,23 @@ Single export point for imports inside the frontend.
 **Claims**
 
 * Create claim (request)  
+* My claims list (authenticated student)
+* Update own claim (authenticated student)
+* Submit claim proof response (authenticated student)
+* Cancel own claim (authenticated student)
 * Claim status (response field)
+
+**Claim Authentication Note**
+
+Claims are no longer treated as fully anonymous once created.
+
+The current contract uses Firebase-authenticated `STUDENT` users so the backend can:
+
+* attach ownership to each claim request
+* ensure only the same student can edit, submit additional proof, or cancel that claim
+* preserve auditable ownership without exposing staff capabilities
+
+Public users can still browse items and submit reports without authentication.
 
 ### **Standard Error Response**
 
