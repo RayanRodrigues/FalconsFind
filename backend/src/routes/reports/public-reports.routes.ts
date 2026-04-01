@@ -1,5 +1,5 @@
 import { invalidateAdminReportsCache } from '../../services/reports/report-admin-query-cache.service.js';
-import { API_PREFIX, HttpError } from '../route-utils.js';
+import { API_PREFIX, HttpError, assertValidReportReferenceCode } from '../route-utils.js';
 import { createJsonRateLimiter } from '../rate-limit.js';
 import { uploadSinglePhoto, getValidatedUploadedPhoto } from '../report-photo-upload.js';
 import { parseBodyOrThrow } from '../schema-validation.js';
@@ -82,6 +82,7 @@ export const registerPublicReportRoutes = ({
     if (!referenceCode) {
       throw new HttpError(400, 'BAD_REQUEST', 'referenceCode is required');
     }
+    assertValidReportReferenceCode(referenceCode);
 
     try {
       const report = await reportsServiceModule.getReportByReferenceCode(db, referenceCode);
@@ -100,6 +101,7 @@ export const registerPublicReportRoutes = ({
     if (!referenceCode) {
       throw new HttpError(400, 'BAD_REQUEST', 'referenceCode is required');
     }
+    assertValidReportReferenceCode(referenceCode);
 
     const payload = parseBodyOrThrow(schemaModule.updateReportByReferenceSchema, req.body);
 

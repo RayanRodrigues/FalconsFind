@@ -24,7 +24,6 @@ export const createHealthRouter = (db: Firestore): Router => {
     res.json({
       ok: true,
       firebase: true,
-      data: snapshot.data(),
     });
   });
 

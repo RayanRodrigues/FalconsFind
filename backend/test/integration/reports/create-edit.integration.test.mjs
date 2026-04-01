@@ -147,10 +147,19 @@ test('GET /api/v1/reports/:referenceCode returns a report by reference code', as
 test('GET /api/v1/reports/reference/:referenceCode returns 404 when report is missing', async () => {
   const { app } = buildReportsTestApp();
 
-  const response = await request(app).get('/api/v1/reports/reference/FND-20260317-MISSING01');
+  const response = await request(app).get('/api/v1/reports/reference/FND-20260317-MISS0001');
 
   assert.equal(response.status, 404);
   assert.equal(response.body.error.code, 'NOT_FOUND');
+});
+
+test('GET /api/v1/reports/reference/:referenceCode returns 400 for malformed reference codes', async () => {
+  const { app } = buildReportsTestApp();
+
+  const response = await request(app).get('/api/v1/reports/reference/not-a-real-code');
+
+  assert.equal(response.status, 400);
+  assert.equal(response.body.error.code, 'BAD_REQUEST');
 });
 
 test('PATCH /api/v1/reports/reference/:referenceCode updates an editable report', async () => {
@@ -247,6 +256,17 @@ test('PATCH /api/v1/reports/reference/:referenceCode returns 400 for invalid pay
   const response = await request(app)
     .patch('/api/v1/reports/reference/FND-20260317-EDIT0004')
     .send({});
+
+  assert.equal(response.status, 400);
+  assert.equal(response.body.error.code, 'BAD_REQUEST');
+});
+
+test('PATCH /api/v1/reports/reference/:referenceCode returns 400 for malformed reference codes', async () => {
+  const { app } = buildReportsTestApp();
+
+  const response = await request(app)
+    .patch('/api/v1/reports/reference/not-a-real-code')
+    .send({ title: 'Updated title' });
 
   assert.equal(response.status, 400);
   assert.equal(response.body.error.code, 'BAD_REQUEST');
