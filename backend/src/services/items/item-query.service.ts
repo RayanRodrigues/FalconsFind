@@ -1,0 +1,201 @@
+import type { Bucket } from '@google-cloud/storage';
+import type { DocumentData, Firestore, Query, QueryDocumentSnapshot } from 'firebase-admin/firestore';
+import type { RedisClient } from '../../bootstrap/redis.js';
+import { ItemStatus } from '../../contracts/index.js';
+import type { ItemDetailsResponse, ItemPublicResponse, ItemStatusResponse, Report } from '../../contracts/index.js';
+import { normalizeDateReported } from '../../utils/date-normalization.js';
+import { InvalidItemDataError } from './item-errors.js';
+import { isPublicItemStatus, isVisibleInCurrentEnvironment, toItemAvailability } from './item-shared.js';
+import { resolveImageUrls, toPublicImageUrl } from './item-media.service.js';
+import type { ListValidatedItemsParams, StoredItem } from './item-types.js';
+
+const calculateListedDurationMs = (dateReported: string, nowMs: number = Date.now()): number => {
+  const reportedAtMs = Date.parse(dateReported);
+  if (Number.isNaN(reportedAtMs)) return 0;
+  return Math.max(0, nowMs - reportedAtMs);
+};
+
+const parseListedDurationMs = (dateReported: string, nowMs: number): number | null => {
+  const durationMs = calculateListedDurationMs(dateReported, nowMs);
+  if (!Number.isFinite(durationMs)) return null;
+  return Number.isNaN(Date.parse(dateReported)) ? null : durationMs;
+};
+
+const mapItemDetails = async (
+  bucket: Bucket,
+  id: string,
+  source: StoredItem,
+  redis: RedisClient | null,
+  nowMs: number = Date.now(),
+): Promise<ItemDetailsResponse> => {
+  const dateReported = normalizeDateReported(source.dateReported);
+  const listedDurationMs = dateReported ? parseListedDurationMs(dateReported, nowMs) : null;
+
+  if (
+    typeof source.title !== 'string' ||
+    source.title.trim().length === 0 ||
+    typeof source.referenceCode !== 'string' ||
+    source.referenceCode.trim().length === 0 ||
+    !dateReported ||
+    listedDurationMs === null ||
+    !source.status ||
+    !Object.values(ItemStatus).includes(source.status)
+  ) {
+    throw new InvalidItemDataError();
+  }
+
+  const imageUrls = await resolveImageUrls(bucket, source, redis);
+  return {
+    id,
+    title: source.title,
+    category: source.category,
+    description: source.description,
+    status: source.status,
+    availability: isPublicItemStatus(source.status) ? toItemAvailability(source.status) : 'AVAILABLE',
+    location: source.location,
+    referenceCode: source.referenceCode,
+    dateReported,
+    listedDurationMs,
+    imageUrls,
+    claimStatus: source.claimStatus,
+  };
+};
+
+export const getItemById = async (
+  db: Firestore,
+  bucket: Bucket,
+  redis: RedisClient | null,
+  itemId: string,
+): Promise<ItemDetailsResponse | null> => {
+  const nowMs = Date.now();
+  const itemsCollection = db.collection('items');
+  const reportsCollection = db.collection('reports');
+  const [itemSnapshot, itemsByReportIdSnapshot, reportSnapshot] = await Promise.all([
+    itemsCollection.doc(itemId).get(),
+    itemsCollection.where('reportId', '==', itemId).limit(1).get(),
+    reportsCollection.doc(itemId).get(),
+  ]);
+
+  if (itemSnapshot.exists) {
+    const data = itemSnapshot.data() as DocumentData;
+    if (!isVisibleInCurrentEnvironment((data as StoredItem).sourceEnv)) return null;
+    return mapItemDetails(bucket, itemSnapshot.id, data, redis, nowMs);
+  }
+
+  if (!itemsByReportIdSnapshot.empty) {
+    const snapshot = itemsByReportIdSnapshot.docs[0];
+    const data = snapshot.data() as DocumentData;
+    if (!isVisibleInCurrentEnvironment((data as StoredItem).sourceEnv)) return null;
+    return mapItemDetails(bucket, snapshot.id, data, redis, nowMs);
+  }
+
+  if (reportSnapshot.exists) {
+    const data = reportSnapshot.data() as DocumentData;
+    if (!isVisibleInCurrentEnvironment((data as StoredItem).sourceEnv)) return null;
+    return mapItemDetails(bucket, reportSnapshot.id, data, redis, nowMs);
+  }
+
+  return null;
+};
+
+export const isItemPubliclyVisible = (item: ItemDetailsResponse): boolean => isPublicItemStatus(item.status);
+
+export const getPublicItemStatus = (item: ItemDetailsResponse): ItemStatusResponse => ({
+  id: item.id,
+  status: isPublicItemStatus(item.status) ? item.status : ItemStatus.VALIDATED,
+  availability: item.availability,
+  claimStatus: item.claimStatus,
+});
+
+export const listValidatedItems = async (
+  db: Firestore,
+  bucket: Bucket,
+  redis: RedisClient | null,
+  params: ListValidatedItemsParams,
+): Promise<{ items: Array<ItemPublicResponse>; total: number }> => {
+  const page = Math.max(1, Math.floor(params.page));
+  const limit = Math.max(1, Math.floor(params.limit));
+  const keyword = typeof params.keyword === 'string' ? params.keyword.trim().toLowerCase() : '';
+  const sort = params.sort === 'oldest' ? 'oldest' : 'most_recent';
+  const nowMs = Date.now();
+
+  let baseQuery = db.collection('reports').where('kind', '==', 'FOUND').where('status', 'in', [ItemStatus.VALIDATED, ItemStatus.CLAIMED]);
+  if (params.category) baseQuery = baseQuery.where('category', '==', params.category);
+  if (params.location) baseQuery = baseQuery.where('location', '==', params.location);
+  if (params.dateFrom) baseQuery = baseQuery.where('dateReported', '>=', params.dateFrom);
+  if (params.dateTo) baseQuery = baseQuery.where('dateReported', '<=', params.dateTo);
+
+  const orderedQuery = baseQuery.orderBy('dateReported', sort === 'oldest' ? 'asc' : 'desc');
+  const getCursorPage = async (query: Query, pageNumber: number, pageSize: number) => {
+    let lastDoc: QueryDocumentSnapshot | undefined;
+    for (let currentPage = 1; currentPage < pageNumber; currentPage += 1) {
+      const cursorQuery = lastDoc ? query.startAfter(lastDoc) : query;
+      const cursorSnap = await cursorQuery.limit(pageSize).get();
+      if (cursorSnap.empty) return cursorSnap;
+      lastDoc = cursorSnap.docs[cursorSnap.docs.length - 1];
+    }
+    const pageQuery = lastDoc ? query.startAfter(lastDoc) : query;
+    return pageQuery.limit(pageSize).get();
+  };
+
+  let pageSnap;
+  let total = 0;
+  if (keyword.length > 0) {
+    const scanLimit = Math.min(1000, page * limit);
+    pageSnap = await orderedQuery.limit(scanLimit).get();
+  } else {
+    total = (await baseQuery.count().get()).data().count;
+    pageSnap = await getCursorPage(orderedQuery, page, limit);
+  }
+
+  const itemCandidates = await Promise.all(pageSnap.docs.map(async (doc) => {
+    const data = doc.data() as Omit<Report, 'id'> & { dateReported?: unknown; imageUrls?: string[] };
+    if (!isVisibleInCurrentEnvironment(data.sourceEnv)) return null;
+
+    const dateReported = normalizeDateReported(data.dateReported);
+    const listedDurationMs = dateReported ? parseListedDurationMs(dateReported, nowMs) : null;
+    const thumbnailSource = (Array.isArray(data.imageUrls) && data.imageUrls.length > 0 ? data.imageUrls[0] : undefined) ?? data.photoUrl;
+
+    let thumbnailUrl: string | undefined;
+    if (typeof thumbnailSource === 'string' && thumbnailSource.trim().length > 0) {
+      try {
+        thumbnailUrl = await toPublicImageUrl(bucket, thumbnailSource, redis);
+      } catch {
+        thumbnailUrl = thumbnailSource;
+      }
+    }
+
+    if (
+      typeof data.title !== 'string' ||
+      data.title.trim().length === 0 ||
+      typeof data.referenceCode !== 'string' ||
+      data.referenceCode.trim().length === 0 ||
+      !dateReported ||
+      listedDurationMs === null ||
+      !isPublicItemStatus(data.status)
+    ) {
+      return null;
+    }
+
+    const searchableText = `${data.title} ${typeof data.description === 'string' ? data.description : ''}`.toLowerCase();
+    if (keyword.length > 0 && !searchableText.includes(keyword)) return null;
+
+    return {
+      id: doc.id,
+      title: data.title,
+      category: data.category,
+      status: data.status,
+      availability: toItemAvailability(data.status),
+      referenceCode: data.referenceCode,
+      location: data.location,
+      dateReported,
+      listedDurationMs,
+      thumbnailUrl,
+    } as ItemPublicResponse;
+  }));
+
+  const items = itemCandidates.filter((item): item is ItemPublicResponse => item !== null);
+  const pagedItems = keyword.length > 0 ? items.slice((page - 1) * limit, page * limit) : items;
+  if (keyword.length > 0) total = items.length;
+  return { items: pagedItems, total };
+};
