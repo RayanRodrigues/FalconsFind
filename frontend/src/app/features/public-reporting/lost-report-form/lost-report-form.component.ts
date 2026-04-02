@@ -17,6 +17,12 @@ import { LostReportStepContactComponent } from './lost-report-step-contact.compo
 import { ReportStepsComponent } from '../../../shared/components/navigation/report-steps.component';
 import { mergeSelectedPhotos } from '../../../shared/utils/photo-upload.util';
 import {
+  MANUAL_REPORT_CATEGORY_OPTION,
+  REPORT_CATEGORIES,
+  isManualReportCategory,
+  resolveReportCategory
+} from '../../../shared/utils/report-category.util';
+import {
   CAMPUS_REPORT_LOCATIONS,
   MANUAL_REPORT_LOCATION_OPTION,
   isManualReportLocation,
@@ -48,14 +54,10 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
   readonly totalSteps = 3;
   readonly todayDate = this.formatLocalDate(new Date());
 
-  categories = [
-    'Electronics', 'Wallets & Purses', 'Keys', 'ID Cards', 'Clothing',
-    'Backpacks & Bags', 'Books', 'Jewelry', 'Eyewear', 'Personal Items', 'Other'
-  ];
-
+  categories = [...REPORT_CATEGORIES];
   readonly locations = [...CAMPUS_REPORT_LOCATIONS];
   readonly manualLocationOption = MANUAL_REPORT_LOCATION_OPTION;
-  readonly manualCategoryOption = 'Other';
+  readonly manualCategoryOption = MANUAL_REPORT_CATEGORY_OPTION;
 
   private readonly platformId = inject(PLATFORM_ID);
   private destroy$ = new Subject<void>();
@@ -182,7 +184,7 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
   }
 
   isManualCategorySelected(): boolean {
-    return this.reportForm.get('categoryOption')?.value === this.manualCategoryOption;
+    return isManualReportCategory(this.reportForm.get('categoryOption')?.value);
   }
 
   getCategoryError(): string | null {
@@ -420,14 +422,12 @@ export class LostReportFormComponent implements OnInit, OnDestroy {
   }
 
   private syncCategoryValue(): void {
-    const selectedCategory = this.reportForm.get('categoryOption')?.value;
-    const customCategory = this.reportForm.get('categoryCustom')?.value;
-
-    const finalCategory = selectedCategory === this.manualCategoryOption
-      ? (customCategory ?? '').trim()
-      : (selectedCategory ?? '').trim();
-
-    this.reportForm.patchValue({ category: finalCategory }, { emitEvent: false });
+    this.reportForm.patchValue({
+      category: resolveReportCategory(
+        this.reportForm.get('categoryOption')?.value,
+        this.reportForm.get('categoryCustom')?.value
+      )
+    }, { emitEvent: false });
     this.reportForm.get('category')?.updateValueAndValidity({ emitEvent: false });
   }
 
