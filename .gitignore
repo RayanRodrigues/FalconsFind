@@ -67,3 +67,4 @@ backend/.env
 ############################
 firestore.rules
 docs/firestore-rules.md
+docs/releases/
