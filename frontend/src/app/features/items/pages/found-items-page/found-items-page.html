@@ -32,34 +32,47 @@
 
       <div class="flex flex-wrap items-center gap-2">
 
-        <select
+        <app-select
+          id="found-items-category-filter"
           [(ngModel)]="categoryFilter"
-          (ngModelChange)="onFilterChange()"
-          class="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text-primary)] transition focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/25"
+          (ngModelChange)="onCategoryFilterChange($event)"
+          placeholder="All categories"
         >
           <option value="">All categories</option>
-          <option value="Electronics">Electronics</option>
-          <option value="Clothing">Clothing &amp; Accessories</option>
-          <option value="ID">ID &amp; Cards</option>
-          <option value="Keys">Keys</option>
-          <option value="Bag">Bags &amp; Backpacks</option>
-          <option value="Books">Books &amp; Stationery</option>
-          <option value="Jewelry">Jewelry</option>
-          <option value="Other">Other</option>
-        </select>
+          @for (category of categoryOptions; track category) {
+            <option [value]="category">{{ category }}</option>
+          }
+        </app-select>
 
-        <div class="relative">
-          <svg class="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 pointer-events-none text-[var(--color-text-secondary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0zM15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-          <input
-            type="text"
-            [(ngModel)]="locationFilter"
+        @if (isManualCategorySelected) {
+          <app-input
+            id="found-items-category-custom-filter"
+            [(ngModel)]="categoryCustomFilter"
             (ngModelChange)="onFilterChange()"
-            placeholder="Location"
-            class="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] pl-7 pr-3 py-2 text-sm text-[var(--color-text-primary)] transition focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/25"
+            placeholder="Enter category"
           />
-        </div>
+        }
+
+        <app-select
+          id="found-items-location-filter"
+          [(ngModel)]="locationFilter"
+          (ngModelChange)="onLocationFilterChange($event)"
+          placeholder="All locations"
+        >
+          <option value="">All locations</option>
+          @for (location of locationOptions; track location) {
+            <option [value]="location">{{ location }}</option>
+          }
+        </app-select>
+
+        @if (isManualLocationSelected) {
+          <app-input
+            id="found-items-location-custom-filter"
+            [(ngModel)]="locationCustomFilter"
+            (ngModelChange)="onFilterChange()"
+            placeholder="Enter location"
+          />
+        }
 
         <div class="relative">
           <svg class="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 pointer-events-none text-[var(--color-text-secondary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">

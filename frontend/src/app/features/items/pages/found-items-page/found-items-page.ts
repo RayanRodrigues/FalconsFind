@@ -17,13 +17,27 @@ import {
   ItemsApiService,
   type ItemsListResponse,
 } from '../../../../core/services/items-api.service';
+import { InputComponent } from '../../../../shared/components/forms/input.component';
+import { SelectComponent } from '../../../../shared/components/forms/select.component';
+import {
+  MANUAL_REPORT_CATEGORY_OPTION,
+  REPORT_CATEGORIES,
+  isManualReportCategory,
+  resolveReportCategory,
+} from '../../../../shared/utils/report-category.util';
+import {
+  CAMPUS_REPORT_LOCATIONS,
+  MANUAL_REPORT_LOCATION_OPTION,
+  isManualReportLocation,
+  resolveReportLocation,
+} from '../../../../shared/utils/report-location.util';
 
 type SortOption = 'most-recent' | 'oldest';
 
 @Component({
   selector: 'app-found-items-page',
   standalone: true,
-  imports: [CommonModule, RouterLink, FormsModule],
+  imports: [CommonModule, RouterLink, FormsModule, InputComponent, SelectComponent],
   templateUrl: './found-items-page.html',
   styleUrl: './found-items-page.css',
 })
@@ -37,9 +51,16 @@ export class FoundItemsPageComponent implements OnInit, OnDestroy {
 
   searchTerm = '';
   categoryFilter = '';
+  categoryCustomFilter = '';
   locationFilter = '';
+  locationCustomFilter = '';
   dateFilter = '';
   sortOption: SortOption = 'most-recent';
+
+  readonly categoryOptions = [...REPORT_CATEGORIES];
+  readonly locationOptions = [...CAMPUS_REPORT_LOCATIONS];
+  readonly manualCategoryOption = MANUAL_REPORT_CATEGORY_OPTION;
+  readonly manualLocationOption = MANUAL_REPORT_LOCATION_OPTION;
 
   page = 1;
   limit = 10;
@@ -92,8 +113,8 @@ export class FoundItemsPageComponent implements OnInit, OnDestroy {
     this.itemsApi
       .getFoundItems(this.page, this.limit, {
         keyword: this.searchTerm,
-        category: this.categoryFilter,
-        location: this.locationFilter,
+        category: this.resolvedCategoryFilter,
+        location: this.resolvedLocationFilter,
         dateFrom: this.dateFilter,
         includeArchived: false,
       })
@@ -141,6 +162,22 @@ export class FoundItemsPageComponent implements OnInit, OnDestroy {
     this.loadItems();
   }
 
+  onCategoryFilterChange(value: string): void {
+    this.categoryFilter = value;
+    if (!isManualReportCategory(value)) {
+      this.categoryCustomFilter = '';
+    }
+    this.onFilterChange();
+  }
+
+  onLocationFilterChange(value: string): void {
+    this.locationFilter = value;
+    if (!isManualReportLocation(value)) {
+      this.locationCustomFilter = '';
+    }
+    this.onFilterChange();
+  }
+
   onSortChange(): void {
     this.saveSortPreference();
     this.items = this.sortItems(this.items);
@@ -172,7 +209,9 @@ export class FoundItemsPageComponent implements OnInit, OnDestroy {
   clearAll(): void {
     this.searchTerm = '';
     this.categoryFilter = '';
+    this.categoryCustomFilter = '';
     this.locationFilter = '';
+    this.locationCustomFilter = '';
     this.dateFilter = '';
     this.sortOption = 'most-recent';
     this.saveSortPreference();
@@ -183,11 +222,27 @@ export class FoundItemsPageComponent implements OnInit, OnDestroy {
   get hasActiveFilters(): boolean {
     return !!(
       this.searchTerm ||
-      this.categoryFilter ||
-      this.locationFilter ||
+      this.resolvedCategoryFilter ||
+      this.resolvedLocationFilter ||
       this.dateFilter ||
       this.sortOption !== 'most-recent'
     );
+  }
+
+  get resolvedCategoryFilter(): string {
+    return resolveReportCategory(this.categoryFilter, this.categoryCustomFilter);
+  }
+
+  get resolvedLocationFilter(): string {
+    return resolveReportLocation(this.locationFilter, this.locationCustomFilter);
+  }
+
+  get isManualCategorySelected(): boolean {
+    return isManualReportCategory(this.categoryFilter);
+  }
+
+  get isManualLocationSelected(): boolean {
+    return isManualReportLocation(this.locationFilter);
   }
 
   get showLoadingState(): boolean {
