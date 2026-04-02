@@ -210,12 +210,16 @@ describe('AdminReportsComponent', () => {
     });
 
     const { component, api } = createComponent();
+    component.allItems = [report];
+    component.filteredItems = [report];
     component.selectedItem.set(report);
     component.selectedStatusUpdate.set('returned');
 
     component.updateStatus();
 
     expect(api.updateItemStatus).toHaveBeenCalledWith('validated-1', 'returned');
+    expect(component.allItems[0].status).toBe('returned');
+    expect(component.filteredItems[0].status).toBe('returned');
     expect(component.actionMessage()).toBe('Item status updated to Returned.');
     expect(component.selectedItem()).toBeNull();
   });

@@ -127,6 +127,23 @@ export function extractSuspiciousValue(item: Partial<AdminReport>): boolean {
   return Boolean(item.isSuspicious);
 }
 
+export function updateAdminReportStatus(
+  reports: AdminReport[],
+  reportId: string,
+  nextStatus: string,
+): AdminReport[] {
+  const normalizedNextStatus = normalizeStatus(nextStatus);
+
+  return reports.map((report) =>
+    report.id === reportId
+      ? {
+          ...report,
+          status: normalizedNextStatus,
+        }
+      : report,
+  );
+}
+
 export function getStatusTimeline(history: ItemHistoryResponse | null): ItemHistoryEvent[] {
   if (!history) return [];
 

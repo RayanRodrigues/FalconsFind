@@ -19,7 +19,7 @@ import {
   canValidate, canFlag, canManageFlag, getPhotoUrls,
   getOperationalStatusLabel as getOperationalStatusActionLabel, getOperationalStatusOptions, getRestoreOptionsFromHistory, getFullHistoryEvents,
   getHistoryBadgeClass, getHistoryActorLabel, getHistoryActionLabel,
-  hasHistoryMetadata, getHistoryEventLabel, getHistoryStatusChange,
+  hasHistoryMetadata, getHistoryEventLabel, getHistoryStatusChange, updateAdminReportStatus,
 } from './admin-reports.helpers';
 
 @Component({
@@ -567,11 +567,12 @@ export class AdminReportsComponent implements OnInit, OnDestroy {
 
     this.adminReportsApi.restoreItemStatus(item.id, status).subscribe({
       next: () => {
+        this.allItems = updateAdminReportStatus(this.allItems, item.id, status);
+        this.applyFilters();
         this.restoring.set(false);
         this.restoreModalOpen.set(false);
         this.setActionMessage(`Item restored to ${statusLabel(status)}.`);
         this.closeDetails();
-        this.load(true);
       },
       error: (err) => {
         this.restoring.set(false);
@@ -598,10 +599,11 @@ export class AdminReportsComponent implements OnInit, OnDestroy {
 
     this.adminReportsApi.updateItemStatus(item.id, status).subscribe({
       next: () => {
+        this.allItems = updateAdminReportStatus(this.allItems, item.id, status);
+        this.applyFilters();
         this.statusUpdating.set(false);
         this.setActionMessage(`Item status updated to ${this.getOperationalStatusLabel(status)}.`);
         this.closeDetails();
-        this.load(true);
       },
       error: (err) => {
         this.statusUpdating.set(false);
